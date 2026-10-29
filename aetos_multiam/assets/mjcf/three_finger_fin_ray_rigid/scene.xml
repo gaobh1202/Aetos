@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="finger_rigid_scene">
+  <include file="finger_rigid.xml" />
+  <statistic center="0 -.05 .07" extent=".2" />
+  <visual>
+    <global azimuth="135" elevation="-20" offwidth="1200" offheight="1000" />
+    <headlight diffuse=".7 .7 .7" ambient=".35 .35 .35" specular=".3 .3 .3" />
+  </visual>
+  <worldbody>
+    <light pos=".2 -.3 .5" dir="-.2 .3 -.5" diffuse=".7 .7 .7" />
+    <geom name="floor" type="plane" size=".5 .5 .005" pos="0 0 -.001" rgba=".91 .93 .96 1" contype="2" conaffinity="1" />
+    <camera name="overview" pos=".25 -.35 .25" xyaxes=".795 .606 0 -.225 .295 .928" />
+  </worldbody>
+</mujoco>

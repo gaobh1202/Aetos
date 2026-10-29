@@ -1,0 +1,85 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="quad_600">
+  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <option timestep=".00005" integrator="implicitfast" gravity="0 0 -9.81" />
+  <asset>
+    <mesh name="mesh_00" file="mesh_00.obj" maxhullvert="64" />
+    <mesh name="mesh_01" file="mesh_01.obj" maxhullvert="64" />
+    <mesh name="mesh_02" file="mesh_02.obj" maxhullvert="64" />
+    <mesh name="mesh_03" file="mesh_03.obj" maxhullvert="64" />
+    <mesh name="mesh_04" file="mesh_04.obj" maxhullvert="64" />
+    <mesh name="mesh_05" file="mesh_05.obj" maxhullvert="64" />
+    <mesh name="mesh_06" file="mesh_06.obj" maxhullvert="64" />
+    <mesh name="mesh_07" file="mesh_07.obj" maxhullvert="64" />
+    <mesh name="mesh_08" file="mesh_08.obj" maxhullvert="64" />
+    <mesh name="mesh_09" file="mesh_09.obj" maxhullvert="64" />
+    <mesh name="mesh_10" file="mesh_10.obj" maxhullvert="64" />
+    <mesh name="mesh_11" file="mesh_11.obj" maxhullvert="64" />
+    <mesh name="mesh_12" file="mesh_12.obj" maxhullvert="64" />
+  </asset>
+  <worldbody>
+    <body name="base_link" pos="0 0 1.1" quat="1 0 0 0">
+      <inertial pos="-0.0319125987589 4.70977977525e-19 -0.0173672996461" mass="3.6832399368286133" diaginertia="0.0556566901505 0.0652614980936 0.117682017386" quat="0.999973773956 0 -0.00724123511463 0" />
+      <body name="arm_base_link" pos=".1 0 .003" quat="0 1 0 0">
+        <inertial pos="0.0123142004013 -1.41851998872e-16 -0.0179412998259" mass="0.08900000154972076" diaginertia="1.41027803693e-05 2.46935996984e-05 2.17432225327e-05" quat="0.999888420105 0 -0.0149399358779 0" />
+        <body name="arm_link1_yaw_link" pos="0.000601721985731 -1.97580009563e-18 -0.0359999984503" quat="0.707105499686 -1.74335363927e-16 -3.02591792571e-17 0.707108062685">
+          <inertial pos="-0.000602320011239 -8.56478984956e-11 -0.0274496991187" mass="0.09465129673480988" diaginertia="2.57694318861e-05 2.97780006804e-05 1.58210714289e-05" quat="0.999997079372 0 0.00241373875178 0" />
+          <joint name="arm_link1_yaw_joint" type="hinge" pos="0 0 0" axis="0 0 1" range="-1.57079632679 1.57079632679" />
+          <body name="arm_link2_pitch_link" pos="-0.0189999993891 2.77555987767e-17 -0.0405000001192" quat="0.499998196958 0.499999985097 0.500001832841 0.499999985097">
+            <inertial pos="-0.0078794695437 -0.101517997682 0.0185966007411" mass="0.15339800715446472" diaginertia="0.000245378992986 3.77582546207e-05 0.000249520817306" quat="0.997229933739 0.00342840910889 -0.00693109817803 -0.073977202177" />
+            <joint name="arm_link2_pitch_joint" type="hinge" pos="0 0 0" axis="0 0 1" range="-1.57079632679 1.57079632679" />
+            <body name="arm_link3_pitch_link" pos="-0.0240000002086 -0.12800000608 0.0379999987781" quat="-8.96320478048e-07 0.707105499685 0.707108062685 -8.96323718123e-07">
+              <inertial pos="-8.96111998827e-07 -0.0904166027904 0.0194765999913" mass="0.1382949948310852" diaginertia="0.000182884003152 2.32947131735e-05 0.000175198205397" quat="0.999989151955 -0.00465880334377 1.33208368425e-06 1.33681678562e-05" />
+              <joint name="arm_link3_pitch_joint" type="hinge" pos="0 0 0" axis="0 0 1" range="-1.57079632679 1.57079632679" />
+              <body name="arm_link4_pitch_link" pos="5.55111975534e-17 -0.123999997973 0.0381000004709" quat="-1.26759084651e-06 0.999999999999 3.46946721788e-18 1.73572949304e-17">
+                <inertial pos="-0.00899915024638 0.02227650024 0.0189999993891" mass="0.011735799722373486" diaginertia="3.52827692041e-06 5.06292371938e-06 2.75716001852e-06" quat="0.988606393337 0 0 -0.150523930788" />
+                <joint name="arm_link4_pitch_joint" type="hinge" pos="0 0 0" axis="0 0 1" range="-1.57079632679 1.57079632679" />
+                <body name="ee_link" pos="-0.0320000015199 0.0280000008643 0.00800000037998" quat="0.499998196958 0.499999985097 -0.499999985097 0.500001832841">
+                  <inertial pos="0.0109999999404 -0.02416620031 -0.0239589996636" mass="0.17955699563026428" diaginertia="6.45304025966e-05 0.000110826171294 0.000135548834805" quat="0.991382956505 0.130995601416 1.68955708091e-07 1.70646569586e-06" />
+                  <body name="manipulation_lfinger_link" pos="0.0752499997616 -0.0465000011027 -0.035000000149" quat="-0.707105499686 -1.02233668849e-18 0.707108062685 -1.02234041081e-18">
+                    <inertial pos="-0.0288986004889 0.0144004998729 0.0458200983703" mass="0.028524499386548996" diaginertia="7.7348195191e-06 1.57384001795e-05 2.04161278816e-05" quat="0.995414078236 4.04598395107e-05 0.0956598296762 1.40351803566e-05" />
+                    <joint name="arm_lfinger_joint" type="slide" pos="0 0 0" axis="0 0 -1" range="0 0.0500000007451" />
+                    <geom name="mesh_11" type="mesh" mesh="mesh_11" rgba="1 0.99998998642 0.99998998642 1" mass="0" contype="0" conaffinity="0" group="2" />
+                  </body>
+                  <body name="manipulation_rfinger_link" pos="-0.0532499998808 -0.0465000011027 -0.035000000149" quat="0.707105499686 -1.02233668849e-18 0.707108062685 1.02234041081e-18">
+                    <inertial pos="0.0288986004889 0.0143994996324 0.0458639003336" mass="0.028524499386548996" diaginertia="7.7348195191e-06 1.57384001795e-05 2.04161278816e-05" quat="0.995414078236 -4.04598395107e-05 -0.0956598296762 1.40351803566e-05" />
+                    <joint name="arm_rfinger_joint" type="slide" pos="0 0 0" axis="0 0 -1" range="0 0.0500000007451" />
+                    <geom name="mesh_12" type="mesh" mesh="mesh_12" rgba="1 0.99998998642 0.99998998642 1" mass="0" contype="0" conaffinity="0" group="2" />
+                  </body>
+                  <geom name="mesh_10" type="mesh" mesh="mesh_10" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+                </body>
+                <geom name="mesh_09" type="mesh" mesh="mesh_09" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+              </body>
+              <geom name="mesh_08" type="mesh" mesh="mesh_08" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+            </body>
+            <geom name="mesh_07" type="mesh" mesh="mesh_07" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+          </body>
+          <geom name="mesh_06" type="mesh" mesh="mesh_06" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+        </body>
+        <geom name="mesh_05" type="mesh" mesh="mesh_05" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      </body>
+      <geom name="mesh_00" type="mesh" mesh="mesh_00" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      <geom name="mesh_01" type="mesh" mesh="mesh_01" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      <geom name="mesh_02" type="mesh" mesh="mesh_02" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      <geom name="mesh_03" type="mesh" mesh="mesh_03" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      <geom name="mesh_04" type="mesh" mesh="mesh_04" rgba="0.65 0.67 0.7 1" mass="0" contype="0" conaffinity="0" group="2" />
+      <site name="rotor_0" pos="0.212132036686 0.212132036686 0.05" quat="1 0 0 0" size=".004" group="4" rgba="0 .7 1 1" />
+      <site name="rotor_1" pos="-0.212132036686 0.212132036686 0.05" quat="1 0 0 0" size=".004" group="4" rgba="0 .7 1 1" />
+      <site name="rotor_2" pos="-0.212132036686 -0.212132036686 0.05" quat="1 0 0 0" size=".004" group="4" rgba="0 .7 1 1" />
+      <site name="rotor_3" pos="0.212132036686 -0.212132036686 0.05" quat="1 0 0 0" size=".004" group="4" rgba="0 .7 1 1" />
+      <freejoint name="vehicle_free" />
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="arm_link1_yaw_joint" joint="arm_link1_yaw_joint" kp="100000.0" kv="1000.0" ctrlrange="-1.57079632679 1.57079632679" forcerange="-1000 1000" />
+    <position name="arm_link2_pitch_joint" joint="arm_link2_pitch_joint" kp="100000.0" kv="1000.0" ctrlrange="-1.57079632679 1.57079632679" forcerange="-1000 1000" />
+    <position name="arm_link3_pitch_joint" joint="arm_link3_pitch_joint" kp="100000.0" kv="1000.0" ctrlrange="-1.57079632679 1.57079632679" forcerange="-1000 1000" />
+    <position name="arm_link4_pitch_joint" joint="arm_link4_pitch_joint" kp="100000.0" kv="1000.0" ctrlrange="-1.57079632679 1.57079632679" forcerange="-1000 1000" />
+    <position name="arm_lfinger_joint" joint="arm_lfinger_joint" kp="100.0" kv="20.0" ctrlrange="0 0.0500000007451" forcerange="-20 20" />
+    <position name="arm_rfinger_joint" joint="arm_rfinger_joint" kp="100.0" kv="20.0" ctrlrange="0 0.0500000007451" forcerange="-20 20" />
+    <motor name="rotor_0" site="rotor_0" gear="0 0 1 0 0 -0.02" ctrlrange="0 23" forcerange="0 23" />
+    <motor name="rotor_1" site="rotor_1" gear="0 0 1 0 0 0.02" ctrlrange="0 23" forcerange="0 23" />
+    <motor name="rotor_2" site="rotor_2" gear="0 0 1 0 0 -0.02" ctrlrange="0 23" forcerange="0 23" />
+    <motor name="rotor_3" site="rotor_3" gear="0 0 1 0 0 0.02" ctrlrange="0 23" forcerange="0 23" />
+  </actuator>
+</mujoco>

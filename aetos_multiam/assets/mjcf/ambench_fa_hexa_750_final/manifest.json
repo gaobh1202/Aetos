@@ -1,0 +1,185 @@
+{
+  "description": "750 mm 全驱动六旋翼，保留原上置机械臂和倾斜旋翼",
+  "files": [
+    {
+      "path": "CONVERSION_NOTES.md",
+      "bytes": 5445,
+      "sha256": "be9afc2f309ebd9cadf74282c698f9a5e52106afec8c7661f1c126b0cd7b04cd"
+    },
+    {
+      "path": "LICENSE_AM_Bench",
+      "bytes": 11355,
+      "sha256": "52d24d8f8d92b49a500465d5324c6fa74f386cebce0685e9d7769549cf08542e"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1432,
+      "sha256": "cd1c7105f818bef5c8e503f0d78969b64820e82d54a302c79892ae5e9dc26c0a"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 2970,
+      "sha256": "87433ab64cd61ee1dca4ad2d77db09b421ece3fba15d679691257a23429924c8"
+    },
+    {
+      "path": "assets/mesh_00.obj",
+      "bytes": 762472,
+      "sha256": "23796a1f295249cd71955378744bbd31031f487ae621af672035184df360c2e0"
+    },
+    {
+      "path": "assets/mesh_01.obj",
+      "bytes": 3976704,
+      "sha256": "3c1e20b00ac02b075893036b719da70824147e87fca681cdd95f50aaa1b61361"
+    },
+    {
+      "path": "assets/mesh_02.obj",
+      "bytes": 3926074,
+      "sha256": "1e24a8ed0d9a0117072b97a0225d0bbb6c67d0737d48502d599dbc707ff93daa"
+    },
+    {
+      "path": "assets/mesh_03.obj",
+      "bytes": 3972937,
+      "sha256": "f6213266ef3e02d3004dc271e487ff458744ba759ea41a8ff8256cdcae21380c"
+    },
+    {
+      "path": "assets/mesh_04.obj",
+      "bytes": 4023624,
+      "sha256": "7da8673c06311dd9c38de17c7739661ec354254b0d18a1ebc2d715a8b66c325f"
+    },
+    {
+      "path": "assets/mesh_05.obj",
+      "bytes": 3919702,
+      "sha256": "2a3110b3af123f6b44a2bff00134de411d1c7e50dc99a3b45973c9bc30028445"
+    },
+    {
+      "path": "assets/mesh_06.obj",
+      "bytes": 3872689,
+      "sha256": "39026a40a087a484df490ef588185c143b6b60c76196c15604e5e2abbd741aa5"
+    },
+    {
+      "path": "assets/mesh_07.obj",
+      "bytes": 195842,
+      "sha256": "16d703c847d5efa430ceed40ed905e6df6b9f1dd977d4eb340718a55f90ac086"
+    },
+    {
+      "path": "assets/mesh_08.obj",
+      "bytes": 197244,
+      "sha256": "bc4c38a430b7f3b4e53656b3b654814ff5550e22d0ea0cbdf5afcec0e05abcf4"
+    },
+    {
+      "path": "assets/mesh_09.obj",
+      "bytes": 198426,
+      "sha256": "2e6bbe56f180d644e7656cfbe6882880fd704ef705c34d018b537460e89781a3"
+    },
+    {
+      "path": "assets/mesh_10.obj",
+      "bytes": 201065,
+      "sha256": "3a562e5aac776090348e9b2de8bdf0d3edadbd6792f215b7f3b2f3df7d13f956"
+    },
+    {
+      "path": "assets/mesh_11.obj",
+      "bytes": 199684,
+      "sha256": "5ac8511e472652dbe0df87792ad476e009b867775193518d7d30a2f2a2e9041f"
+    },
+    {
+      "path": "assets/mesh_12.obj",
+      "bytes": 198488,
+      "sha256": "02d2e459aa897294b2c86441c33e74d3cb74d5a94f996ec5fd44949dd3647f51"
+    },
+    {
+      "path": "assets/mesh_13.obj",
+      "bytes": 321979,
+      "sha256": "7eff808079526256c2cc900c542df366e1f03918166128d4c1fd9dc85f94e7b8"
+    },
+    {
+      "path": "assets/mesh_14.obj",
+      "bytes": 629343,
+      "sha256": "3487705ee0ae85af619b93a0149b3b0974e0a6fb1f5d828273ca6ce6f327008c"
+    },
+    {
+      "path": "assets/mesh_15.obj",
+      "bytes": 968490,
+      "sha256": "b2b3da21c225e3a6037c32ff697fafd52108d712b44c3fd3fe9643f32d61a0f7"
+    },
+    {
+      "path": "assets/mesh_16.obj",
+      "bytes": 765943,
+      "sha256": "fdb31697647a2a0a16c8ae96737b1d0c32ea8d3981afffbfd493c26f27b93ece"
+    },
+    {
+      "path": "assets/mesh_17.obj",
+      "bytes": 34342,
+      "sha256": "48334361baf3caa5297fbb48a2e176d88988737f3380babc37c35628f736a434"
+    },
+    {
+      "path": "assets/mesh_18.obj",
+      "bytes": 69069,
+      "sha256": "9ee1d108a5a20f7d94303b6b2c0cb8dd236e2183068e6a453aef405fe665ebe7"
+    },
+    {
+      "path": "assets/mesh_19.obj",
+      "bytes": 12012,
+      "sha256": "2fbf443fe8dbc721074617f28f6fd0c9f031964c2ea68316392f363865c47b03"
+    },
+    {
+      "path": "assets/mesh_20.obj",
+      "bytes": 11923,
+      "sha256": "662a828c3fe438c11e149232a656773bd70c2965bb8bcb43a88b1bb79115d90d"
+    },
+    {
+      "path": "conversion_report.json",
+      "bytes": 15361,
+      "sha256": "ff674d2fae647c65c32134ba8938242e3f81b2234114e07f253bfa2de08f9652"
+    },
+    {
+      "path": "launch.py",
+      "bytes": 2526,
+      "sha256": "0dfbc6fedf63e3188e497c8f5b69676f3f3b18b6c03cbd58fcf103d9b6a2a02d"
+    },
+    {
+      "path": "package_check.json",
+      "bytes": 344,
+      "sha256": "88a089f4cb79eeb1a3637f66c47f121dddbaa39dec596804d7f60ac113d185cd"
+    },
+    {
+      "path": "preview.png",
+      "bytes": 182186,
+      "sha256": "8d7d3a53a30a96580028d35b585258eb4669043467021b69f6df9a0e82655f11"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 29,
+      "sha256": "0fc33a219d4ed15e11bb8d4aa74d8b8430a4a21424d48409c920ede9a5fb7fdd"
+    },
+    {
+      "path": "robot.xml",
+      "bytes": 10318,
+      "sha256": "cafea9a636e66659464e22f6102724a452cb6e25ce0f2d2d52b47c860f8875ba"
+    },
+    {
+      "path": "robot_free.xml",
+      "bytes": 10242,
+      "sha256": "824565ffd1a16d839feaa9545ec3b6702a0c723cd1a98daf746110c993af1678"
+    },
+    {
+      "path": "scene.xml",
+      "bytes": 924,
+      "sha256": "cc78d03595c240b1e3d88e2e8fc70556e137c88c9d4c96e225147e4d3c950bf2"
+    },
+    {
+      "path": "scene_free.xml",
+      "bytes": 929,
+      "sha256": "fb8fa275e83a791eb60ca20432eaa7de04ecd95cd182fdc620d9e7dcfd841757"
+    },
+    {
+      "path": "validation.json",
+      "bytes": 452,
+      "sha256": "052e1a2c3d09f805638a6683457d0ef67b213565cbdf4bee6ffb380ad584e638"
+    },
+    {
+      "path": "打开机器人.command",
+      "bytes": 236,
+      "sha256": "572b84205d7b6efbd722e856c5827c9e3c66f559eb6d45521ab2c7895b418a9c"
+    }
+  ]
+}

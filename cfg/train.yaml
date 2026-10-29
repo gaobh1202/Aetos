@@ -1,0 +1,17 @@
+headless: false
+
+sim: ${task.sim}
+env: ${task.env}
+
+total_frames: 1_000_000
+max_iters: -1
+seed: 0
+
+viewer:
+  resolution: [960, 720]
+  eye: [6., 0., 4.]
+  lookat: [2., 0., 1.]
+
+defaults:
+  - task: ButtonGrasp
+  - _self_

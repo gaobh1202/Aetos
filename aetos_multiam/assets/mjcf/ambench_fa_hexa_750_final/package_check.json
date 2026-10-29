@@ -1,0 +1,15 @@
+{
+  "standalone_load": true,
+  "free_base_load": true,
+  "relative_asset_paths": true,
+  "working_directory": "/private/tmp",
+  "description": "750 mm 全驱动六旋翼，保留原上置机械臂和倾斜旋翼",
+  "mujoco": "3.13.0",
+  "joints": 6,
+  "visual_meshes": 21,
+  "arm_mount_vehicle_m": [
+    0.0879999995232,
+    0.0,
+    0.0
+  ]
+}

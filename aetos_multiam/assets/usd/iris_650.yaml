@@ -1,0 +1,61 @@
+# Iris scaled to a 650mm diagonal wheelbase, drone-only (bare body, no arm --
+# the arm mounts at runtime via aetos_multiam.utils.mount_child).
+#
+# Every number here is taken directly from
+# assets/mjcf/iris_650_so_arm100_final/flight_parameters.json, which itself
+# traces back to this repo's own omni_drones/robots/assets/usd/iris.yaml
+# (source_base_inertia_kg_m2 here == stock iris.yaml's inertia exactly) times
+# a uniform frame_scale=1.3158865458626872 (mass x scale^3, inertia x scale^5).
+#
+# NOTE: arm_lengths/rotor_angles below come from this bundle's own
+# rotor_positions_m, converted to polar coordinates. They do NOT match a
+# naive "scale stock iris.yaml's rotor_angles by the same factor" -- e.g.
+# stock rotor0 is at angle -0.533708 rad, this bundle's rotor0 is at
+# -1.037088 rad. This could mean the arm's added mass shifted the rotor
+# layout to rebalance CG, or that this bundle's rotor_0..3 ordering doesn't
+# correspond 1:1 to omni_drones' own Iris rotor ordering. Verify rotor
+# index <-> physical rotor_link_N correspondence against the live USD
+# before trusting directions/signs here.
+name: iris_650
+inertia:
+  xx: 0.13712787903426818
+  xy: 0.0
+  xz: 0.0
+  yy: 0.1810663516215728
+  yz: 0.0
+  zz: 0.31787603642518514
+mass: 3.463370292940959
+l: 0.65
+drag_coef: 0.2  # not given by the source bundle; inherited from stock iris.yaml, unverified for the scaled frame
+rotor_configuration:
+  arm_lengths:
+    - 0.3362598627
+    - 0.3138879037
+    - 0.3362598627
+    - 0.3138879037
+  directions:
+    - -1.0
+    - -1.0
+    - 1.0
+    - 1.0
+  force_constants:
+    - 2.5631130775765816e-05
+    - 2.5631130775765816e-05
+    - 2.5631130775765816e-05
+    - 2.5631130775765816e-05
+  max_rotation_velocities:
+    - 947.8600734862828
+    - 947.8600734862828
+    - 947.8600734862828
+    - 947.8600734862828
+  moment_constants:
+    - 5.39642594492442e-07
+    - 5.39642594492442e-07
+    - 5.39642594492442e-07
+    - 5.39642594492442e-07
+  num_rotors: 4
+  rotor_angles:
+    - -1.0370881488
+    - 2.1471715238
+    - 1.0370881488
+    - -2.1471715238

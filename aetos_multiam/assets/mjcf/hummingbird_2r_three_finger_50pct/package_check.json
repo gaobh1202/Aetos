@@ -1,0 +1,20 @@
+{
+  "standalone_load": true,
+  "all_xml_asset_paths_relative": true,
+  "test_working_directory": "/private/tmp",
+  "mujoco": "3.13.0",
+  "actuators": 7,
+  "flexes": 3,
+  "simulation_time": 0.19999999999998613,
+  "mass_kg": 0.8641413398101616,
+  "scale": 0.5,
+  "runtime_warning_counts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ]
+}

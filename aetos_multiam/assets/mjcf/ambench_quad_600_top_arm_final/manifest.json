@@ -1,0 +1,145 @@
+{
+  "description": "600 mm 四旋翼，机械臂已翻转为上置，夹爪朝前",
+  "files": [
+    {
+      "path": "CONVERSION_NOTES.md",
+      "bytes": 5445,
+      "sha256": "be9afc2f309ebd9cadf74282c698f9a5e52106afec8c7661f1c126b0cd7b04cd"
+    },
+    {
+      "path": "LICENSE_AM_Bench",
+      "bytes": 11355,
+      "sha256": "52d24d8f8d92b49a500465d5324c6fa74f386cebce0685e9d7769549cf08542e"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1610,
+      "sha256": "164ae41ba49f48dad7e64cf044227b3d3e6ffb05846464b6b50542c2303684e8"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 2970,
+      "sha256": "87433ab64cd61ee1dca4ad2d77db09b421ece3fba15d679691257a23429924c8"
+    },
+    {
+      "path": "assets/mesh_00.obj",
+      "bytes": 277508,
+      "sha256": "baddd652ed63e83f0d24dd9461b57b4a795010013e2372978daf593b86c4c2db"
+    },
+    {
+      "path": "assets/mesh_01.obj",
+      "bytes": 436,
+      "sha256": "5d8c35d87ddc6fac3689083faea89ca6d203c1676f5837fd58d376055cfbaee2"
+    },
+    {
+      "path": "assets/mesh_02.obj",
+      "bytes": 446,
+      "sha256": "abc3d6384ea56feccec172b5f545e03158c0af9722d352c0d073b968de1bee00"
+    },
+    {
+      "path": "assets/mesh_03.obj",
+      "bytes": 454,
+      "sha256": "d733ead5cad02092cfabfc03478adeb950d91008ac4fe44685b61f2a1dd9b236"
+    },
+    {
+      "path": "assets/mesh_04.obj",
+      "bytes": 444,
+      "sha256": "2af60ccb4560101ef2ed8e2c697fa7a182673f50c23b275a32d6e7b722ade41e"
+    },
+    {
+      "path": "assets/mesh_05.obj",
+      "bytes": 890594,
+      "sha256": "543fa123dec78f607120b7cbd54df0f4ef2fe6eca0438a9f0bbe0fd59fe79bff"
+    },
+    {
+      "path": "assets/mesh_06.obj",
+      "bytes": 1635950,
+      "sha256": "adf95d6a94a839f61b42d223efac4dd1e39f7616991e57e449fb6913f21e6aef"
+    },
+    {
+      "path": "assets/mesh_07.obj",
+      "bytes": 3590729,
+      "sha256": "4445c0e4bb2bbf149d10524d360e78e8bc19cf2c910620c1904a4defb2582a88"
+    },
+    {
+      "path": "assets/mesh_08.obj",
+      "bytes": 3211166,
+      "sha256": "31cbe5a0eafff9a7a69a8d8f4fad6832ade172c7c3170d09296e737a88d6c510"
+    },
+    {
+      "path": "assets/mesh_09.obj",
+      "bytes": 609186,
+      "sha256": "afc49d5cf66214415309575ff357834ca9948c0bad2c3c3e5f97a2898db530b8"
+    },
+    {
+      "path": "assets/mesh_10.obj",
+      "bytes": 1306009,
+      "sha256": "17f667947dd40b47538f6f2007f4af5d6ec0ef08b4294e3119c35984b8563878"
+    },
+    {
+      "path": "assets/mesh_11.obj",
+      "bytes": 566753,
+      "sha256": "052efe976c644d76a405ba54e64736ec70b79035b2b01edd6967d3e625127e49"
+    },
+    {
+      "path": "assets/mesh_12.obj",
+      "bytes": 559545,
+      "sha256": "35d2d2c36fa1c3dd8366fdea9e38f015dd82864b7f9e105a16b50f14ce12f1fa"
+    },
+    {
+      "path": "conversion_report.json",
+      "bytes": 11176,
+      "sha256": "82d02ea7e6bf4101de0df9c215f2d1df7af1f6acf915db10255f6fd696eaf3f5"
+    },
+    {
+      "path": "launch.py",
+      "bytes": 2526,
+      "sha256": "0dfbc6fedf63e3188e497c8f5b69676f3f3b18b6c03cbd58fcf103d9b6a2a02d"
+    },
+    {
+      "path": "package_check.json",
+      "bytes": 344,
+      "sha256": "731fa69fdd75b87975bd4ec39f19a99dc4841ce1e93d8801e9860e395658c8d8"
+    },
+    {
+      "path": "preview.png",
+      "bytes": 126398,
+      "sha256": "714e141adb56336932701eed28bcca11159a873e3960913a873e63b19c1c15ad"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 29,
+      "sha256": "0fc33a219d4ed15e11bb8d4aa74d8b8430a4a21424d48409c920ede9a5fb7fdd"
+    },
+    {
+      "path": "robot.xml",
+      "bytes": 9266,
+      "sha256": "f628de74b00c9ed85cc67b45dc5a0dc5fe8df75d4ae3578947c701a3604deca2"
+    },
+    {
+      "path": "robot_free.xml",
+      "bytes": 9194,
+      "sha256": "568755fa0c1887233084dd48922638c268a311dfa9694ebc424f0a83dab5f07e"
+    },
+    {
+      "path": "scene.xml",
+      "bytes": 921,
+      "sha256": "b57aa1ccd1fda948d6e417dfd2712a203d30a85381c5c7ee1aa9721a497ca909"
+    },
+    {
+      "path": "scene_free.xml",
+      "bytes": 926,
+      "sha256": "6cc746f3f630e3459bd0492496bedd4f6f456992b13585c527724491491cdc52"
+    },
+    {
+      "path": "validation.json",
+      "bytes": 723,
+      "sha256": "1c17c3f01da91ee97b2e2cd31537b4ff33a5c1b89715854f4b09ea558587e7a5"
+    },
+    {
+      "path": "打开机器人.command",
+      "bytes": 236,
+      "sha256": "572b84205d7b6efbd722e856c5827c9e3c66f559eb6d45521ab2c7895b418a9c"
+    }
+  ]
+}

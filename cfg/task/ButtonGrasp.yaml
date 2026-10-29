@@ -1,0 +1,22 @@
+name: ButtonGrasp
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+
+env:
+  num_envs: 32
+  env_spacing: 8
+
+aerial_manipulators:
+  - preset: amov950_airbot_bottom
+
+wall:
+  translation: [2.0, 0.0, 1.0]
+  size: [0.1, 2.0, 2.0]
+
+time_encoding: true
+
+reward_distance_scale: 1.2
+reward_press_weight: 1.0
+reward_success_weight: 10.0

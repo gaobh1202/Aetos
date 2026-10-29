@@ -1,0 +1,492 @@
+{
+  "source_usd": "/Users/benhua/CodeRepo/ambench-main/source/ambench/ambench/assets/robots/quad_scorpion.usd",
+  "source_asset_sha256": "e5f95092ed1b7f833b284c0f218e1d18c160cfbf24820567c3e752d662b61c40",
+  "body_count": 9,
+  "joint_count": 6,
+  "visual_mesh_count": 13,
+  "total_mass_kg": 4.40692603122443,
+  "joint_parameters": [
+    {
+      "name": "arm_link1_yaw_joint",
+      "type": "hinge",
+      "limits": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "kp": 100000.0,
+      "kv": 1000.0,
+      "max_force": 1000.0,
+      "runtime_velocity_limit": 5.0
+    },
+    {
+      "name": "arm_link2_pitch_joint",
+      "type": "hinge",
+      "limits": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "kp": 100000.0,
+      "kv": 1000.0,
+      "max_force": 1000.0,
+      "runtime_velocity_limit": 5.0
+    },
+    {
+      "name": "arm_link3_pitch_joint",
+      "type": "hinge",
+      "limits": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "kp": 100000.0,
+      "kv": 1000.0,
+      "max_force": 1000.0,
+      "runtime_velocity_limit": 5.0
+    },
+    {
+      "name": "arm_link4_pitch_joint",
+      "type": "hinge",
+      "limits": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "kp": 100000.0,
+      "kv": 1000.0,
+      "max_force": 1000.0,
+      "runtime_velocity_limit": 5.0
+    },
+    {
+      "name": "arm_lfinger_joint",
+      "type": "slide",
+      "limits": [
+        0.0,
+        0.05000000074505806
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "kp": 100.0,
+      "kv": 20.0,
+      "max_force": 20.0,
+      "runtime_velocity_limit": 5.0
+    },
+    {
+      "name": "arm_rfinger_joint",
+      "type": "slide",
+      "limits": [
+        0.0,
+        0.05000000074505806
+      ],
+      "axis_child": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "kp": 100.0,
+      "kv": 20.0,
+      "max_force": 20.0,
+      "runtime_velocity_limit": 5.0
+    }
+  ],
+  "body_frame_checks": [
+    {
+      "body": "base_link",
+      "position_error_m": 0.0
+    },
+    {
+      "body": "arm_base_link",
+      "position_error_m": 0.0
+    },
+    {
+      "body": "arm_link1_yaw_link",
+      "position_error_m": 4.139297338566051e-09
+    },
+    {
+      "body": "arm_link2_pitch_link",
+      "position_error_m": 3.725299538167134e-09
+    },
+    {
+      "body": "arm_link3_pitch_link",
+      "position_error_m": 3.59916024197859e-08
+    },
+    {
+      "body": "arm_link4_pitch_link",
+      "position_error_m": 6.69296909110682e-08
+    },
+    {
+      "body": "ee_link",
+      "position_error_m": 6.062198932915443e-08
+    },
+    {
+      "body": "manipulation_lfinger_link",
+      "position_error_m": 8.869858322105538e-08
+    },
+    {
+      "body": "manipulation_rfinger_link",
+      "position_error_m": 9.657298023261407e-08
+    }
+  ],
+  "inertia_corrections": [],
+  "meshes": [
+    {
+      "mesh": "mesh_00",
+      "source_prim": "/quad_scorpion_urdf/base_link/visuals/base_link_visual/node_STL_BINARY_/mesh",
+      "body": "base_link",
+      "vertices": 3540,
+      "triangles": 7576,
+      "local_min": [
+        -0.36097801104187965,
+        -0.36097800731658936,
+        -0.05300001800060272
+      ],
+      "local_max": [
+        0.36097800359129906,
+        0.36097800731658936,
+        0.023999981582164764
+      ]
+    },
+    {
+      "mesh": "mesh_01",
+      "source_prim": "/quad_scorpion_urdf/base_link/visuals/prop_mount_0/prop_spin_0/mesh",
+      "body": "base_link",
+      "vertices": 8,
+      "triangles": 12,
+      "local_min": [
+        0.06328606605529785,
+        0.06328606605529785,
+        0.022999979555606842
+      ],
+      "local_max": [
+        0.36097800731658936,
+        0.36097800731658936,
+        0.023999981582164764
+      ]
+    },
+    {
+      "mesh": "mesh_02",
+      "source_prim": "/quad_scorpion_urdf/base_link/visuals/prop_mount_1/prop_spin_1/mesh",
+      "body": "base_link",
+      "vertices": 8,
+      "triangles": 12,
+      "local_min": [
+        -0.36097800731658936,
+        0.06328606605529785,
+        0.022999979555606842
+      ],
+      "local_max": [
+        -0.06328605115413666,
+        0.36097800731658936,
+        0.023999981582164764
+      ]
+    },
+    {
+      "mesh": "mesh_03",
+      "source_prim": "/quad_scorpion_urdf/base_link/visuals/prop_mount_2/prop_spin_2/mesh",
+      "body": "base_link",
+      "vertices": 8,
+      "triangles": 12,
+      "local_min": [
+        -0.36097800731658936,
+        -0.36097800731658936,
+        0.022999979555606842
+      ],
+      "local_max": [
+        -0.06328605115413666,
+        -0.06328606605529785,
+        0.023999981582164764
+      ]
+    },
+    {
+      "mesh": "mesh_04",
+      "source_prim": "/quad_scorpion_urdf/base_link/visuals/prop_mount_3/prop_spin_3/mesh",
+      "body": "base_link",
+      "vertices": 8,
+      "triangles": 12,
+      "local_min": [
+        0.06328606605529785,
+        -0.36097800731658936,
+        0.022999979555606842
+      ],
+      "local_max": [
+        0.36097800731658936,
+        -0.06328606605529785,
+        0.023999981582164764
+      ]
+    },
+    {
+      "mesh": "mesh_05",
+      "source_prim": "/quad_scorpion_urdf/arm_base_link/visuals/arm_base_link_visual/node_STL_BINARY_/mesh",
+      "body": "arm_base_link",
+      "vertices": 11040,
+      "triangles": 22060,
+      "local_min": [
+        -0.010648248717188835,
+        -0.014250000007450723,
+        -0.040399955585598946
+      ],
+      "local_max": [
+        0.03585175238549709,
+        0.014250000007450438,
+        4.470348358154297e-08
+      ]
+    },
+    {
+      "mesh": "mesh_06",
+      "source_prim": "/quad_scorpion_urdf/arm_link1_yaw_link/visuals/arm_link1_yaw_link_visual/node_STL_BINARY_/mesh",
+      "body": "arm_link1_yaw_link",
+      "vertices": 19472,
+      "triangles": 39036,
+      "local_min": [
+        -0.0234000070462649,
+        -0.014250061583741631,
+        -0.05175000429153443
+      ],
+      "local_max": [
+        0.019000458759144613,
+        0.01425005710638828,
+        -1.8626451422920631e-09
+      ]
+    },
+    {
+      "mesh": "mesh_07",
+      "source_prim": "/quad_scorpion_urdf/arm_link2_pitch_link/visuals/arm_link2_pitch_link_visual/node_STL_BINARY_/mesh",
+      "body": "arm_link2_pitch_link",
+      "vertices": 42524,
+      "triangles": 85560,
+      "local_min": [
+        -0.03524995898580992,
+        -0.1422506199192837,
+        -0.004399911598492727
+      ],
+      "local_max": [
+        0.012499814659963502,
+        0.0024996236735557315,
+        0.03999972719517682
+      ]
+    },
+    {
+      "mesh": "mesh_08",
+      "source_prim": "/quad_scorpion_urdf/arm_link3_pitch_link/visuals/arm_link3_pitch_link_visual/node_STL_BINARY_/mesh",
+      "body": "arm_link3_pitch_link",
+      "vertices": 37928,
+      "triangles": 76268,
+      "local_min": [
+        -0.01425021646075333,
+        -0.13525007381136092,
+        -0.0020000258237709255
+      ],
+      "local_max": [
+        0.014250057285950283,
+        0.0025000058387630725,
+        0.04250000909373992
+      ]
+    },
+    {
+      "mesh": "mesh_09",
+      "source_prim": "/quad_scorpion_urdf/arm_link4_pitch_link/visuals/arm_link4_pitch_link_visual/node_STL_BINARY_/mesh",
+      "body": "arm_link4_pitch_link",
+      "vertices": 7656,
+      "triangles": 15484,
+      "local_min": [
+        -0.035250089373814776,
+        -0.002499993712876132,
+        -0.0015000746941580857
+      ],
+      "local_max": [
+        0.011250079245504124,
+        0.02800007928112126,
+        0.03950009478134308
+      ]
+    },
+    {
+      "mesh": "mesh_10",
+      "source_prim": "/quad_scorpion_urdf/ee_link/visuals/ee_link_visual/node_STL_BINARY_/mesh",
+      "body": "ee_link",
+      "vertices": 15702,
+      "triangles": 31792,
+      "local_min": [
+        -0.05325017690447872,
+        -0.05500008740313264,
+        -0.04040001284776762
+      ],
+      "local_max": [
+        0.07524995492809151,
+        0.005800020497587925,
+        4.5838487550825535e-08
+      ]
+    },
+    {
+      "mesh": "mesh_11",
+      "source_prim": "/quad_scorpion_urdf/manipulation_lfinger_link/visuals/manipulation_lfinger_link_visual/node_STL_BINARY_/mesh",
+      "body": "manipulation_lfinger_link",
+      "vertices": 7222,
+      "triangles": 14492,
+      "local_min": [
+        -0.15052507602918777,
+        -0.014599973318669211,
+        0.02747274028885413
+      ],
+      "local_max": [
+        0.008055042008909774,
+        0.04340006622912411,
+        0.06722278137569238
+      ]
+    },
+    {
+      "mesh": "mesh_12",
+      "source_prim": "/quad_scorpion_urdf/manipulation_rfinger_link/visuals/manipulation_rfinger_link_visual/node_STL_BINARY_/mesh",
+      "body": "manipulation_rfinger_link",
+      "vertices": 7222,
+      "triangles": 14492,
+      "local_min": [
+        -0.008054955303669065,
+        -0.014600033814628554,
+        0.027516543307072802
+      ],
+      "local_max": [
+        0.150525040179491,
+        0.04339996451607251,
+        0.06726667105202619
+      ]
+    }
+  ],
+  "rotor_positions_m": [
+    [
+      0.2121320366859436,
+      0.2121320366859436,
+      0.05
+    ],
+    [
+      -0.2121320366859436,
+      0.2121320366859436,
+      0.05
+    ],
+    [
+      -0.2121320366859436,
+      -0.2121320366859436,
+      0.05
+    ],
+    [
+      0.2121320366859436,
+      -0.2121320366859436,
+      0.05
+    ]
+  ],
+  "rotor_directions": [
+    [
+      0.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "spin_directions": [
+    -1,
+    1,
+    -1,
+    1
+  ],
+  "wrench_matrix": [
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.2121320366859436,
+      0.2121320366859436,
+      -0.2121320366859436,
+      -0.2121320366859436
+    ],
+    [
+      -0.2121320366859436,
+      0.2121320366859436,
+      0.2121320366859436,
+      -0.2121320366859436
+    ],
+    [
+      -0.02,
+      0.02,
+      -0.02,
+      0.02
+    ]
+  ],
+  "wrench_rank": 4,
+  "max_rotor_center_distance_m": 0.6000000065901768,
+  "scope": "fixed-base kinematic viewer; optional free-base model; visual geometry only, no collision/Isaac controller equivalence",
+  "post_export_modification": {
+    "description": "Entire arm and gripper moved to upper frame and flipped 180 degrees around body X.",
+    "old_arm_base_position_m": [
+      0.10000000149,
+      0,
+      -0.0529999993742
+    ],
+    "old_arm_base_quaternion_wxyz": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "new_arm_base_position_m": [
+      0.1,
+      0,
+      0.003
+    ],
+    "new_arm_base_quaternion_wxyz": [
+      0,
+      1,
+      0,
+      0
+    ],
+    "body_frame_checks_scope": "Existing source zero-pose errors describe the original conversion before this requested modification.",
+    "source_assets_modified": false
+  }
+}

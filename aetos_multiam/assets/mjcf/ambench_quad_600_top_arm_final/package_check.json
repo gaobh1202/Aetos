@@ -1,0 +1,15 @@
+{
+  "standalone_load": true,
+  "free_base_load": true,
+  "relative_asset_paths": true,
+  "working_directory": "/private/tmp",
+  "description": "600 mm 四旋翼，机械臂已翻转为上置，夹爪朝前",
+  "mujoco": "3.13.0",
+  "joints": 6,
+  "visual_meshes": 13,
+  "arm_mount_vehicle_m": [
+    0.1,
+    0.0,
+    0.0029999999999998916
+  ]
+}

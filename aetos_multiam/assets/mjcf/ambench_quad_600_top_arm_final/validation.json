@@ -1,0 +1,35 @@
+{
+  "robot": "quad_600",
+  "standalone_working_directory": "/private/tmp",
+  "joints": 6,
+  "visual_meshes": 13,
+  "rotors": 4,
+  "wrench_rank": 4,
+  "max_body_zero_pose_error_m": 9.657298023261407e-08,
+  "joint_physics_test_s": 0.9999999999998981,
+  "max_joint_tracking_error": 0.00014002171724850423,
+  "runtime_warnings": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "free_base_nq": 13,
+  "force_map_max_error": 2.255973186038318e-13,
+  "modified_mounting_check": {
+    "mount_position_vehicle_m": [
+      0.1,
+      0.0,
+      0.0029999999999998916
+    ],
+    "ee_position_vehicle_m": [
+      0.2766016821111948,
+      0.011098848263081771,
+      0.23950057534781077
+    ],
+    "arm_above_frame": true
+  }
+}

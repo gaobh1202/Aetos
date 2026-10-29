@@ -1,0 +1,113 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  Rigid (pseudo-rigid-body) approximation of ONE Fin Ray finger from
+  three_finger_gripper_final/gripper.xml's "finger_1" -- reproduced first,
+  per the user's request, before touching finger_2/finger_3 or integrating
+  this back into the full gripper assembly.
+
+  The original finger_1 is a rigid mount (finger_1_hinge, actuated, 0-40deg)
+  carrying a MuJoCo `flexcomp` soft body (~103mm long, tapering 28mm->4.7mm
+  wide, 14mm thick, young=200000 Pa) for the compliant distal 2/3 of the
+  finger. PhysX/Isaac Sim has no flexcomp equivalent, so this file replaces
+  it with 3 rigid box segments connected by 3 passive spring-hinges, each
+  representing that segment's own bending compliance via an Euler-Bernoulli
+  cantilever equivalence k = E*I/L (I = thickness*width^3/12, using the
+  segment's own tapered width). See DERIVATION.md in this directory for the
+  exact numbers and how they were obtained from the original point cloud --
+  this is not an eyeballed approximation, every dimension below traces back
+  to a specific calculation there.
+
+  NOT YET VALIDATED: no MuJoCo session was run in this sandbox to check
+  this actually behaves like the original finger (correct resting
+  straightness, plausible tip deflection under a test load, no joint
+  blow-up at the chosen timestep/stiffness). Run it before trusting it.
+-->
+<mujoco model="finger_1_rigid">
+  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <option timestep="0.001" integrator="implicitfast" solver="Newton" iterations="50" tolerance="1e-8" gravity="0 0 -9.81" />
+
+  <asset>
+    <mesh name="housing_mesh" file="housing.stl" inertia="shell" />
+    <mesh name="mount_mesh" file="finger_mount.stl" inertia="shell" />
+  </asset>
+
+  <worldbody>
+    <body name="gripper_base">
+      <geom name="housing_visual" type="mesh" mesh="housing_mesh" mass=".35" rgba=".28 .30 .34 1" contype="0" conaffinity="0" group="1" />
+
+      <!-- Unchanged from the original: the rigid, actuated proximal mount. -->
+      <body name="finger_1" pos="1.928818709e-18 -0.0315 0.095">
+        <joint name="finger_1_hinge" type="hinge" stiffness="0" axis="-1 -6.123233996e-17 0"
+               range="0 0.6981317008" margin=".0005" solreflimit=".001 1" solimplimit=".999 .9999 .0001"
+               damping=".04" armature=".00008" />
+        <inertial pos="-8.957609843e-19 -0.01537111296 -0.002174600264" mass=".025"
+                  diaginertia=".000006 .000008 .000006"
+                  xyaxes="6.609324935e-17 0.9206153252 0.390470771 -1 5.151052117e-17 4.781887798e-17" />
+        <geom name="finger_1_mount" type="mesh" mesh="mount_mesh"
+              xyaxes="6.609324935e-17 0.9206153252 0.390470771 -1 5.151052117e-17 4.781887798e-17"
+              rgba=".40 .43 .49 1" contype="0" conaffinity="0" group="1" />
+        <site name="finger_1_contact_base" pos="3.9059017e-19 -0.0140164376 0.02326663072" size=".0001" rgba="0 0 0 0" group="4" />
+
+        <!--
+          Segment 0 (proximal third of the original flex region): attaches
+          at the original flex's own base point (y=-0.02504, z=0.01316 in
+          finger_1's frame -- DERIVATION.md section 1). The rotation
+          (axisangle, 0.403709 rad = 23.13 deg about local X) tilts this
+          body's local Z axis onto the segment's actual direction in the
+          Y-Z bending plane, computed exactly (not eyeballed) in
+          DERIVATION.md section 2 -- verified numerically, not just by formula.
+        -->
+        <body name="finger_1_flex_0" pos="3.9059017e-19 -0.02504 0.01316" axisangle="1 0 0 0.403709">
+          <joint name="finger_1_flex_hinge_0" type="hinge" axis="-1 0 0" pos="0 0 0"
+                 range="0 1.0472" stiffness="0.09372" damping="0.0010" springref="0" limited="true" />
+          <inertial pos="0 0 0.017208" mass="0.004329" diaginertia="1e-7 1e-7 1e-7" />
+          <geom name="finger_1_flex_0_geom" type="box" pos="0 0 0.017208"
+                size="0.007 0.012 0.017208" rgba=".56 .59 .64 1" contype="1" conaffinity="3"
+                friction="1 .005 .0001" />
+
+          <!--
+            Segment 1 and segment 2 use zero incremental rotation relative
+            to their parent: the true per-segment direction only drifts by
+            +0.234 deg then -0.018 deg (DERIVATION.md section 2) -- both
+            well under what matters here, so they're dropped rather than
+            carried as spurious precision.
+          -->
+          <body name="finger_1_flex_1" pos="0 0 0.034416">
+            <joint name="finger_1_flex_hinge_1" type="hinge" axis="-1 0 0" pos="0 0 0"
+                   range="0 1.0472" stiffness="0.02884" damping="0.0008" springref="0" limited="true" />
+            <inertial pos="0 0 0.017208" mass="0.0029224" diaginertia="1e-7 1e-7 1e-7" />
+            <geom name="finger_1_flex_1_geom" type="box" pos="0 0 0.017208"
+                  size="0.007 0.008101 0.017208" rgba=".56 .59 .64 1" contype="1" conaffinity="3"
+                  friction="1 .005 .0001" />
+
+            <body name="finger_1_flex_2" pos="0 0 0.034416">
+              <joint name="finger_1_flex_hinge_2" type="hinge" axis="-1 0 0" pos="0 0 0"
+                     range="0 1.0472" stiffness="0.00426" damping="0.0005" springref="0" limited="true" />
+              <inertial pos="0 0 0.017208" mass="0.0015444" diaginertia="1e-7 1e-7 1e-7" />
+              <geom name="finger_1_flex_2_geom" type="box" pos="0 0 0.017208"
+                    size="0.007 0.004281 0.017208" rgba=".56 .59 .64 1" contype="1" conaffinity="3"
+                    friction="1 .005 .0001" />
+              <site name="finger_1_tip_rigid" pos="0 0 0.034416" size=".0001" rgba="0 0 0 0" group="4" />
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Same gains as the original gripper.xml's "gripper_close" actuator on this joint. -->
+    <position name="finger_1_close" joint="finger_1_hinge" kp="12.0" kv="0.36" ctrlrange="0 0.6981317008" forcerange="-1.2 1.2" />
+  </actuator>
+
+  <sensor>
+    <jointpos name="finger_1_angle" joint="finger_1_hinge" />
+    <jointpos name="finger_1_flex_0_angle" joint="finger_1_flex_hinge_0" />
+    <jointpos name="finger_1_flex_1_angle" joint="finger_1_flex_hinge_1" />
+    <jointpos name="finger_1_flex_2_angle" joint="finger_1_flex_hinge_2" />
+  </sensor>
+
+  <keyframe>
+    <key name="straight" qpos="0 0 0 0" ctrl="0" />
+  </keyframe>
+</mujoco>

@@ -1,0 +1,17 @@
+name: AerialHandover
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+
+env:
+  num_envs: 16
+  env_spacing: 8
+  max_episode_length: 500
+
+aerial_manipulators:
+  - preset: hummingbird340_dynamixel2r_bottom
+  - preset: uaquad600_ambencharm_top
+
+time_encoding: true
+goal_radius: 0.5

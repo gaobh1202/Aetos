@@ -1,0 +1,24 @@
+{
+  "standalone_load": true,
+  "xml_paths_relative": true,
+  "test_working_directory": "/private/tmp",
+  "wheelbase_m": 0.6500000000002427,
+  "arm_heading": "+X",
+  "home_tcp_from_mount_body_m": [
+    0.2389077981516906,
+    -9.992007221626408e-18,
+    -0.08664706988125515
+  ],
+  "simulation_time_s": 0.5000000000000003,
+  "runtime_warnings": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "mesh_files": 23,
+  "mujoco": "3.13.0"
+}
