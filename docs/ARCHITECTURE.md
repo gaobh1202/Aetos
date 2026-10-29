@@ -143,9 +143,70 @@ not uniformly "needs MJCF/USD conversion" any more:
   or found Isaac Sim USD either (community Isaac Lab ports exist upstream,
   not fetched into this repo -- see that section below).
 
+**All 5 can also be loaded into ONE shared MuJoCo scene**, not just 5
+separate renders -- `examples/01_combine_all_aerial_manipulators_mujoco.py` merges all 5
+`robot.xml` files (straight line, 2.2m spacing) into `all_five_combined.xml`
+and renders it. Plain `<include>` can't do this (each bundle reuses
+generic names like `link1`/`joint1` across different bundles -- direct
+collisions at compile time), and `dm_control.mjcf`'s `attach()` (built
+exactly for this) turned out to be a dead end: even its newest release
+validates attributes against its own bundled schema, which is missing
+several things these bundles genuinely use that plain `mujoco` already
+compiles fine (`integrator="implicitfast"`, `joint actuatorfrcrange=`,
+and -- the one that actually killed it -- the hummingbird bundle's
+`flexcomp`'s own nested `<contact internal="false">`, which isn't a
+version lag, dm_control's flex schema coverage is just incomplete). Wrote
+a from-scratch namespace-prefixing merger instead, plain
+`xml.etree.ElementTree` (stdlib, no dm_control dependency), validated
+against the real compiler (`mujoco.MjModel.from_xml_path()`) the same way
+every other bundle already was. Found 3 more real issues doing this (each
+documented with its fix in that script's own docstring): `<compiler
+meshdir="...">` has to be folded into mesh `file=` paths by hand (4 of 5
+bundles set it, one doesn't); `<keyframe>` vectors are sized for one
+bundle's own nq/nu, wrong length once merged, so dropped entirely rather
+than merged; and "free joint can only be used on top level" -- a
+free-jointed body can't be wrapped in a new positioning parent, the
+per-robot ring offset has to be folded into that body's own existing
+`pos` instead.
+
+**Follow-up (user-reported): amov950_airbot_bottom's arm wasn't visible in
+the render at all.** Not a camera/occlusion issue as first suspected --
+`amov950_airbot_final`'s source file is the one bundle whose body tree was
+never elevated above the ground: its root sits at z=0 and the airbot_play
+arm hangs down to roughly z=-0.45 (lower once posed open), i.e. entirely
+*underneath* the scene's floor plane (also z=0). An opaque floor blocks
+line of sight to anything below it from any camera positioned above
+ground, so the arm wasn't hidden behind the drone body, it was hidden
+behind the floor itself -- confirmed by checking each bundle's own body
+z-range directly: the other 4 already sit with their root around
+z=1.1-1.5 (which is why they rendered fine from the start untouched).
+Fixed with a manual `Z_LIFT` for just this one bundle in
+`01_combine_all_aerial_manipulators_mujoco.py`. Also found, separately, that this arm's own default
+rest pose (qpos=0) sits folded up tight against the drone's belly --
+barely recognizable as an arm even once lifted clear of the floor -- so
+`01_combine_all_aerial_manipulators_mujoco.py` now also poses its 3 main joints open before
+rendering (the other 4 bundles' arms already read clearly at their own
+qpos=0, didn't need this).
+
+**All 5 presets now load cleanly in MuJoCo** -- the last gap
+(`amov950_airbot_bottom` had no MJCF, only its real USD) was closed by
+copying `/home/benhua/raids-am-simulator/amov_drone_arm.xml` (Polyu-ISE
+RAIDS Lab, already a standalone combined drone+arm MJCF) into
+`assets/mjcf/amov950_airbot_final/`. `examples/00_load_each_aerial_manipulator_mujoco.py` loads
+every bundle's `scene.xml`, confirms each compiles and steps, and renders
+a combined preview -- run it to re-verify. Hit one real, reusable MuJoCo
+gotcha doing this: **creating several `mujoco.Renderer` instances in one
+process without calling `.close()` on each before making the next leaves
+every render after the first blank/black**, no error raised (an exhausted
+GL context, not a camera/geometry bug -- cost a detour checking body
+positions against `<statistic center/extent>` before finding the real
+cause). 4 of these 5 also have a real or partial Isaac Sim USD path today;
+only `hummingbird340_dynamixel2r_bottom` is MuJoCo-only, blocked by its
+`flexcomp` soft-body gripper having no PhysX equivalent.
+
 | Preset | Drone | Manipulator | Gripper | Status |
 |---|---|---|---|---|
-| `amov950_airbot_bottom` | `amov_950` | `airbot_play` | bundled | **Spawnable.** Used by `ButtonGrasp`. |
+| `amov950_airbot_bottom` | `amov_950` | `airbot_play` | bundled | **Spawnable in Isaac Sim** (used by `ButtonGrasp`) **and now has a real MJCF too** (`assets/mjcf/amov950_airbot_final/`, copied from raids-am-simulator). |
 | `hummingbird340_dynamixel2r_bottom` | `omnidrones_340` | `dynamixel_2r` | `three_finger_softgripper` | Real MJCF source (`assets/mjcf/hummingbird_2r_three_finger_50pct/`), validated hover/joint/gripper tests in MuJoCo. Gripper fingers are MuJoCo `flexcomp` soft bodies -- no PhysX equivalent, needs a rigid approximation. |
 | `iris650_soarm100_bottom` | `iris_650` | `so_arm100` | bundled (`Jaw` joint) | Real MJCF source (`assets/mjcf/iris_650_so_arm100_final/`); rotor physics is fully specified (`assets/usd/iris_650.yaml`, exact KF/KM/max-speed from the source bundle) but no scaled USD body exists yet. |
 | `uaquad600_ambencharm_top` | `ambench_600` | `ambench_quad_arm` | bundled | **Real Isaac Sim USD** (`quad_scorpion.usd`, AM-bench is itself Isaac-Sim-based -- see "AM-bench's own USD assets" below). `ambench_quad_arm` is pre-baked into that same USD (`bundled_into_drone=True`), not a separate mount. Only remaining gap: AM-bench's own rotor model has no KF/KM to port -- that pair would need to be chosen, not read off. |

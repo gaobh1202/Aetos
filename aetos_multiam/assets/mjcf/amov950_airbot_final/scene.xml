@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="amov950_airbot_viewer">
+  <include file="robot.xml" />
+  <statistic center="0 0 0.3" extent="1.6" />
+  <visual>
+    <global azimuth="135" elevation="-20" offwidth="1400" offheight="1200" />
+    <headlight diffuse=".7 .7 .7" ambient=".4 .4 .4" />
+  </visual>
+  <worldbody>
+    <light pos="0 0 4" directional="true" dir="0 0 -1" />
+    <geom name="floor" type="plane" size="3 3 .01" rgba=".18 .23 .28 1" contype="0" conaffinity="0" material="viewer_floor" />
+  </worldbody>
+  <asset>
+    <texture name="viewer_sky" type="skybox" builtin="gradient" rgb1=".30 .43 .57" rgb2=".06 .09 .14" width="512" height="3072" />
+    <texture name="viewer_grid" type="2d" builtin="checker" rgb1=".18 .24 .30" rgb2=".12 .17 .22" width="512" height="512" />
+    <material name="viewer_floor" texture="viewer_grid" texrepeat="10 10" texuniform="true" reflectance=".05" />
+  </asset>
+</mujoco>
