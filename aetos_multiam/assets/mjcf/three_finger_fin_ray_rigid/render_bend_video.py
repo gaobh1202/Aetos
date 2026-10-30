@@ -27,7 +27,11 @@ import mujoco
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FRAMES_DIR = "/tmp/claude-1000/-home-benhua-OmniDrones/a10009f1-db89-4ca5-9a52-909f35b1a9c2/scratchpad/finger_bend_frames"
-OUT_MP4 = os.path.join(HERE, "finger_1_bend_demo.mp4")
+OUT_MP4 = os.path.join(
+    HERE, "..", "..", "meshes", "mjcf", "three_finger_fin_ray_rigid",
+    "finger_1_bend_demo.mp4",
+)
+os.makedirs(os.path.dirname(OUT_MP4), exist_ok=True)
 
 os.makedirs(FRAMES_DIR, exist_ok=True)
 

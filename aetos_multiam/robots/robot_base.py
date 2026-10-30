@@ -96,6 +96,12 @@ class AerialManipulatorBase:
                     self.gripper_spec.usd_path,
                     "gripper",
                     self.gripper_spec.root_body_name,
+                    translation=self.gripper_spec.mount_translation,
+                    orientation=self.gripper_spec.mount_orientation,
+                    joint_type=self.gripper_spec.mount_joint_type,
+                    joint_axis=self.gripper_spec.mount_joint_axis,
+                    joint_lower_limit=self.gripper_spec.mount_joint_lower_limit,
+                    joint_upper_limit=self.gripper_spec.mount_joint_upper_limit,
                 )
             elif self.gripper_spec is not None:
                 logging.info(

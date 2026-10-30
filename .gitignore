@@ -5,11 +5,14 @@ __pycache__/
 # Hydra run logs from smoke tests, not source
 outputs/
 
-# Raw third-party source downloads used only as extraction references --
-# superseded by aetos_multiam/assets/usd/inspire_hand/*.usd, which are the
-# actual project assets. Kept out to avoid committing ~53MB of intermediate,
-# unmodified upstream files.
-aetos_multiam/assets/usd/inspire_hand_candidates/
+# All robot model binaries (USD + every MJCF bundle's mesh geometry +
+# model demo videos) live under this one folder and are distributed via
+# netdisk instead of git -- see docs/ASSETS.md for the download link and
+# the exact layout. Everything else under aetos_multiam/assets/ (robot.xml/
+# scene.xml, README/CONVERSION_NOTES, preview thumbnails, the small
+# iris_650.yaml rotor-physics config, the extraction/build/render scripts)
+# stays tracked normally.
+aetos_multiam/assets/meshes/
 
 .DS_Store
 *.egg-info/

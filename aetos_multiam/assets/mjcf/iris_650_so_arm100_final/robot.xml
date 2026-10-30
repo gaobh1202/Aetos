@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mujoco model="iris_650_so_arm100">
-  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <compiler angle="radian" meshdir="../../meshes/mjcf/iris_650_so_arm100_final/assets" autolimits="true" />
   <option cone="elliptic" impratio="10" timestep=".001" integrator="implicitfast" gravity="0 0 -9.81" />
   <asset>
     <material name="white" rgba="1 1 1 1" />

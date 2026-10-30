@@ -7,7 +7,7 @@
   Isaac Sim: import amov_drone_arm.urdf (repo root) via URDF Importer, Fix Base=OFF.
 -->
 <mujoco model="amov_drone_arm">
-  <compiler angle="radian" autolimits="true"/>
+  <compiler angle="radian" autolimits="true" meshdir="../../meshes/mjcf/amov950_airbot_final"/>
   <option gravity="0 0 0" timestep="0.002" integrator="implicitfast"/>
 
   <default>

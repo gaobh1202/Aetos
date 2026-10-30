@@ -22,7 +22,10 @@ from aetos_multiam.assets import ASSET_PATH, USD_PATH as _ASSETS_USD_DIR
 from .drone_base import DroneSpec, register_drone
 
 MJCF_SOURCE_PATH = osp.join(ASSET_PATH, "mjcf", "iris_650_so_arm100_final", "robot.xml")
-PARAM_PATH = osp.join(_ASSETS_USD_DIR, "iris_650.yaml")  # real, see module docstring
+# iris_650.yaml is a small, real, hand-calibrated config (not a mesh/USD
+# binary) -- kept tracked in git at assets/usd/ directly, not under the
+# gitignored assets/meshes/ tree USD_PATH now points into.
+PARAM_PATH = osp.join(ASSET_PATH, "usd", "iris_650.yaml")  # real, see module docstring
 USD_PATH = osp.join(_ASSETS_USD_DIR, "iris_650.usd")  # does not exist yet
 
 

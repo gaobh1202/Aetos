@@ -38,6 +38,11 @@ pip install -e /home/benhua/OmniDrones   # aetos_multiam imports omni_drones dir
 pip install -e .
 ```
 
+Robot model binaries (USD + every MJCF bundle's mesh geometry) aren't
+committed to this repo -- download robot assets from google_drive and unzip
+into `aetos_multiam/assets/meshes` (see [`docs/ASSETS.md`](docs/ASSETS.md)
+for the link and the exact layout).
+
 ## Running the demo task
 
 ```bash

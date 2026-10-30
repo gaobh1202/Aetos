@@ -28,11 +28,29 @@ hand before placing the child -- ``omni.physx.scripts.utils.createJoint()``
 then derives the joint's local frames from the two prims' real world poses
 regardless of where either one lives in the hierarchy, so the weld itself
 doesn't care that they're siblings now instead of parent/child.
+
+**Follow-up -- the container-offset bug.** The world pose computed above was
+being passed straight to ``prim_utils.create_prim(child_prim_path, ...,
+translation=, orientation=)`` where ``child_prim_path`` is a child of
+``parent_prim_path`` (the drone instance's own top-level container, which
+sits at the drone's spawn position -- NOT the world origin).
+``create_prim``'s ``translation``/``orientation`` author a LOCAL xformOp
+relative to the prim's actual USD parent, not an absolute world pose -- so
+every mount silently double-applied the parent's own spawn offset. Invisible
+for every manipulator mount before this (always ``translation=(0,0,0)``,
+double-counted zero is still zero) until a gripper mount used a non-zero
+offset. Fixed by converting ``world_transform`` into one relative to
+``parent_prim_path``'s own current world transform before calling
+``create_prim`` -- see the ``container_world``/``local_transform`` lines
+below. This affects every future manipulator/gripper mount with a non-zero
+offset, not just one case -- check this first if a mounted part ever looks
+mispositioned again.
 """
 
 import logging
 
 import omni.isaac.core.utils.prims as prim_utils
+import omni.kit.commands
 import omni.physx.scripts.utils as script_utils
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
@@ -45,6 +63,10 @@ def mount_child(
     child_root_body: str,
     translation=(0.0, 0.0, 0.0),
     orientation=None,
+    joint_type: str = "Fixed",
+    joint_axis: str = "Z",
+    joint_lower_limit=None,
+    joint_upper_limit=None,
 ) -> str:
     """Reference ``child_usd_path`` under the parent body and weld it on.
 
@@ -87,16 +109,26 @@ def mount_child(
         rel_rot = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
     rel_transform = Gf.Matrix4d().SetRotate(rel_rot) * Gf.Matrix4d().SetTranslate(rel_pos)
     world_transform = rel_transform * parent_world
-    world_pos = world_transform.ExtractTranslation()
-    world_quat = world_transform.ExtractRotationQuat()
-    world_orientation = (world_quat.GetReal(), *world_quat.GetImaginary())
+    # create_prim's translation/orientation are LOCAL to the new prim's own
+    # USD parent (parent_prim_path), not the world origin -- convert the
+    # absolute world_transform computed above into one relative to
+    # parent_prim_path's own current world transform (see module docstring's
+    # "container-offset bug" follow-up).
+    container_world = UsdGeom.Xformable(
+        prim_utils.get_prim_at_path(parent_prim_path)
+    ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    container_world = container_world.RemoveScaleShear()
+    local_transform = world_transform * container_world.GetInverse()
+    local_pos = local_transform.ExtractTranslation()
+    local_quat = local_transform.ExtractRotationQuat()
+    local_orientation = (local_quat.GetReal(), *local_quat.GetImaginary())
 
     child_prim_path = f"{parent_prim_path}/{child_mount_name}"
     prim_utils.create_prim(
         child_prim_path,
         usd_path=child_usd_path,
-        translation=Gf.Vec3d(world_pos),
-        orientation=world_orientation,
+        translation=Gf.Vec3d(local_pos),
+        orientation=local_orientation,
     )
 
     child_body_path = f"{child_prim_path}/{child_root_body}"
@@ -123,10 +155,29 @@ def mount_child(
             child_body_path,
         )
 
-    joint = script_utils.createJoint(stage, "Fixed", parent_prim, child_prim)
-    UsdPhysics.FixedJoint(joint)
+    joint = script_utils.createJoint(stage, joint_type, parent_prim, child_prim)
+    if joint_type == "Revolute":
+        revolute = UsdPhysics.RevoluteJoint(joint)
+        revolute.CreateAxisAttr(joint_axis)
+        revolute.CreateLowerLimitAttr(float(joint_lower_limit))
+        revolute.CreateUpperLimitAttr(float(joint_upper_limit))
+    else:
+        UsdPhysics.FixedJoint(joint)
+
+    # createJoint names the joint prim with a bare type-derived name (e.g.
+    # "FixedJoint") -- two mount_child calls under different parents can
+    # collide on that bare leaf name, which the PhysX tensor API rejects as a
+    # "Duplicate joint name" even though the full paths differ. Rename to
+    # something unique per mount and type-agnostic.
+    unique_joint_path = f"{parent_prim_path}/{child_mount_name}_MountJoint"
+    if joint.GetPath() != unique_joint_path:
+        omni.kit.commands.execute(
+            "MovePrim", path_from=joint.GetPath(), path_to=unique_joint_path
+        )
+        joint = prim_utils.get_prim_at_path(unique_joint_path)
+
     logging.info(
-        "aetos_multiam.usd_compose: mounted '%s' (%s) onto '%s' via fixed joint at '%s'",
-        child_usd_path, child_root_body, parent_body_path, joint.GetPath(),
+        "aetos_multiam.usd_compose: mounted '%s' (%s) onto '%s' via %s joint at '%s'",
+        child_usd_path, child_root_body, parent_body_path, joint_type, joint.GetPath(),
     )
     return child_prim_path

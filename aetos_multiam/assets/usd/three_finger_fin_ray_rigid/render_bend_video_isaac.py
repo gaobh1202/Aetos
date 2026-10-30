@@ -75,7 +75,11 @@ set_camera_view(eye=[0.14, -0.22, 0.20], target=[0.0, -0.06, 0.15])
 
 FRAMES_DIR = "/tmp/claude-1000/-home-benhua-OmniDrones/a10009f1-db89-4ca5-9a52-909f35b1a9c2/scratchpad/isaac_bend_frames"
 os.makedirs(FRAMES_DIR, exist_ok=True)
-OUT_MP4 = os.path.join(HERE, "finger_1_bend_demo_isaacsim.mp4")
+OUT_MP4 = os.path.join(
+    HERE, "..", "..", "meshes", "usd", "three_finger_fin_ray_rigid",
+    "finger_1_bend_demo_isaacsim.mp4",
+)
+os.makedirs(os.path.dirname(OUT_MP4), exist_ok=True)
 
 FPS = 30
 PHYSICS_HZ = 60

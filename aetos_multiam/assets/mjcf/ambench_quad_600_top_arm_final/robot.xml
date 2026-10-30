@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mujoco model="quad_600">
-  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <compiler angle="radian" meshdir="../../meshes/mjcf/ambench_quad_600_top_arm_final/assets" autolimits="true" />
   <option timestep=".00005" integrator="implicitfast" gravity="0 0 0" />
   <asset>
     <mesh name="mesh_00" file="mesh_00.obj" maxhullvert="64" />

@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mujoco model="hummingbird_2r_three_finger">
-  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <compiler angle="radian" meshdir="../../meshes/mjcf/hummingbird_2r_three_finger_50pct/assets" autolimits="true" />
   <option timestep="0.00005" integrator="discrete" solver="CG" iterations="100" tolerance="1e-8" gravity="0 0 -9.81" jacobian="sparse" cone="elliptic" noslip_iterations="0" />
   <default>
     <default class="dynamixel_2r">

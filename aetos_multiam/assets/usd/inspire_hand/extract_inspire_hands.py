@@ -30,7 +30,7 @@ app = SimulationApp({"headless": True})
 from pxr import Usd, UsdGeom, UsdPhysics, Sdf
 import os
 
-OUT_DIR = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/usd/inspire_hand"
+OUT_DIR = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/meshes/usd/inspire_hand"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
@@ -274,11 +274,12 @@ def extract_kuka_hand(src_path, out_name):
     return out_path
 
 
-G1_SRC = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/usd/inspire_hand_candidates/g1_hands.usd"
-KUKA_SRC = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/usd/inspire_hand_candidates/kuka_w_hand.usd"
+G1_SRC = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/meshes/usd/inspire_hand_candidates/g1_hands.usd"
+KUKA_SRC = "/home/benhua/Aetos_MultiAM/aetos_multiam/assets/meshes/usd/inspire_hand_candidates/kuka_w_hand.usd"
 
 extract_g1_hand(G1_SRC, "L", "inspire_hand_g1dfq_left.usd", "left_wrist_yaw_link")
-extract_g1_hand(G1_SRC, "R", "inspire_hand_g1dfq_right.usd", "right_wrist_yaw_link")
+# inspire_hand_g1dfq_right retired -- superseded by the cleaner, complete
+# official-tutorial inspire_hand_right asset (see grippers/inspire_hand.py).
 extract_kuka_hand(KUKA_SRC, "inspire_hand_kuka_right.usd")
 
 app.close()

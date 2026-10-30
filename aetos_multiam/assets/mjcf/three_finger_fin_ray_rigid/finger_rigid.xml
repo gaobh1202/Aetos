@@ -23,7 +23,7 @@
   blow-up at the chosen timestep/stiffness). Run it before trusting it.
 -->
 <mujoco model="finger_1_rigid">
-  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <compiler angle="radian" meshdir="../../meshes/mjcf/three_finger_fin_ray_rigid/assets" autolimits="true" />
   <option timestep="0.001" integrator="implicitfast" solver="Newton" iterations="50" tolerance="1e-8" gravity="0 0 -9.81" />
 
   <asset>

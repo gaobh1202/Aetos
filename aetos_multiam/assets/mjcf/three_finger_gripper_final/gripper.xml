@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mujoco model="three_finger_fin_ray">
-  <compiler angle="radian" meshdir="assets" autolimits="true" />
+  <compiler angle="radian" meshdir="../../meshes/mjcf/three_finger_gripper_final/assets" autolimits="true" />
   <option timestep="5e-05" integrator="implicitfast" solver="Newton" iterations="50" tolerance="1e-8" gravity="0 0 -9.81" jacobian="sparse" cone="elliptic" />
   <default>
     <joint damping="0.02" stiffness="200.0" springref="0" limited="true" range="-0.0005 0.0005" margin=".00002" solreflimit=".001 1" solimplimit=".999 .9999 .0001" />

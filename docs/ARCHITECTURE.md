@@ -61,6 +61,38 @@ run `reset()` + 20 steps of `step()` with zero actions with no errors --
 the first time *any* multi-body composition in this project has actually
 been run, not just authored.
 
+**Follow-up -- the container-offset bug (2026-10-30).** The sibling fix
+above computes the child's correct *absolute world* pose, but that pose was
+then passed straight to `prim_utils.create_prim(child_prim_path, ...,
+translation=, orientation=)`, where `child_prim_path` is a child of
+`parent_prim_path` -- the drone instance's own top-level container, which
+sits at the drone's *spawn* position, not the world origin.
+`create_prim`'s `translation`/`orientation` author a LOCAL xformOp relative
+to the prim's actual USD parent, not an absolute world pose, so every mount
+was silently double-applying the parent's own spawn offset. Invisible for
+every manipulator mount before this (`translation=(0,0,0)`, double-counted
+zero is still zero) until a gripper mount needed a non-zero offset and
+rendered ~2x too high instead of near the drone. Root-caused via
+`scripts/debug_airbot_mount.py`: the authored mount joint's `localPos0` held
+the *absolute* world target instead of a relative offset, and the parent
+container's own world pose turned out non-identity (sitting at the drone's
+spawn height). Fixed by converting the absolute world transform into one
+relative to `parent_prim_path`'s own current world transform before calling
+`create_prim` -- see `mount_child`'s own docstring in `usd_compose.py` for
+the exact `container_world`/`local_transform` derivation. **Affects every
+future manipulator/gripper mount with a non-zero offset** -- check this
+first if a mounted part ever looks mispositioned again.
+
+Also added (same follow-up): a `joint_type`/`joint_axis`/`joint_lower_limit`/
+`joint_upper_limit` parameter set on `mount_child`, so a gripper can take
+over an existing hinge DOF at its mount point (`"Revolute"`) instead of
+always welding rigidly (`"Fixed"`, still the default) -- see the Inspire
+Hand section below for why. And a joint-rename step (`createJoint`'s default
+bare name, e.g. `"FixedJoint"`, collides across different mounts under
+different parents and the PhysX tensor API rejects the duplicate bare name
+even though full paths differ) -- renamed to `f"{child_mount_name}_MountJoint"`,
+unique per mount and type-agnostic.
+
 ## Registry / "robot and controller type" config
 
 One `AerialManipulatorCfg` (`drone_type`, `manipulator_type`, `gripper_type`,
@@ -206,7 +238,8 @@ only `hummingbird340_dynamixel2r_bottom` is MuJoCo-only, blocked by its
 
 | Preset | Drone | Manipulator | Gripper | Status |
 |---|---|---|---|---|
-| `amov950_airbot_bottom` | `amov_950` | `airbot_play` | bundled | **Spawnable in Isaac Sim** (used by `ButtonGrasp`) **and now has a real MJCF too** (`assets/mjcf/amov950_airbot_final/`, copied from raids-am-simulator). |
+| `amov950_airbot_bottom` | `amov_950` | `airbot_gripper` | bundled | **Spawnable in Isaac Sim** (used by `ButtonGrasp`) **and now has a real MJCF too** (`assets/mjcf/amov950_airbot_final/`, copied from raids-am-simulator). |
+| `amov950_airbot_dexterous_bottom` | `amov_950` | `airbot_dexterous` | `inspire_hand_right` | Same arm, link6 removed, Inspire Hand mounted on link5 via a Revolute joint -- see "Inspire Hand" below. Spawnable in Isaac Sim (`scripts/show_airbot_variants.py`). |
 | `hummingbird340_dynamixel2r_bottom` | `omnidrones_340` | `dynamixel_2r` | `three_finger_softgripper` | Real MJCF source (`assets/mjcf/hummingbird_2r_three_finger_50pct/`), validated hover/joint/gripper tests in MuJoCo. Gripper fingers are MuJoCo `flexcomp` soft bodies -- no PhysX equivalent, needs a rigid approximation. |
 | `iris650_soarm100_bottom` | `iris_650` | `so_arm100` | bundled (`Jaw` joint) | Real MJCF source (`assets/mjcf/iris_650_so_arm100_final/`); rotor physics is fully specified (`assets/usd/iris_650.yaml`, exact KF/KM/max-speed from the source bundle) but no scaled USD body exists yet. |
 | `uaquad600_ambencharm_top` | `ambench_600` | `ambench_quad_arm` | bundled | **Real Isaac Sim USD** (`quad_scorpion.usd`, AM-bench is itself Isaac-Sim-based -- see "AM-bench's own USD assets" below). `ambench_quad_arm` is pre-baked into that same USD (`bundled_into_drone=True`), not a separate mount. Only remaining gap: AM-bench's own rotor model has no KF/KM to port -- that pair would need to be chosen, not read off. |
@@ -221,7 +254,7 @@ bundle doc, since that combo predates the downloaded bundles).
 | Component | Status |
 |---|---|
 | `amov_950` drone | **Real**, used by `ButtonGrasp`. Bare 950mm AmovDrone body, `omni_drones/robots/assets/usd/amov_drone.usd`. |
-| `airbot_play` manipulator+gripper | **Real**, used by `ButtonGrasp`. Self-contained USD at `/home/benhua/DISCOVERSE/airbot_play_usd/my_airbot_play_v3_gripper/`. Joint/body names (`arm_base`, `link1..link6`, `joint1..joint6`, `endleft`/`endright`) are sourced from the sibling MJCF, **not** a direct USD read -- no working USD Python bindings were available in the sandbox this was built in. **Verify these against the live stage before relying on them.** |
+| `airbot_gripper`/`airbot_dexterous` manipulators | **Real**, live-verified in Isaac Sim (not just authored). Two variants now, vendored locally at `assets/usd/airbot_play/` (not the original DISCOVERSE checkout): `airbot_gripper` keeps the full `arm_base->link1..link6` chain with its stock 2-finger gripper (`left`/`right` off `link6`, `endleft`/`endright` joints -- their shared, wrong `localRot0` was found and fixed, both fingers now read back as a recognizable parallel-jaw pair). `airbot_dexterous` has the whole of `link6` (and the now-dangling `link5/joint6`) removed -- `link5` becomes the eef, and the Inspire Hand mounts there via a Revolute joint taking over the old `joint6` DOF directly (see "Inspire Hand" below). Both copies also had a stray `root_joint->world->fixed_base->arm_base` world-anchor chain removed (standalone-testing scaffolding, same pattern the Inspire Hand asset had independently). `MOUNT_TRANSLATION`/`MOUNT_ORIENTATION` (drone `base_link`->`arm_base`) are read off a known-good reference combo, `/home/benhua/OmniDrones/amov_drone_arm_1.usd` (180 deg about local X). |
 | `Button` task object | **Real**, AM-bench's own `push_button.usd`, reused as-is (plain USD, simulator-agnostic). `pressed_threshold = 0.004` m is AM-bench's own calibrated value. |
 | `omnidrones_430` (Firefly) | Real asset + physics, registered, **not exercised by any task yet**. |
 | `dynamixel_2r` | Real MJCF source now (`assets/mjcf/hummingbird_2r_three_finger_50pct/robot.xml`): mount `arm_carrier` -> `base_2` -> `first_segment` (joint `R1`, +/-1.9199 rad) -> `second_segment` (joint `R2`, +/-2.6180 rad) -> `tool_adapter`. These are the *50%-scaled* combo's numbers, not the full-size arm's. Still no USD. |
@@ -391,6 +424,84 @@ consistent), live-reverified after: both hands still 12-DOF, zero
 unresolved references. The Kuka variant's `hand_base` has no analogous
 issue (it's that model's own real palm link, not borrowed wrist hardware
 from a different robot) -- left untouched.
+
+**Follow-up (2026-10-30) -- a third, cleaner variant actually mounted onto an
+arm: `inspire_hand_right`.** A *complete* official Isaac Sim tutorial
+download (`inspire_hand.usda` + `payloads/` + `Materials/`, unlike an
+earlier single-file copy missing those, which left `Could not open asset
+@payloads/...@` warnings) was vendored at
+`assets/usd/inspire_hand/inspire_hand_right/`. Read directly off the live
+USD (`root_body_name="r_base_link"`): 12 independently-actuated
+`PhysicsRevoluteJoint`s (`thumb_1..4`, `{index,middle,ring,little}_{1,2}`),
+every fingertip's last segment plus the palm shell welded on via
+`PhysicsFixedJoint`. Had its own, different scaffolding to clean up (not the
+G1 extraction's wrist-flange problem): a `Physics/FixedJoint` welding
+`r_base_link` to the world frame (`SetActive(False)`, not `RemovePrim`,
+since it's defined inside a payload file, not the top sheet) and a stray
+`/inspire_hand/PhysicsScene` prim (`RemovePrim`, in the root layer --
+caused `Physics scenes stepping is not the same` once referenced into a
+scene with its own `/physicsScene`). `inspire_hand_g1dfq_right` retired
+(file + extraction call removed) as redundant once this arrived;
+`inspire_hand_g1dfq_left` kept, no clean left-hand replacement exists yet.
+
+Mounting this onto `airbot_dexterous`'s `link5` (taking over the old
+`link6`/`joint6` wrist DOF, via `mount_child`'s new `joint_type="Revolute"`
+support) took four corrections, each found by booting Isaac Sim and
+measuring the live scene rather than reasoning from the USD on paper --
+**every one of these corrections came from real numbers read off a live
+stage, not re-derivation**, worth remembering before trusting any future
+mount-pose derivation done purely on paper:
+
+1. First pass bolted the hand onto `custom_end_link`, a generic tool-swap
+   frame still hanging off a vestigial `link6` -- wrong granularity; the
+   user wanted the *whole* `link6` gone and the hand taking over `link5`'s
+   own `joint6` hinge directly.
+2. Reusing `joint6`'s own authored `localPos0`/`localRot0` plus a spin about
+   the hand's own *local* Z (misreading "绕z轴旋转180度" as the hinge axis)
+   put the fingers pointing backward, at `link5`.
+3. Recomposing that same spin about *world* Z instead (fixing point 2)
+   uncovered a real `pxr` API trap: `Gf.Matrix3d(rotation) * Gf.Vec3d(v)`
+   and `Gf.Matrix4d().SetRotate(rotation).TransformDir(v)` give **opposite**
+   rotations for the same `Gf.Rotation` (verified with a plain 90-deg-about-Z
+   test) -- every earlier mount derivation in this project happened to use
+   the `Matrix4d`/`TransformDir` form, this was the first place `Matrix3d`
+   crept in and silently flipped a sign. Fixed the finger direction, but
+   left a ~0.15m visible gap and a palm-up orientation.
+4. **Final fix**, both issues root-caused via live `UsdGeom.BBoxCache`
+   measurement + axis-mapping checks (`scripts/debug_hand_gap.py`): the gap
+   existed because `joint6`'s own offset assumed a part shaped like the old
+   `link6`, whose mesh physically overlaps backward into `link5` -- the
+   Inspire Hand's `r_base_link` mesh has no such overlap, so reusing that
+   exact offset left `r_base_link`'s origin ~0.15m past `link5`'s own mesh
+   edge (measured: `link5` ends at world x=0.1304, `r_base_link`'s origin
+   sat at x=0.282). Reduced the translation so `r_base_link`'s origin lands
+   exactly on `link5`'s mesh edge. Palm-up was fixed by identifying the
+   hand's local +X as its palm-normal axis (each fingertip's pad sits
+   offset toward local +X relative to its tip, in the standalone asset),
+   confirming live it mapped to world +Z, then composing an *additional*
+   180 degrees about world X (the arm's own reach axis post-mount) on top
+   of step 3's rotation -- verified local Z (fingers) unaffected (still
+   world +X) while local X (palm) now maps to world -Z (down).
+
+Final `inspire_hand_right` mount: `mount_translation=(0.0, 0.0848, 0.0)`,
+`mount_orientation=(0.5, -0.5, -0.5, -0.5)` (w,x,y,z), `mount_joint_type=
+"Revolute"`, axis Z, limits ±172.86135864257812 degrees (`joint6`'s own
+authored range). Live-verified via `scripts/show_airbot_variants.py`: the
+hand connects flush to `link5` through a visible connector collar (no gap),
+fingers extend away from the arm, palm faces down.
+
+## Model assets: netdisk, not git (2026-10-30)
+
+Binary model files (USD, MJCF mesh geometry, demo videos) are no longer
+committed to this repo's GitHub remote -- distributed via netdisk instead,
+downloaded into place before use. See `docs/ASSETS.md` for the full path
+table and the download link. The repo's git history was rewritten
+(`git filter-repo --invert-paths`) to strip every one of these files from
+every existing commit, and the rewritten history force-pushed -- GitHub no
+longer has these bytes in any commit; `check_asset()`'s
+`AssetNotAvailableError` (`aetos_multiam/assets.py`) points at
+`docs/ASSETS.md` when a real (not-a-placeholder) asset is simply missing
+locally.
 
 ## Known open risks (flagged, not resolved, in this pass)
 

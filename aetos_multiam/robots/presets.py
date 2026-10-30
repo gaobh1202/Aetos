@@ -29,8 +29,16 @@ PRESETS: Dict[str, AerialManipulatorCfg] = {
     # the arm hanging below the body rather than sitting on top.
     "amov950_airbot_bottom": AerialManipulatorCfg(
         drone_type="amov_950",
-        manipulator_type="airbot_play",
-        gripper_type=None,  # bundled into airbot_play's own USD
+        manipulator_type="airbot_gripper",
+        gripper_type=None,  # bundled into airbot_gripper's own USD
+    ),
+    # Same drone + arm, but ending in the Inspire Hand instead of the stock
+    # 2-finger gripper -- see manipulators/airbot_play.py and
+    # grippers/inspire_hand.py for how the two are mounted together.
+    "amov950_airbot_dexterous_bottom": AerialManipulatorCfg(
+        drone_type="amov_950",
+        manipulator_type="airbot_dexterous",
+        gripper_type=None,  # default_gripper="inspire_hand_right" on the manipulator spec
     ),
     # Mount: bottom. Source: hummingbird_2r_three_finger_50pct/README.md --
     # "下挂机械臂" (arm hangs below).

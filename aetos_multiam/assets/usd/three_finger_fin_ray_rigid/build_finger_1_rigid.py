@@ -49,6 +49,8 @@ Not yet done: finger_2/finger_3, full 3-finger reassembly, mounting this
 under the real gripper housing (gripper_base) instead of a standalone world
 anchor.
 """
+import os
+
 import numpy as np
 
 
@@ -208,7 +210,11 @@ if __name__ == "__main__":
     print("DELTA (loaded - rest):", loaded_pos - rest_pos, flush=True)
 
     stage.SetDefaultPrim(stage.GetPrimAtPath(root))
-    out_path = os.path.join(os.path.dirname(__file__), "finger_1_rigid.usd")
+    out_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "meshes", "usd",
+        "three_finger_fin_ray_rigid", "finger_1_rigid.usd",
+    )
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     stage.GetRootLayer().Export(out_path)
     print("Exported USD to", out_path, flush=True)
 
