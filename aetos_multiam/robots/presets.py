@@ -45,7 +45,7 @@ PRESETS: Dict[str, AerialManipulatorCfg] = {
     "hummingbird340_dynamixel2r_bottom": AerialManipulatorCfg(
         drone_type="omnidrones_340",
         manipulator_type="dynamixel_2r",
-        gripper_type="three_finger_softgripper",
+        gripper_type=None,  # default_gripper="three_finger_gripper" on the manipulator spec
     ),
     # Mount: bottom. Source: iris_650_so_arm100_final/README.md -- "刚性
     # 安装在中央机身下方" (rigidly mounted below the central body).

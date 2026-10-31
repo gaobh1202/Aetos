@@ -232,15 +232,15 @@ process without calling `.close()` on each before making the next leaves
 every render after the first blank/black**, no error raised (an exhausted
 GL context, not a camera/geometry bug -- cost a detour checking body
 positions against `<statistic center/extent>` before finding the real
-cause). 4 of these 5 also have a real or partial Isaac Sim USD path today;
-only `hummingbird340_dynamixel2r_bottom` is MuJoCo-only, blocked by its
-`flexcomp` soft-body gripper having no PhysX equivalent.
+cause). All 5 now have a real or partial Isaac Sim USD path;
+`hummingbird340_dynamixel2r_bottom` is fully spawnable as of 2026-10-30
+(real arm import + rigid gripper -- see "Three-finger gripper" below).
 
 | Preset | Drone | Manipulator | Gripper | Status |
 |---|---|---|---|---|
 | `amov950_airbot_bottom` | `amov_950` | `airbot_gripper` | bundled | **Spawnable in Isaac Sim** (used by `ButtonGrasp`) **and now has a real MJCF too** (`assets/mjcf/amov950_airbot_final/`, copied from raids-am-simulator). |
 | `amov950_airbot_dexterous_bottom` | `amov_950` | `airbot_dexterous` | `inspire_hand_right` | Same arm, link6 removed, Inspire Hand mounted on link5 via a Revolute joint -- see "Inspire Hand" below. Spawnable in Isaac Sim (`scripts/show_airbot_variants.py`). |
-| `hummingbird340_dynamixel2r_bottom` | `omnidrones_340` | `dynamixel_2r` | `three_finger_softgripper` | Real MJCF source (`assets/mjcf/hummingbird_2r_three_finger_50pct/`), validated hover/joint/gripper tests in MuJoCo. Gripper fingers are MuJoCo `flexcomp` soft bodies -- no PhysX equivalent, needs a rigid approximation. |
+| `hummingbird340_dynamixel2r_bottom` | `omnidrones_340` | `dynamixel_2r` | `three_finger_gripper` | **Spawnable in Isaac Sim** (`scripts/show_hummingbird_dynamixel.py`). Drone is OmniDrones' own real `hummingbird.usd`; arm is a real USD imported via `omni.importer.mjcf`; gripper is the rigid (non-deformable) approximation -- see the "Three-finger gripper" section below for all three. |
 | `iris650_soarm100_bottom` | `iris_650` | `so_arm100` | bundled (`Jaw` joint) | Real MJCF source (`assets/mjcf/iris_650_so_arm100_final/`); rotor physics is fully specified (`assets/usd/iris_650.yaml`, exact KF/KM/max-speed from the source bundle) but no scaled USD body exists yet. |
 | `uaquad600_ambencharm_top` | `ambench_600` | `ambench_quad_arm` | bundled | **Real Isaac Sim USD** (`quad_scorpion.usd`, AM-bench is itself Isaac-Sim-based -- see "AM-bench's own USD assets" below). `ambench_quad_arm` is pre-baked into that same USD (`bundled_into_drone=True`), not a separate mount. Only remaining gap: AM-bench's own rotor model has no KF/KM to port -- that pair would need to be chosen, not read off. |
 | `fahexa750_ambencharm_top` | `ambench_750` | `ambench_hexa_arm` | bundled | Same status as the quad preset (`hexa_scorpion.usd`); tilt-rotor hexacopter. |
@@ -257,7 +257,7 @@ bundle doc, since that combo predates the downloaded bundles).
 | `airbot_gripper`/`airbot_dexterous` manipulators | **Real**, live-verified in Isaac Sim (not just authored). Two variants now, vendored locally at `assets/usd/airbot_play/` (not the original DISCOVERSE checkout): `airbot_gripper` keeps the full `arm_base->link1..link6` chain with its stock 2-finger gripper (`left`/`right` off `link6`, `endleft`/`endright` joints -- their shared, wrong `localRot0` was found and fixed, both fingers now read back as a recognizable parallel-jaw pair). `airbot_dexterous` has the whole of `link6` (and the now-dangling `link5/joint6`) removed -- `link5` becomes the eef, and the Inspire Hand mounts there via a Revolute joint taking over the old `joint6` DOF directly (see "Inspire Hand" below). Both copies also had a stray `root_joint->world->fixed_base->arm_base` world-anchor chain removed (standalone-testing scaffolding, same pattern the Inspire Hand asset had independently). `MOUNT_TRANSLATION`/`MOUNT_ORIENTATION` (drone `base_link`->`arm_base`) are read off a known-good reference combo, `/home/benhua/OmniDrones/amov_drone_arm_1.usd` (180 deg about local X). |
 | `Button` task object | **Real**, AM-bench's own `push_button.usd`, reused as-is (plain USD, simulator-agnostic). `pressed_threshold = 0.004` m is AM-bench's own calibrated value. |
 | `omnidrones_430` (Firefly) | Real asset + physics, registered, **not exercised by any task yet**. |
-| `dynamixel_2r` | Real MJCF source now (`assets/mjcf/hummingbird_2r_three_finger_50pct/robot.xml`): mount `arm_carrier` -> `base_2` -> `first_segment` (joint `R1`, +/-1.9199 rad) -> `second_segment` (joint `R2`, +/-2.6180 rad) -> `tool_adapter`. These are the *50%-scaled* combo's numbers, not the full-size arm's. Still no USD. |
+| `dynamixel_2r` | **Real USD**, imported via `omni.importer.mjcf` -- see "Three-finger gripper" section below. Mount `arm_carrier` -> `base_2` -> `first_segment` (joint `R1`, +/-110 deg) -> `second_segment` (joint `R2`, +/-150 deg) -> `tool_adapter`. These are the *50%-scaled* combo's numbers, not the full-size arm's. |
 | `so_arm100` | Real MJCF source (`assets/mjcf/iris_650_so_arm100_final/robot.xml`), full original size: `Base` -> `Rotation`/`Pitch`/`Elbow`/`Wrist_Pitch`/`Wrist_Roll` -> gripper joint `Jaw`. Servo params (kp=50, dampratio=1, armature=0.1, frictionloss=0.1, +/-3.5 N*m) preserved from source. This is what "lerobot standard openarm" turned out to actually be -- lerobot's SO-ARM100, not a separately-named "OpenArm" model. Still no USD. |
 | `ambench_quad_arm`, `ambench_hexa_arm` | **Real**, pre-baked into `ambench_600`/`ambench_750`'s own Isaac Sim USD (`bundled_into_drone=True` -- see below) -- not a separate asset to extract. These are **two different arms** despite both being "4 rotational + 2 gripper slide": quad uses yaw/pitch/pitch/pitch axes, hexa uses pitch/pitch/pitch/roll. |
 
@@ -280,7 +280,7 @@ missing: a `RotorGroup`-compatible KF/KM yaml). The MJCF viewer exports
 under `assets/mjcf/ambench_*` are kept as a secondary, cross-checked
 reference for joint names/transforms, not the primary source any more.
 | `inspire_hand` | **No asset found locally.** Registered as a data spec with a placeholder path; raises `AssetNotAvailableError` if actually spawned. |
-| `three_finger_softgripper` | Source MJCF uses MuJoCo `flexcomp` soft fingers, which have **no PhysX/Isaac Sim equivalent** -- needs a rigid-approximation USD authored first. Kinematics (one driven hinge + two mimic joints) are already captured correctly from the source `<equality>` block, confirmed present in both the original source and the new 50%-scale combo. |
+| `three_finger_gripper` | **Real, rigid USD** -- see "Three-finger gripper" section below for the full history (an abandoned PhysX Deformable attempt, then this rigid approximation). Each finger is one rigid body (mount bracket + blade), independently driven -- no MuJoCo `<equality>` mimic constraints carried over (each of the 3 joints gets its own drive instead). |
 
 ### Searched for ready-made Isaac Sim assets (SO-ARM100, dynamixel 2R)
 
@@ -350,12 +350,106 @@ path returned a flat gray image for this scene with no error, so this
 project uses the viewport-capture path instead; see DERIVATION.md section
 9 for what else didn't work before this did).
 
-Not yet done: the same treatment for `finger_2`/`finger_3` in either
-format, reassembling all three into the full gripper (reusing the
-original's `finger_2_synchronized`/`finger_3_synchronized` equality
-constraints, which only ever synced the *actuated* base hinges, not the
-flex joints), and mounting this under a real gripper housing instead of a
-standalone world anchor.
+Not yet done (superseded, see below): the same treatment for `finger_2`/
+`finger_3` in either format, reassembling all three into the full gripper
+via the original's `finger_2_synchronized`/`finger_3_synchronized`
+equality constraints.
+
+## Three-finger gripper + dynamixel_2r arm: real USD, rigid not soft (2026-10-30)
+
+**First, a real PhysX Deformable Body attempt was made in a separate
+sandbox project (`~/Downloads/three_finger_gripper_isaac41`), targeting
+Isaac Sim 4.1's legacy (pre-6.x-unified) deformable API directly, not the
+3-rigid-segment approximation above.** Offline mesh/tet validation (surface
+divergence-theorem volume check, 2-manifold boundary check, 120-degree
+symmetry check) all passed cleanly. Getting it to actually *run* found and
+fixed 3 real bugs the author's own `README_中文.md` admitted were untested
+(`Path + str` TypeError on export; `SimulationContext` silently overwriting
+the scene's `enableGPUDynamics`/`broadphaseType` back to
+False/"MBP" because no `device=` was passed, which PhysX deformables
+require; `backend='numpy'` being incompatible with the resulting GPU
+pipeline). Once genuinely running, the attachment pinning the deformable's
+base to its kinematically-driven mount showed a real, reproducible bug:
+Kabsch-fitting the live `simulationPoints` back to rest showed **zero
+residual** (i.e. perfectly rigid motion, not real elastic deformation) with
+**zero implied rotation**, while the actual displacement was large and
+completely decoupled from the mount's own commanded rotation -- confirmed
+independent of gravity (identical result with gravity on vs off). Two
+follow-up hypotheses (`collision_simplification=False` -- caused a hard
+CUDA crash; explicit attachment stiffness -- `PhysxPhysicsAttachment`'s
+schema has no such attribute to tune at all) both dead-ended, and a third
+(switching the mount to joint-driven `--mode dynamic` instead of
+kinematic-xformOp-driven) hit an unrelated, more basic problem: the
+joint's own drive produced **zero actual rotation even at ~700x boosted
+stiffness/force**. **Abandoned per explicit user direction** in favor of a
+rigid structural match instead -- not a fundamental Isaac Sim limitation
+necessarily, but past the point of productive black-box debugging here.
+
+**The rigid replacement**, built directly in this project (not the sandbox
+one): same housing/mount/finger-blade *geometry* (the flexcomp's own
+surface mesh, extracted the same validated way), each finger now ONE rigid
+body (mount bracket + blade combined, since nothing needs to flex relative
+to the mount anymore) driven by a `PhysicsRevoluteJoint` using the
+original hinge's own pivot/axis/limits -- no deformable schema, no
+attachment, no GPU-dynamics requirement. Converter:
+`assets/mjcf/hummingbird_2r_three_finger_50pct/convert_gripper_rigid.py`,
+reading this bundle's own 50%-scale `three_finger_gripper_50pct.xml`
+(split out of `robot.xml` by `split_combo.py` in the same directory --
+housing/mount STL files there are confirmed (sha256) identical to the
+original full-scale source, just scaled 0.5x via the MJCF's own `<mesh
+scale="0.5 0.5 0.5">`, applied explicitly since `extract()`-style STL
+reading ignores that attribute). Output: `GripperSpec` `three_finger_gripper`
+in `robots/grippers/three_finger_gripper.py` (renamed from
+`three_finger_softgripper.py` -- it isn't soft anymore). **Found one real
+authoring bug the hard way**: the gripper's `Housing` root body was
+initially authored `kinematicEnabled=true` (reasonable in isolation, where
+it's the articulation's own root) -- but once `mount_child()` welds it onto
+the arm's `tool_adapter` with a `FixedJoint`, it joins that SAME merged
+drone+arm+gripper articulation, and PhysX rejects any kinematic body inside
+an articulation (the exact same class of bug this project's fin-ray-finger
+work above already found and fixed once). Fixed by making `Housing` a
+normal dynamic `RigidBody` -- the weld joint holds it fixed just fine,
+gravity becomes an internal constraint load, not a fall.
+
+**The arm**: `dynamixel_2r_arm.xml` (same `split_combo.py`, the
+`arm_carrier` subtree with `gripper_base` and everything under it removed,
+`tool_adapter` kept as an empty mount point) imported via Isaac Sim's own
+`omni.importer.mjcf` (`import_arm_usd.py`, same directory) -- confirmed
+this bundle's arm portion is plain rigid links + 2 hinges with no
+flexcomp/equality (both only existed in the part that got removed), so
+it's exactly the case that importer handles cleanly. One real importer-
+compatibility bug found: **a `<mesh file="..." />` with no explicit
+`name=`** (valid MJCF -- real MuJoCo derives the name from the file stem --
+confirmed by `mujoco.MjModel.from_xml_path` loading the same file
+successfully) **segfaults Isaac's own importer**, which doesn't do that
+implicit-naming fallback; fixed by authoring explicit `name=` on every kept
+`<mesh>` in `split_combo.py`'s output. Post-import cleanup (same vendoring
+pattern used throughout this project): removed a stray world-anchor
+`PhysicsFixedJoint` and a redundant empty `worldBody`
+`PhysicsArticulationRootAPI` holder, both `set_fix_base(True)`
+standalone-testing scaffolding; set `R1`/`R2` drive stiffness=50 (from the
+source MJCF's own `kp=50`) and damping=5.0 (an approximation -- the
+source's `dampratio=1` has no simple closed form without replicating
+MuJoCo's own per-joint-inertia calculation). `root_body_name`/
+`eef_body_name` on the `ManipulatorSpec` carry an extra `arm_carrier/`
+segment (`"arm_carrier/arm_carrier"`, `"arm_carrier/tool_adapter"`) because
+the importer always nests the MJCF's own root body one level under
+whatever wrapper `prim_path` it's given, confirmed not avoidable by
+choosing a different wrapper name -- a relative two-segment path works
+fine for `mount_child`, just worth knowing if it ever looks like a typo.
+
+Both mount offsets came out to pure identity/small-translation reads
+straight off the source MJCF (`arm_carrier` has no `pos`/`quat` relative to
+the drone's own `base_link`; `tool_adapter` -> `gripper_base` is a
+translation-only `(0, 0, 0.008)`) -- no derivation needed, unlike the
+airbot_play/Inspire Hand sagas earlier in this project.
+
+Live-verified end to end: `scripts/show_hummingbird_dynamixel.py` spawns
+`hummingbird340_dynamixel2r_bottom` (real OmniDrones Hummingbird + real
+imported arm + real rigid gripper, all three welded via `mount_child`) with
+zero errors; screenshots show the arm hanging correctly off the drone belly
+and the gripper's three fin-ray-shaped fingers at the end, matching the
+source geometry's proportions.
 
 ## Inspire Hand (two real variants, extracted from larger public scenes)
 

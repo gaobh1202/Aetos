@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="iris_650_drone">
+  <compiler angle="radian" meshdir="../../meshes/mjcf/iris_650_so_arm100_final/assets" autolimits="true" />
+  <option cone="elliptic" impratio="10" timestep=".001" integrator="implicitfast" gravity="0 0 -9.81" />
+  <asset>
+    <mesh name="iris_frame_mesh" file="drone/iris_frame.obj" />
+    <mesh name="rotor_0_mesh" file="drone/rotor_0.obj" />
+    <mesh name="rotor_1_mesh" file="drone/rotor_1.obj" />
+    <mesh name="rotor_2_mesh" file="drone/rotor_2.obj" />
+    <mesh name="rotor_3_mesh" file="drone/rotor_3.obj" />
+  </asset>
+  <worldbody>
+    <body name="iris_650" pos="0 0 1.5">
+      <freejoint name="drone_free" />
+      <inertial pos="0 0 0" mass="3.417799632196918" diaginertia="0.137127879034 0.181066351622 0.317876036425" />
+      <geom name="iris_frame_visual" type="mesh" mesh="iris_frame_mesh" group="2" contype="0" conaffinity="0" rgba=".18 .25 .32 1" />
+      <geom name="iris_collision" type="box" size="0.309233338278 0.309233338278 0.0723737600224" group="3" mass="0" rgba=".18 .25 .32 1" />
+      <site name="drone_imu" size=".004" group="4" />
+      <body name="rotor_0" pos="0.171065244688 -0.289495038521 0.0302653906137">
+        <inertial pos="0 0 0" mass="0.011392665186010478" diaginertia="3.84677377951e-06 0.000164539989782 0.000168090860825" />
+        <geom type="mesh" mesh="rotor_0_mesh" group="2" contype="0" conaffinity="0" rgba=".16 .17 .19 1" />
+        <geom name="rotor_0_collision" type="cylinder" size="0.131588654586 0.00328971636466" mass="0" group="3" rgba=".2 .2 .2 .2" />
+        <site name="rotor_0_thrust" size=".005" group="4" rgba="0 .8 .8 1" />
+      </body>
+      <body name="rotor_1" pos="-0.171065244688 0.263177313094 0.0302653906137">
+        <inertial pos="0 0 0" mass="0.011392665186010478" diaginertia="3.84677377951e-06 0.000164539989782 0.000168090860825" />
+        <geom type="mesh" mesh="rotor_1_mesh" group="2" contype="0" conaffinity="0" rgba=".16 .17 .19 1" />
+        <geom name="rotor_1_collision" type="cylinder" size="0.131588654586 0.00328971636466" mass="0" group="3" rgba=".2 .2 .2 .2" />
+        <site name="rotor_1_thrust" size=".005" group="4" rgba="0 .8 .8 1" />
+      </body>
+      <body name="rotor_2" pos="0.171065244688 0.289495038521 0.0302653906137">
+        <inertial pos="0 0 0" mass="0.011392665186010478" diaginertia="3.84677377951e-06 0.000164539989782 0.000168090860825" />
+        <geom type="mesh" mesh="rotor_2_mesh" group="2" contype="0" conaffinity="0" rgba=".16 .17 .19 1" />
+        <geom name="rotor_2_collision" type="cylinder" size="0.131588654586 0.00328971636466" mass="0" group="3" rgba=".2 .2 .2 .2" />
+        <site name="rotor_2_thrust" size=".005" group="4" rgba="0 .8 .8 1" />
+      </body>
+      <body name="rotor_3" pos="-0.171065244688 -0.263177313094 0.0302653906137">
+        <inertial pos="0 0 0" mass="0.011392665186010478" diaginertia="3.84677377951e-06 0.000164539989782 0.000168090860825" />
+        <geom type="mesh" mesh="rotor_3_mesh" group="2" contype="0" conaffinity="0" rgba=".16 .17 .19 1" />
+        <geom name="rotor_3_collision" type="cylinder" size="0.131588654586 0.00328971636466" mass="0" group="3" rgba=".2 .2 .2 .2" />
+        <site name="rotor_3_thrust" size=".005" group="4" rgba="0 .8 .8 1" />
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

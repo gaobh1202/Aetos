@@ -13,6 +13,7 @@ import logging
 from typing import List, Optional, Sequence
 
 import torch
+from omni.isaac.core.simulation_context import SimulationContext
 
 from aetos_multiam.utils import mount_child
 from .drones import get_drone_spec
@@ -113,6 +114,22 @@ class AerialManipulatorBase:
     def initialize(self, prim_paths_expr: str = None, track_contact_forces: bool = False):
         self.drone.initialize(prim_paths_expr=prim_paths_expr, track_contact_forces=track_contact_forces)
         self._resolve_joint_indices()
+
+        if self.manipulator_spec is not None:
+            # The *first* sim.reset() after mount_child() welds a new branch
+            # (arm [+ gripper]) onto the drone's existing articulation --
+            # PhysX's initial rest-pose solve for that merged articulation is
+            # wrong by exactly the welded branch's own internal joint offset
+            # (confirmed empirically: an arm with a -0.368m fixed-joint
+            # offset from its mount point snaps the ENTIRE rigid group,
+            # drone included, by +0.368m/some axis rotation on the very
+            # first physics step, then holds perfectly still forever after
+            # -- a one-time mis-solve, not a real dynamic instability).
+            # A SECOND reset, after the articulation view already exists,
+            # re-solves the same rest pose correctly and it then never
+            # drifts again. The existing ArticulationView stays valid across
+            # this extra reset, so initialize() does not need to re-run.
+            SimulationContext.instance().reset()
 
     def _resolve_joint_indices(self):
         """Look up arm/gripper DOF indices by name within the drone's merged articulation.
