@@ -1,0 +1,4 @@
+output: iris650_soarm100_bottom.usd
+robots:
+  - name: iris650_soarm100_bottom
+    preset: iris650_soarm100_bottom

@@ -1,0 +1,4 @@
+output: amov_airbot_gripper.usd
+robots:
+  - name: amov_airbot_gripper
+    preset: amov950_airbot_bottom

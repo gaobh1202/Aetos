@@ -1,0 +1,10 @@
+# Same two-robots-in-one-file bundle export_amov_airbot_usd.py used to
+# produce -- gripper and dexterous variants side by side.
+output: amov_airbot_combined.usd
+robots:
+  - name: amov_airbot_gripper
+    preset: amov950_airbot_bottom
+    translation: [-1.25, 0.0, 0.0]
+  - name: amov_airbot_dexterous
+    preset: amov950_airbot_dexterous_bottom
+    translation: [1.25, 0.0, 0.0]

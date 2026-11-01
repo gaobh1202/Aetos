@@ -40,7 +40,7 @@ aetos_multiam/assets/
         inspire_hand_candidates/       raw extraction sources (g1_hands.usd, kuka_w_hand.usd)
       so101_follower/                  so101_follower.usd
       three_finger_fin_ray_rigid/      finger_1_rigid.usd + finger_1_bend_demo_isaacsim.mp4
-      combined/                        amov_airbot_combined.usd (see scripts/export_amov_airbot_usd.py)
+      combined/                        amov_airbot_combined.usd + others (see scripts/export_robot_usd.py)
     mjcf/
       ambench_fa_hexa_750_final/assets/
       ambench_quad_600_top_arm_final/assets/
@@ -71,18 +71,27 @@ hand-calibrated rotor-physics config, not a mesh/USD binary -- it stays
 tracked in git at its own path, referenced directly via `ASSET_PATH`
 (not `USD_PATH`) in `robots/drones/iris_650.py`.
 
-## Regenerating the combined file
+## Regenerating the combined files
 
-`aetos_multiam/assets/meshes/usd/combined/amov_airbot_combined.usd` isn't
-hand-authored -- it's produced by spawning both `amov950_airbot_bottom` and
-`amov950_airbot_dexterous_bottom` presets and flattening the stage:
+Every file under `combined/` except `uaquad600_ambencharm_top.usd` isn't
+hand-authored -- it's produced by spawning one or more presets (or, for
+drones with no RotorGroup-compatible param yaml yet, referencing their raw
+source USD directly) and flattening the stage, driven by a YAML config:
 
 ```bash
-python scripts/export_amov_airbot_usd.py
+python scripts/export_robot_usd.py --config scripts/export_configs/amov_airbot_combined.yaml
 ```
 
-Re-run it any time `airbot_play.py`'s mount offsets or `inspire_hand.py`'s
-spec change, then re-upload the regenerated file to Google Drive.
+One config per output file under `scripts/export_configs/` -- see
+`scripts/export_robot_usd.py`'s own module docstring for the config format.
+Re-run the relevant one any time a mount offset or manipulator/gripper spec
+changes, then re-upload the regenerated file to Google Drive.
+
+`uaquad600_ambencharm_top.usd` is the one exception: it needs bespoke arm
+re-mount surgery on top of the spawn (AM-bench's own source USD never
+actually got re-mounted top-side-up, only its MJCF viewer copy did -- see
+`scripts/export_uaquad600_usd.py`'s module docstring for the full story),
+so it stays its own standalone script rather than a YAML config.
 
 ## History note
 

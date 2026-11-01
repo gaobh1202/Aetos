@@ -113,7 +113,6 @@ class AerialManipulatorBase:
 
     def initialize(self, prim_paths_expr: str = None, track_contact_forces: bool = False):
         self.drone.initialize(prim_paths_expr=prim_paths_expr, track_contact_forces=track_contact_forces)
-        self._resolve_joint_indices()
 
         if self.manipulator_spec is not None:
             # The *first* sim.reset() after mount_child() welds a new branch
@@ -127,9 +126,27 @@ class AerialManipulatorBase:
             # -- a one-time mis-solve, not a real dynamic instability).
             # A SECOND reset, after the articulation view already exists,
             # re-solves the same rest pose correctly and it then never
-            # drifts again. The existing ArticulationView stays valid across
-            # this extra reset, so initialize() does not need to re-run.
+            # drifts again.
             SimulationContext.instance().reset()
+            # That second reset tears down and recreates the simulation
+            # context's physics simulation view -- the drone's own
+            # ArticulationView object (self.drone._view) survives as a
+            # Python object, but its cached _physics_view handle (fetched
+            # during the FIRST initialize() above) is now stale, bound to a
+            # simulation view that no longer exists. USD-level pose reads
+            # (XformCache) don't go through that handle, so this looked
+            # harmless under every check this project ran before -- but any
+            # PhysX tensor-API call (get_dof_velocities/
+            # get_dof_position_targets, hit by apply_action's
+            # set_joint_velocities/set_joint_position_targets) fails with
+            # "Failed to get ... from backend" against the stale handle.
+            # Re-running initialize() recreates the ArticulationView fresh,
+            # bound to the current (post-reset) simulation view.
+            self.drone.initialize(
+                prim_paths_expr=prim_paths_expr, track_contact_forces=track_contact_forces
+            )
+
+        self._resolve_joint_indices()
 
     def _resolve_joint_indices(self):
         """Look up arm/gripper DOF indices by name within the drone's merged articulation.

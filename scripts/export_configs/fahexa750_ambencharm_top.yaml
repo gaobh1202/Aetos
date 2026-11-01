@@ -1,0 +1,8 @@
+# fahexa750 has no RotorGroup-compatible drone param yaml yet, so it's
+# spawned directly from AM-bench's own hexa_scorpion.usd (referenced via
+# AMBENCH_750_USD_PATH) instead of going through a preset -- see
+# aetos_multiam/robots/drones/ambench_750.py's docstring.
+output: fahexa750_ambencharm_top.usd
+robots:
+  - name: fahexa750_ambencharm_top
+    raw_usd_path: "aetos_multiam.robots.drones.ambench_750:AMBENCH_750_USD_PATH"

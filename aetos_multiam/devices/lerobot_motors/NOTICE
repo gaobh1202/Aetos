@@ -1,0 +1,8 @@
+This directory vendors code from:
+  - https://github.com/LightwheelAI/leisaac (Apache-2.0, Copyright Lightwheel / LeIsaac Project Developers)
+  - https://github.com/huggingface/lerobot (Apache-2.0, Copyright 2024 The HuggingFace Inc. team)
+
+Files copied verbatim from leisaac's
+source/leisaac/leisaac/devices/lerobot/common/ (itself copied from lerobot's
+lerobot/common/motors/). See LICENSE in this directory for the full
+Apache-2.0 text.

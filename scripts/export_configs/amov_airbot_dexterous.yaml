@@ -1,0 +1,4 @@
+output: amov_airbot_dexterous.usd
+robots:
+  - name: amov_airbot_dexterous
+    preset: amov950_airbot_dexterous_bottom
