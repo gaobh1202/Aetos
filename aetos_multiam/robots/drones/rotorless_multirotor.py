@@ -22,16 +22,22 @@ rotor:
 
 Per-rotor thrust axes are allowed to be non-parallel (``rotor_axes_b``), which
 is how AM-Bench's FA-Hexa gets its fully-actuated wrench from six fixed canted
-rotors. Such a platform still flies correctly through
-``LeePositionController``: that controller commands only four DOFs (body-Z
-thrust and three torques), and the 4-row map from per-rotor thrust to those
-four is *exactly* representable in the yaml's own parameter family -- solve
-``arm_lengths``/``rotor_angles`` from each rotor's real torque-per-thrust and
-fold the lever arm's own yaw component into ``moment_constants``. Checked
-numerically against FA-Hexa's geometry: residual 5.6e-17. What such a platform
-loses is not correctness but *capability* -- the lateral force its canted
-rotors could produce at a level attitude, which a 4-DOF controller never asks
-for, so it tilts to translate like any underactuated multirotor.
+rotors. Such a platform flies correctly through ``LeePositionController``: that
+controller commands only four DOFs (body-Z thrust and three torques), and the
+4-row map from per-rotor thrust to those four is *exactly* representable in
+the yaml's own parameter family -- solve ``arm_lengths``/``rotor_angles`` from
+each rotor's real torque-per-thrust and fold the lever arm's own yaw component
+into ``moment_constants``. Checked numerically against FA-Hexa's geometry:
+residual 5.6e-17. What it gives up is not correctness but *capability* -- the
+lateral force the cant could produce at a level attitude, which a 4-DOF
+controller never asks for, so it tilts to translate like any underactuated
+multirotor.
+
+To actually use that capability, set ``fully_actuated`` and fly the drone
+through ``controllers.drone.FullyActuatedPositionController`` instead, which
+builds a 6xN allocation matrix from the same geometry declared here (see
+``controllers/drone/allocation.py``). The plant below is unchanged either way
+-- both controllers end up handing it the same per-rotor thrust vector.
 
 Two conventions make that exactness work, and both matter:
 
@@ -75,11 +81,21 @@ class RotorlessMultirotor(MultirotorBase):
         Reaction torque per unit rotor thrust, about the rotor's own axis
         (AM-Bench's ``reaction_torque_ratio``). Not read from the yaml -- see
         the module docstring.
+    ``fully_actuated``
+        Set when the canted axes span a rank-6 wrench space, so
+        ``make_position_controller`` picks the 6-DOF allocator over the
+        4-DOF mixer. Checked for real at controller construction, not trusted.
+    ``max_lateral_force_n``
+        Worst-azimuth horizontal force the platform can hold at hover without
+        any rotor leaving ``[0, max_thrust]`` -- the limit the 6-DOF
+        controller clamps its lateral command to. ``None`` = no clamp.
     """
 
     rotor_positions_b: tuple = ()
     rotor_axes_b: tuple = ()
     rotor_drag_ratio: float = 0.02
+    fully_actuated: bool = False
+    max_lateral_force_n: float = None
 
     def _articulation_properties_prim_path(self, spawn_root_prim_path: str) -> str:
         # ArticulationRootAPI is on base_link, so the solver settings belong

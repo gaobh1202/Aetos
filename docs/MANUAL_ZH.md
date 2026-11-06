@@ -41,7 +41,7 @@ USD/mesh 同理,放在 `aetos_multiam/objects/assets/`。
 | `ShelfButtonGrasp` 任务 + 回放 | ✅ headless GPU PhysX 下跑完 605 帧,无 flip |
 | `ShelfBucketGrasp` | ⚠️ 写法同上但没在 Isaac Sim 里启动过 |
 | 5 个多机协作任务 | ⚠️ 只有注册和配置,是脚手架 |
-| 全驱动 6-DOF wrench 分配器 | ❌ 未实现,fahexa750 当欠驱动飞 |
+| 全驱动 6-DOF wrench 分配器 | ✅ fahexa750 已用,水平飞行姿态 ≤ 0.23° |
 | 外骨骼 / Apple Vision Pro 遥操作 | ❌ 未实现,只留了接入点 |
 
 ---
@@ -107,10 +107,11 @@ teleport 一条路,而 teleport 会把无人机偏航 67.8°。两条都在
 `arm_dynamics_residual=0.1`,同样实测可用但没扫过。`enable_self_collisions=True`
 修穿模 —— 见 §4。
 
-这是固定倾角的全驱动六旋翼,6×6 wrench 矩阵 rank 6、条件数 4.2,**有**独立产生
-侧向力的能力。但目前是用和另外五个一样的 4 自由度 mixer 飞的,侧向权限闲置。
+这是固定倾角的全驱动六旋翼,6×6 wrench 矩阵 rank 6、条件数 4.226,**有**独立
+产生侧向力的能力。这个能力现在用上了 —— 见 §5bis。
 
-它能接进现有 mixer 这件事本身需要说明:OmniDrones 的
+它同时也能接进现有的 4 自由度 mixer(`--controller lee` 就是这么飞的),这件事
+本身需要说明:OmniDrones 的
 `compute_parameters(rotor_config, I)` 生成的是 4 行分配矩阵
 `[sin(angle)*arm, -cos(angle)*arm, -direction*moment/force, 1]`。把 fahexa750
 的真实几何代入反解等效 yaml 参数,残差 5.6e-17 —— 精确可表示,不是近似:
@@ -203,6 +204,111 @@ learned controller 的分工是同一个思路。
 
 "全任务最大倾角"永远出现在最后的触地反弹,不是飞行中;飞行中最大的是"先左后右"
 反向那一下的 8~9° 前倾,那是欠驱动机型本来就该有的姿态响应。
+
+---
+
+## 5bis. 全驱动分配:让六旋翼不用倾斜就能平移
+
+### 为什么欠驱动机型必须倾斜
+
+`LeePositionController` 只命令 4 个自由度:沿机体 z 的一个推力 + 三个力矩。
+它的姿态目标因此**不是自由的** —— 是从它想要的力反推出来的
+(`b3_des = -normalize(acc)`)。想往前加速,就只能把机体 z 轴往前倒。这对四旋翼
+是物理必然,不是实现缺陷。
+
+固定倾角的全驱动六旋翼不必如此。它的六个转子轴互不平行,张成的 wrench 空间
+rank 为 6,力和力矩可以独立命令。
+
+### 参考 AM-Bench 的做法
+
+AM-Bench 在 `ambench/controllers/utils/control_allocation.py` 里实现:构造一个
+6×N 矩阵,第 i 列是第 i 个转子单位推力贡献的 wrench,然后 `pinv` 一下打到期望
+wrench 上。它的 `fully_actuated=True` 分支就是这个;`fully_actuated=False` 分支
+把两行侧向力扔掉,退化成欠驱动的情形。配套的 `PID6DOFController` 位置环产生
+**世界系下完整的 3 维力**(不投影到某根机体轴上),姿态环独立跟踪一个独立给定的
+姿态目标,两者拼成 6 维 wrench。
+
+它还有个 `_variable_tilt_allocation_matrix`,用 6×12 矩阵解
+`F_i cos(α_i)` / `F_i sin(α_i)`,那是给**可变倾角**(转子带舵机)的平台用的。
+我们的 fahexa750 是固定倾角,用不上,没有实现。
+
+### 我们的实现
+
+`aetos_multiam/controllers/drone/`:
+
+- `allocation.py` —— 纯 torch,不 import Isaac Sim。`build_allocation_matrix()`
+  构造 6×N 矩阵,`lateral_force_envelope()` 算侧向力包络。
+- `fully_actuated_controller.py` —— `FullyActuatedPositionController`,
+  继承 `LeePositionController` 复用它的增益读取/批处理,只换输出级。
+  `make_position_controller(drone, g, mode)` 按 `drone.fully_actuated` 自动选。
+
+和 AM-Bench 的一个关键区别:**矩阵的列是从本项目自己的 plant 约定推出来的**,
+不是重新推导一遍。`RotorlessMultirotor.apply_action` 每个转子施加的是
+
+```
+力    = T_i * axis_i
+力矩  = cross(r_i, T_i * axis_i) + (-dir_i * drag_ratio * T_i) * axis_i
+```
+
+所以列就是 `[axis_i ; cross(r_i, axis_i) - dir_i * drag_ratio * axis_i]`,一个
+字都不多。这样分配器和仿真器**不可能**在符号上产生分歧。`dir_i` 用的是 yaml 的
+`directions`(是自转方向的**取反**,这个符号藏在 `RotorGroup` 里,从资产重新推
+很容易弄反 —— 第一版就弄反了,条件数从 4.226 变成 5.09)。
+
+`T_i` 是转子推力的**竖直分量**而非推力大小,因为 `axis_i` 按 z 分量归一化而不是
+单位化(见 `rotorless_multirotor.py`)。这正好是 yaml 的 `force_constants` 和
+控制器 `max_thrusts` 携带的同一个变量,所以全链路不需要任何换算。
+
+没有抄 AM-Bench 的积分项:这里复用的是 yaml 里已有的 PD 增益,加 I 项意味着四组
+增益全部重调,不是三行代码的事。
+
+### 侧向力必须钳位
+
+分配只在每个转子都待在 `[0, max_thrust]` 区间内时才是精确的。超出之后求解器交给
+PhysX 一个它会偷偷削掉的 wrench,而削掉的部分会耦合回姿态。
+
+fahexa750 在悬停状态下、**最差方位角**能稳住的水平力是 **15.69 N = 0.241 g**
+(最好方位角 20.03 N;最差在 120°)。而 `position_gain=4.0` 下 1 m 的位置误差
+要求 26.5 N —— 大约是机体能给的两倍。所以 `max_lateral_force_n = 15.69` 写在
+`ambench_750.py` 上,控制器据此钳位。结果是"平移慢一点",而不是"开始倾斜"。
+
+这个数由 `allocation.py` 的 `lateral_force_envelope()` 算出,该模块的自检会重新
+算一遍并断言(`python aetos_multiam/controllers/drone/allocation.py`,不需要
+Isaac Sim)。
+
+### 实测对比
+
+同一个 preset、同一条任务、同一套增益,只改 `--controller`:
+
+| 阶段 | `lee`(4 自由度) | `fa`(6 自由度) |
+|---|---|---|
+| 前进 1 m | 4.12° | **0.20°** |
+| 左移 1 m | 4.28° | **0.22°** |
+| 右移 1 m | 8.09° | **0.20°** |
+| 偏航 180° | 2.95° | **0.23°** |
+| 扫臂 | 0.59° | 0.53° |
+| **全程最大倾角** | **8.09°** | **0.53°** |
+| 平移中位置误差 | 0.303 m | 0.320 m |
+| 稳态位置误差 | 0.058 / 0.073 m | **0.034 / 0.038 m** |
+| 落地高度 | 0.134 m | 0.134 m |
+
+全程最大倾角降了 15 倍,而且剩下的 0.53° 来自扫臂而不是飞行 —— 飞行段已经基本
+看不到姿态变化了。平移时位置误差略大(侧向力被钳位,加速慢一点),稳态反而更准。
+
+```bash
+python examples/show_am_action.py --preset fahexa750_gripper                    # 自动用 fa
+python examples/show_am_action.py --preset fahexa750_gripper --controller lee   # 退回欠驱动
+```
+
+`--controller {auto,lee,fa}` 在 `show_am_action.py` 和
+`aerial_manipulator_control_demo.py` 上都有。`auto` 问 drone 的
+`fully_actuated` 属性,但不轻信 —— 控制器构造时会真的算一次矩阵的秩,不够 6
+就报错。
+
+### 还没做的
+
+姿态目标现在固定是"水平 + 命令偏航"。全驱动平台本来可以独立跟踪任意姿态
+(比如保持机体倾斜去贴一个斜面),接口留着,但没有暴露出来。
 
 ---
 
@@ -414,7 +520,8 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
 
 ## 11. 还没做的
 
-- 全驱动 6-DOF wrench 分配器(fahexa750 的侧向权限现在闲置)。
+- 全驱动平台的任意姿态跟踪(现在姿态目标写死为"水平 + 命令偏航",见 §5bis)。
+- 可变倾角(转子带舵机)平台的 6×12 分配,AM-Bench 有,我们没有对应机型。
 - `uaquad600_gripper` / `fahexa750_gripper` 的 residual 没有扫过,只验证了够用。
 - `fahexa750` authoring 的惯量 `(0.198, 0.198, 0.46)` 违反三角不等式。
 - 外骨骼 / Apple Vision Pro 的真实硬件通路。SO-ARM leader 有代码,但没在真实

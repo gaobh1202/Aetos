@@ -90,6 +90,9 @@ parser.add_argument("--capture-every", type=int, default=4,
                     help="Capture one frame every N physics steps. The default pairs with "
                          "--video-fps 25 to play back at real speed (dt is 1/100 s).")
 parser.add_argument("--video-fps", type=int, default=25, help="Frame rate of the encoded mp4.")
+parser.add_argument("--controller", choices=["auto", "lee", "fa"], default="auto",
+                    help="auto: 6-DOF allocation on fully-actuated airframes (fahexa750), "
+                         "the 4-DOF Lee mixer otherwise. lee/fa force one, for comparison.")
 parser.add_argument("--headless", action="store_true")
 args = parser.parse_args()
 
@@ -99,7 +102,7 @@ import torch  # noqa: E402  (after the app, as every script here does)
 from omni.isaac.core.simulation_context import SimulationContext  # noqa: E402
 
 import omni_drones.utils.scene as scene_utils  # noqa: E402
-from omni_drones.controllers import LeePositionController  # noqa: E402
+from aetos_multiam.controllers import make_position_controller  # noqa: E402
 from omni_drones.utils.torch import quat_axis, quaternion_to_euler  # noqa: E402
 
 from aetos_multiam.robots.presets import PRESETS, get_preset  # noqa: E402
@@ -231,7 +234,9 @@ class Rig:
         backend" on the first write, with six robots in the scene)."""
         self.am.initialize(reset_rest_pose=False)
         self.drone = self.am.drone
-        self.controller = LeePositionController(9.81, self.drone.params).to(self.drone.device)
+        self.controller = make_position_controller(
+            self.drone, 9.81, args.controller).to(self.drone.device)
+        print(f"[show_am] {self.tag}: {type(self.controller).__name__}", flush=True)
 
     def configure(self):
         am = self.am

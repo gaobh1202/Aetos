@@ -191,6 +191,9 @@ parser.add_argument("--log", type=str, default=None,
                          "and the leader's raw + converted + actually-achieved joint values. Use "
                          "it to correlate an arm motion against a drone excursion -- e.g. which "
                          "joint was moving when the body drifted.")
+parser.add_argument("--controller", choices=["auto", "lee", "fa"], default="auto",
+                    help="auto: 6-DOF allocation on fully-actuated airframes (fahexa750), "
+                         "the 4-DOF Lee mixer otherwise. lee/fa force one, for comparison.")
 parser.add_argument("--headless", action="store_true")
 parser.add_argument("--max_steps", type=int, default=0, help="0 = run until the window closes / Ctrl+C.")
 args = parser.parse_args()
@@ -240,7 +243,7 @@ from omni.kit.viewport.utility.camera_state import ViewportCameraState
 from pxr import Gf
 
 import omni_drones.utils.scene as scene_utils
-from omni_drones.controllers import LeePositionController
+from aetos_multiam.controllers import make_position_controller
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.utils.torch import euler_to_quaternion, quat_axis, quaternion_to_euler
 
@@ -335,7 +338,10 @@ try:
         sim = env.sim  # the env built its own SimulationContext; reuse it
         am = env.drone  # the AerialManipulatorBase, not the bare drone
         drone = am.drone
-        controller = LeePositionController(9.81, drone.params).to(drone.device) if want_controller else None
+        controller = (
+            make_position_controller(drone, 9.81, args.controller).to(drone.device)
+            if want_controller else None
+        )
         arm_targets = None  # resolved generically below, once am exists
         # Start from wherever the scene decided to put the robot (env frame --
         # get_state() already subtracts the env origin, and target_pos is fed
@@ -365,7 +371,8 @@ try:
             drone = am.drone
             # Literal 9.81, not drone.gravity -- see this module's docstring.
             controller = (
-                LeePositionController(9.81, drone.params).to("cpu") if want_controller else None
+                make_position_controller(drone, 9.81, args.controller).to("cpu")
+                if want_controller else None
             )
             arm_targets = None  # resolved generically below, once am exists
         else:

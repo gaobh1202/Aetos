@@ -69,7 +69,7 @@ printed per joint. Every run of the whole fleet:
 | `hummingbird340_2dof_gripper` | 0.74° | 9.70° | 0.379 m | drive |
 | `iris650_soarm100` | 0.59° | 8.10° | 0.313 m | drive |
 | `uaquad600_gripper` | 0.50° | 8.67° | 0.054 m | drive |
-| `fahexa750_gripper` | 0.59° | 8.09° | 0.134 m | drive |
+| `fahexa750_gripper` | 0.53° | **0.53°** | 0.134 m | drive |
 
 It also prints the peak travel each joint actually reached during the sweep,
 which is the only way to tell a joint that moved and came back from one that
@@ -295,7 +295,7 @@ is IsaacLab-based and makes three different choices:
 | controller | PID4DOF / PID6DOF / L1-adaptive / whole-body MPC, **with integral terms** | `LeePositionController`: PD plus an `mg` feedforward, **no integral** |
 | mass & inertia | `get_aggregate_physical_parameters` recomputes whole-articulation mass and parallel-axis inertia at runtime | per-drone yaml constants (mass is now corrected to the real articulation total; **inertia is still the bare airframe's**) |
 | the arm's reaction | left real; absorbed by the integrators and the whole-body controller | scaled down by `arm_dynamics_residual` |
-| actuation | 4-DOF fixed-rotor allocation *and* a 6x12 variable-tilt allocation | fixed-rotor only |
+| actuation | 4-DOF fixed-rotor allocation *and* a 6x12 variable-tilt allocation | 4-DOF and **6-DOF** fixed-rotor allocation; no variable-tilt (no such airframe here) |
 | arm commands | the teleop script refuses anything but `ActionMode.ABSOLUTE_EE_POSE`, so EE-centric only -- though the pipeline itself also defines `ABSOLUTE_BASE_JOINTS` (`8 + arm_joint_count`), which is per-joint and simply unused by that script | per-joint, directly |
 
 Two things worth taking from it:
@@ -316,7 +316,7 @@ single joint, which is what you need when checking a new robot's joint limits,
 signs, and drive health. That is why the keyboard device here is a joint
 selector rather than an EE delta.
 
-## fahexa750_gripper: a fully-actuated airframe flown as an underactuated one
+## fahexa750_gripper: a fully-actuated airframe, flown both ways
 
 `hexa_scorpion.usd` is a **fixed-cant fully-actuated hexarotor** -- not a
 variable-tilt one. Its six rotors sit at fixed, non-coplanar angles
@@ -357,15 +357,49 @@ to `rotor_drag_ratio` because the yaml's `moment_constants` now also carry the
 lever arm's own yaw contribution -- which a canted rotor has and a +Z rotor
 does not.
 
-What is lost is **capability, not correctness**: the lateral force those canted
-rotors could produce at a level attitude. A 4-DOF controller never asks for it,
-so this platform tilts to translate like any underactuated multirotor (measured
-17.9 deg of forward lean, right alongside the quad's 18.7). Using the 6-DOF
-authority needs a wrench-pseudo-inverse allocator -- AM-Bench's own
-`pid_6dof_ctrl` + `controllers/utils/control_allocation.py`, where the force
-and attitude channels are independent (`force_b = R_bw @ force_w` with `R_d`
+What that mixer gives up is **capability, not correctness**: the lateral force
+those canted rotors could produce at a level attitude. A 4-DOF controller never
+asks for it, so under `--controller lee` this platform tilts to translate like
+any underactuated multirotor (measured 17.9 deg of forward lean, right
+alongside the quad's 18.7).
+
+### The 6-DOF allocator
+
+`controllers/drone/FullyActuatedPositionController` (default for this preset,
+`--controller auto`) uses that authority. Same shape as AM-Bench's
+`pid_6dof_ctrl` + `controllers/utils/control_allocation.py`: force and attitude
+channels are independent (`force_b = R^T force_w`, with the attitude target
 commanded separately) rather than the geometric `b_3d = A/||A||` that *defines*
-the attitude from the desired acceleration.
+the attitude from the desired acceleration. Column `i` of the 6xN matrix is
+`[axis_i ; cross(r_i, axis_i) - dir_i * drag_ratio * axis_i]`, read off this
+plant's own `apply_action` rather than re-derived, so allocation and simulation
+cannot disagree about a sign. Differences from AM-Bench's version: no integral
+terms (the yaml's PD gains are reused as-is), and no 6x12 variable-tilt branch
+(no actuated-tilt airframe here).
+
+The lateral command is clamped to **15.69 N (0.241 g)** -- the worst-azimuth
+horizontal force holdable at hover with every rotor still inside
+`[0, max_thrust]`. Past that the allocation stops being exact and PhysX
+silently clips the wrench, which couples back into attitude.
+`allocation.py`'s own self-check re-derives that number and asserts it; it
+runs without Isaac Sim.
+
+Same mission, same gains, only `--controller` changed:
+
+| phase | `lee` | `fa` |
+|---|---|---|
+| forward 1 m | 4.12° | **0.20°** |
+| left 1 m | 4.28° | **0.22°** |
+| right 1 m | 8.09° | **0.20°** |
+| yaw 180° | 2.95° | **0.23°** |
+| arm sweep | 0.59° | 0.53° |
+| **worst over the mission** | **8.09°** | **0.53°** |
+| position error while translating | 0.303 m | 0.320 m |
+| settled position error | 0.058 / 0.073 m | **0.034 / 0.038 m** |
+
+The remaining 0.53 deg is the arm sweep, not flight. Translating costs a
+slightly larger tracking error, which is the lateral clamp doing its job; the
+settled error is tighter.
 
 One unresolved oddity, inherited: the asset's authored `base_link` inertia
 `(0.198, 0.198, 0.460)` violates the triangle inequality (`Izz > Ixx + Iyy`).

@@ -11,7 +11,8 @@ from .composite_controller import AerialManipulatorController
 from .arm import JointPositionController
 from .gripper import BinaryGripperController
 
-_LAZY_NAMES = {"ControllerBase", "LeePositionController", "AttitudeController", "RateController"}
+_LAZY_NAMES = {"ControllerBase", "LeePositionController", "AttitudeController", "RateController",
+               "FullyActuatedPositionController", "make_position_controller"}
 
 
 def __getattr__(name):
@@ -20,9 +21,8 @@ def __getattr__(name):
     if name == "ControllerBase":
         from .controller_base import ControllerBase
         return ControllerBase
-    from .drone import AttitudeController, LeePositionController, RateController
-    return {"AttitudeController": AttitudeController, "LeePositionController": LeePositionController,
-            "RateController": RateController}[name]
+    from . import drone
+    return getattr(drone, name)
 
 
 __all__ = [
@@ -33,4 +33,6 @@ __all__ = [
     "LeePositionController",
     "AttitudeController",
     "RateController",
+    "FullyActuatedPositionController",
+    "make_position_controller",
 ]

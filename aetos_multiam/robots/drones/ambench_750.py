@@ -32,8 +32,13 @@ turns out to be *exactly* representable in the yaml's own parameter family
 once the thrust variable is taken to be each rotor's vertical component
 (residual 5.6e-17). See the yaml's header for the full derivation and
 ``rotorless_multirotor``'s docstring for the two conventions that make it
-work. What this does not give is the lateral force the cant could produce at
-a level attitude: that needs a 6-DOF wrench allocator, not this yaml.
+work.
+
+That yaml path flies the airframe as an underactuated one. ``fully_actuated =
+True`` below makes ``make_position_controller`` pick
+``FullyActuatedPositionController`` instead, which uses the geometry here
+directly in a 6xN allocation matrix and so can translate at a level attitude
+-- up to ``MAX_LATERAL_FORCE_N``. Both controllers drive the same plant.
 """
 
 import os.path as osp
@@ -79,6 +84,12 @@ ROTOR_THRUST_AXES_Z_NORMALIZED = (
 SPIN_DIRECTIONS = (1, -1, 1, -1, 1, -1)
 ROTOR_REACTION_TORQUE_RATIO = 0.02  # AM-bench's own reaction_torque_ratio
 MAX_THRUST_PER_ROTOR_N = 23.0
+# Worst-azimuth horizontal force holdable at hover with every rotor still
+# inside [0, max_thrust] -- 0.241 g, at azimuth 120 deg; the best azimuth
+# gives 20.0 N. Derived from the geometry above by
+# controllers/drone/allocation.py's lateral_force_envelope(), which that
+# module's own self-check re-derives and asserts.
+MAX_LATERAL_FORCE_N = 15.69
 CLAMPED_INERTIA_ZZ = 0.395604  # see docstring; source Izz=0.460 violates the triangle inequality
 
 
@@ -94,6 +105,8 @@ class _AmbenchHexaScorpion(RotorlessMultirotor):
     rotor_positions_b = ROTOR_POSITIONS_M
     rotor_axes_b = ROTOR_THRUST_AXES_Z_NORMALIZED
     rotor_drag_ratio = ROTOR_REACTION_TORQUE_RATIO
+    fully_actuated = True
+    max_lateral_force_n = MAX_LATERAL_FORCE_N
 
 
 AMBENCH_750 = register_drone(
@@ -109,8 +122,9 @@ AMBENCH_750 = register_drone(
             f"asset, arm+gripper bundled in -- see {MJCF_SOURCE_PATH} for a "
             "cross-checked geometry reference). Flies via RotorlessMultirotor "
             "with effective mixer parameters derived from its fixed rotor cant "
-            "(see ambench_750.yaml); the cant's 6-DOF authority is NOT used, "
-            "LeePositionController commands only 4 DOFs."
+            "(see ambench_750.yaml). Fully actuated: flown through "
+            "FullyActuatedPositionController it translates without tilting, up "
+            f"to {MAX_LATERAL_FORCE_N} N of lateral force."
         ),
     )
 )

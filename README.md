@@ -18,6 +18,9 @@ Sim's `omni.isaac.core` API.
 - **Arm-reaction isolation** -- a moving arm costs under 0.7 deg of body tilt
   on every robot, so a controller tuned for a fixed airframe stays stable
   (`arm_dynamics_residual`, `arm_locked_joints`, `arm_write` per preset).
+- **6-DOF wrench allocation** for the fully-actuated hexarotor, so it
+  translates at a level attitude instead of leaning: worst body tilt over the
+  whole mission drops from 8.09 deg to 0.53 deg.
 - **Composable assets** -- drone x manipulator x gripper mounted at runtime,
   or baked into a standalone USD per preset.
 
@@ -37,8 +40,11 @@ forward 1 m, sweep every drivable joint +-45 deg, land.
 | `fahexa750_gripper` | **hexa (6)** | 4 | 2 (two-finger) | <img src="resources/fahexa750_gripper.gif" width="240"> |
 
 These six are a fixed set, not an arbitrary runtime combo picker.
-`fahexa750_gripper` is fully actuated (6x6 wrench matrix, rank 6) but is flown
-through the same 4-DOF mixer as the other five for now.
+`fahexa750_gripper` is fully actuated (6x6 wrench matrix, rank 6, condition
+number 4.2): it is flown through a 6-DOF allocator that commands force and
+attitude independently, so it slides sideways without tilting. The other five
+are under-actuated and lean to translate, as they must. `--controller lee`
+flies the hexa the under-actuated way for comparison.
 
 ## Setup
 
@@ -74,6 +80,9 @@ python examples/show_robot.py --robot all --headless # screenshot only
 python examples/show_am_action.py --preset uaquad600_gripper
 python examples/show_am_action.py --preset all     # all six in one scene
 python examples/show_am_action.py --preset all --headless --video out.mp4
+
+# fly the fully-actuated hexa as an under-actuated one, to see the difference
+python examples/show_am_action.py --preset fahexa750_gripper --controller lee
 ```
 
 ### Teleoperate
@@ -87,6 +96,7 @@ arm from two independently-selected devices:
 | `--arm_control` | `none`, `keyboard`, `soarm_leader` | `none` (holds its rest pose) |
 | `--arm_dynamics` | `frozen`, `coupled` | `frozen` (arm doesn't push back) |
 | `--mode` | `dynamic`, `kinematic` | real rotor thrust vs. teleported pose |
+| `--controller` | `auto`, `lee`, `fa` | `auto` (6-DOF where the airframe allows) |
 
 Keys -- drone: `WASD` translate, `E`/`Q` up/down, `Left`/`Right` yaw. Arm:
 `1`-`9` select a joint, `[`/`]` move it, `G`/`H` close/open every gripper DOF,
@@ -142,6 +152,7 @@ aetos_multiam/
   environments/collaborative/              # 5 config-driven multi-AM tasks (scaffolding)
   utils/usd_compose.py                     # the drone x arm x gripper mounting mechanism
   utils/arm_dynamics.py                    # arm-reaction isolation
+  controllers/drone/allocation.py          # 6-DOF wrench allocation (fully-actuated airframes)
   utils/usd_fixups.py                      # vendored-asset repairs applied at spawn
 cfg/task/                                  # hydra task configs
 scripts/                                   # task entry points + USD export tooling
