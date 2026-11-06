@@ -20,10 +20,12 @@ Verified for all six rows: spawn, hover (`tilt <= 1.1 deg`, holding
 within 3 cm of the setpoint), the scripted keyboard sequence
 hover→ascend→forward→yaw→release (18-27 deg of forward lean, which is the
 under-actuated attitude response and the point of flying them this way), and
-every arm DOF reaching a commanded drive target. Caveat on that last column:
-`iris650_soarm100`'s `shoulder_pan` reaches 2 % and
-`hummingbird340_2dof_gripper`'s `R1`/`R2` reach 4 % — both known, see
-`docs/ARM_DISTURBANCE.md`.
+every arm DOF reaching a commanded drive target. One caveat on that last
+column: `iris650_soarm100`'s `shoulder_pan` is deliberately locked, because
+its drive dies whenever any other dynamic body moves — see
+`docs/ARM_DISTURBANCE.md`. Every other DOF on every robot reaches its
+commanded travel (`hummingbird340_2dof_gripper`'s `R1`/`R2` used to reach
+only 4 %; that was the `DriveAPI` instance-name bug, now fixed).
 
 Run any of them with:
 

@@ -166,16 +166,21 @@ ShelfButtonGrasp all-joints sweep moved from `1.36° yaw / 0.12° pitch /
 slightly worse, both small. `iris650_soarm100` is unaffected (its own
 `initialize` already set the true total, measured 0.0 % error).
 
-### Known, not fixed: PD drive barely moves R1/R2
+### Fixed: PD drive barely moved R1/R2
 
-Commanding `R1`/`R2` to 0.300 rad with kp=200/kd=2.0 for 200 steps reaches
-only 0.124 (coupled) or 0.027 (residual 0.1), while the three fingers hit
-0.300 exactly. Identical with and without a moving dynamic body, so this is
-*not* the so_arm100 drive defect. Not chased down -- the demo teleports the
-arm, so nothing currently depends on it -- but anyone wanting PD-driven
-teleop on this arm (which is the better write mode, see above) has to solve
-this first. Self-collision jamming against the drone body or the gripper is
-the first thing to check.
+Commanding `R1`/`R2` to 0.300 rad with kp=200/kd=2.0 for 200 steps used to
+reach only 0.124 (coupled) or 0.027 (residual 0.1), while the three fingers
+hit 0.300 exactly. Identical with and without a moving dynamic body, so it
+was never the so_arm100 drive defect.
+
+Cause: the USD applies `DriveAPI` under the *axis* name (`DriveAPI:X` /
+`DriveAPI:Y`) rather than the `angular`/`linear` instance name the drive
+interface reads, so `R1`/`R2` had no drive at all -- what moved them was
+the gripper's own reaction. `utils/usd_fixups.normalize_joint_drives()`
+copies the axis-named instance onto the standard one at spawn. Both joints
+now reach their full commanded travel under `arm_write=drive`
+(`show_am_action.py` reports `R1=-45..+45, R2=-45..+45` over the sweep),
+and the fingers still do too.
 
 ## The `shoulder_pan` drive defect
 
