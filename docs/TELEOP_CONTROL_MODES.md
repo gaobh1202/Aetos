@@ -34,8 +34,12 @@ python examples/aerial_manipulator_control_demo.py --preset iris650_soarm100 --m
 ```
 
 Keys: `WASD` translate, `E`/`Q` up/down, `Left`/`Right` yaw; `1`-`9` select an
-arm joint, `[`/`]` move it, `G`/`H` close/open every gripper DOF, `Z` home the
-arm.
+arm joint, `]`/`[` **or** `Up`/`Down` move it, `G`/`H` close/open every gripper
+DOF, `Z` home the arm. Both key pairs for the joint exist because `[`/`]` are
+not on the same physical key on every layout and carb reports the physical
+key; the arrows are layout-proof. The device prints once when the first arm
+key registers, so "nothing moves" separates into "key never arrived" and
+"write didn't land".
 
 ## The scripted mission: `examples/show_am_action.py`
 

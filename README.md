@@ -99,8 +99,8 @@ arm from two independently-selected devices:
 | `--controller` | `auto`, `lee`, `fa` | `auto` (6-DOF where the airframe allows) |
 
 Keys -- drone: `WASD` translate, `E`/`Q` up/down, `Left`/`Right` yaw. Arm:
-`1`-`9` select a joint, `[`/`]` move it, `G`/`H` close/open every gripper DOF,
-`Z` home the arm. The arm bindings are generic over whatever DOFs the preset
+`1`-`9` select a joint, `]`/`[` **or** `Up`/`Down` move it, `G`/`H` close/open
+every gripper DOF, `Z` home the arm. The arm bindings are generic over whatever DOFs the preset
 has, so the same keys drive a 2-DOF arm or a 12-DOF dexterous hand.
 
 ```bash
