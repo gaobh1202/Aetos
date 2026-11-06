@@ -120,13 +120,11 @@ class ButtonGrasp(AerialManipulationEnv):
         # both set at construction time, no live view needed.
         num_rotors = self.drone.drone.num_rotors
         drone_state_dim = 19 + num_rotors
-        num_arm_joints = (
-            len(self.drone.manipulator_spec.arm_joint_names) if self.drone.manipulator_spec else 0
-        )
+        num_arm_joints = self.drone.num_controlled_arm_joints
 
         self.time_encoding_dim = 4 if self.time_encoding else 0
         observation_dim = 3 + drone_state_dim + num_arm_joints + 1 + self.time_encoding_dim
-        action_dim = num_rotors + num_arm_joints + 1
+        action_dim = num_rotors + num_arm_joints + self.drone.num_gripper_action_dims
 
         self.observation_spec = CompositeSpec({
             "agents": CompositeSpec({

@@ -6,7 +6,7 @@ from .aerial_manipulation_env import AerialManipulationEnv
 
 # Import side effects populate AetosEnv.REGISTERED_ENVS (dexmimicgen-style:
 # importing a task module registers its class via __init_subclass__).
-from .single import button_grasp  # noqa: F401
+from .single import button_grasp, shelf_button_grasp, shelf_bucket_grasp  # noqa: F401
 from . import collaborative  # noqa: F401
 
 REGISTERED_ENVS = AetosEnv.REGISTERED_ENVS

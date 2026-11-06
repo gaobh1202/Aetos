@@ -140,10 +140,10 @@ counts) in favor of one top-level spec key per agent (`f"agent_{i}"`).
 
 | Task | Agents (presets) | Spawnable today? |
 |---|---|---|
-| `AerialHandover` | `hummingbird340_dynamixel2r_bottom`, `uaquad600_ambencharm_top` | No -- both MJCF-only |
-| `AerialAssembly` | `uaquad600_ambencharm_top`, `amov950_airbot_bottom` | No -- one MJCF-only |
+| `AerialHandover` | `hummingbird340_2dof_gripper`, `uaquad600_gripper` | No -- both MJCF-only |
+| `AerialAssembly` | `uaquad600_gripper`, `amov950_airbot_bottom` | No -- one MJCF-only |
 | `AerialTransport` | `amov950_airbot_bottom` x2 | **Yes** |
-| `AerialCabinetGrasp` | `fahexa750_ambencharm_top` x2, `iris650_soarm100_bottom` | No -- all MJCF-only |
+| `AerialCabinetGrasp` | `fahexa750_gripper` x2, `iris650_soarm100` | No -- all MJCF-only |
 | `AerialAssemblyTriple` | `amov950_airbot_bottom` x3 | **Yes** |
 
 None of the five have a real task-object asset yet (a handover target,
@@ -163,14 +163,14 @@ mass, and where available rotor allocation constants, all cited to a
 specific file), but each is blocked on a *different* remaining gap --
 not uniformly "needs MJCF/USD conversion" any more:
 
-- `uaquad600_ambencharm_top`/`fahexa750_ambencharm_top`: USD already exists
+- `uaquad600_gripper`/`fahexa750_gripper`: USD already exists
   (AM-bench is itself Isaac-Sim-based) -- only missing a `RotorGroup`-compatible
   KF/KM yaml (a calibration choice, not a lookup).
-- `hummingbird340_dynamixel2r_bottom`: the dynamixel 2R arm itself is fine
+- `hummingbird340_2dof_gripper`: the dynamixel 2R arm itself is fine
   (plain MJCF, importable); the three-finger gripper's soft `flexcomp`
   fingers have no PhysX equivalent and need a rigid approximation (see
   "Fin Ray finger reproduction" below).
-- `iris650_soarm100_bottom`: rotor physics is fully specified, but no
+- `iris650_soarm100`: rotor physics is fully specified, but no
   *scaled* USD body exists for the 650mm Iris, and SO-ARM100 has no local
   or found Isaac Sim USD either (community Isaac Lab ports exist upstream,
   not fetched into this repo -- see that section below).
@@ -233,17 +233,17 @@ every render after the first blank/black**, no error raised (an exhausted
 GL context, not a camera/geometry bug -- cost a detour checking body
 positions against `<statistic center/extent>` before finding the real
 cause). All 5 now have a real or partial Isaac Sim USD path;
-`hummingbird340_dynamixel2r_bottom` is fully spawnable as of 2026-10-30
+`hummingbird340_2dof_gripper` is fully spawnable as of 2026-10-30
 (real arm import + rigid gripper -- see "Three-finger gripper" below).
 
 | Preset | Drone | Manipulator | Gripper | Status |
 |---|---|---|---|---|
-| `amov950_airbot_bottom` | `amov_950` | `airbot_gripper` | bundled | **Spawnable in Isaac Sim** (used by `ButtonGrasp`) **and now has a real MJCF too** (`assets/mjcf/amov950_airbot_final/`, copied from raids-am-simulator). |
-| `amov950_airbot_dexterous_bottom` | `amov_950` | `airbot_dexterous` | `inspire_hand_right` | Same arm, link6 removed, Inspire Hand mounted on link5 via a Revolute joint -- see "Inspire Hand" below. Spawnable in Isaac Sim (`scripts/show_airbot_variants.py`). |
-| `hummingbird340_dynamixel2r_bottom` | `omnidrones_340` | `dynamixel_2r` | `three_finger_gripper` | **Spawnable in Isaac Sim** (`scripts/show_hummingbird_dynamixel.py`). Drone is OmniDrones' own real `hummingbird.usd`; arm is a real USD imported via `omni.importer.mjcf`; gripper is the rigid (non-deformable) approximation -- see the "Three-finger gripper" section below for all three. |
-| `iris650_soarm100_bottom` | `iris_650` | `so_arm100` | bundled (`Jaw` joint) | Real MJCF source (`assets/mjcf/iris_650_so_arm100_final/`); rotor physics is fully specified (`assets/usd/iris_650.yaml`, exact KF/KM/max-speed from the source bundle) but no scaled USD body exists yet. |
-| `uaquad600_ambencharm_top` | `ambench_600` | `ambench_quad_arm` | bundled | **Real Isaac Sim USD** (`quad_scorpion.usd`, AM-bench is itself Isaac-Sim-based -- see "AM-bench's own USD assets" below). `ambench_quad_arm` is pre-baked into that same USD (`bundled_into_drone=True`), not a separate mount. Only remaining gap: AM-bench's own rotor model has no KF/KM to port -- that pair would need to be chosen, not read off. |
-| `fahexa750_ambencharm_top` | `ambench_750` | `ambench_hexa_arm` | bundled | Same status as the quad preset (`hexa_scorpion.usd`); tilt-rotor hexacopter. |
+| `amov950_airbot_bottom` | `amov_drone_arm` | *(none -- bundled into the drone USD)* | bundled | **Spawnable in Isaac Sim**, used by `ButtonGrasp`. As of 2026-11-02, spawns OmniDrones' own `amov_drone_arm_1.usd` directly (`drones/amov_drone_arm.py`) instead of `amov_950` + the separately-vendored `airbot_gripper` manipulator -- that vendored copy's `arm_base` massed 4.7x the real training asset's (0.777kg vs 0.166kg), and a trained hover policy that's stable on the real asset eventually flipped on the mismatched one (PhysX doesn't recompute the cached inertia tensor from a bare mass fix). `airbot_gripper`/`amov_950` stay registered (still real, still correct specs) but this preset no longer uses them. |
+| `amov950_airbot_dexterous_bottom` | `amov_drone_arm` | `amov_arm_bare` | `inspire_hand_right` | Same real asset as above (`amov_drone_arm`), with `link6` + its stock 2-finger gripper (`gripper_left`/`gripper_right`, joints `endleft`/`endright`) and `joint6` deactivated at spawn time (`manipulators/amov_arm_bare.py`'s `deactivate_body_names`), then the Inspire Hand mounted on `link5` via the same Revolute mount derivation as before -- see "Inspire Hand" below. Spawnable in Isaac Sim (`examples/show_robot.py --robot amov950_airbot_dexterous_bottom`). |
+| `hummingbird340_2dof_gripper` | `omnidrones_340` | `dynamixel_2r` | `three_finger_gripper` | **Spawnable in Isaac Sim** (`scripts/show_hummingbird_dynamixel.py`). Drone is OmniDrones' own real `hummingbird.usd`; arm is a real USD imported via `omni.importer.mjcf`; gripper is the rigid (non-deformable) approximation -- see the "Three-finger gripper" section below for all three. |
+| `iris650_soarm100` | `iris_650` | `so_arm100` | bundled (`Jaw` joint) | **Spawnable in Isaac Sim** (verified live 2026-11-02 via `examples/show_robot.py --robot iris650_soarm100`) -- a scaled USD body now exists (`assets/meshes/usd/combined/iris650_soarm100.usd` / `scripts/export_configs/iris650_soarm100.yaml`), superseding the earlier "no USD yet" status. Rotor physics from `assets/usd/iris_650.yaml` (exact KF/KM/max-speed from the source bundle). |
+| `uaquad600_gripper` | `ambench_600` | `ambench_quad_arm` | bundled | **Real Isaac Sim USD** (`quad_scorpion.usd`, AM-bench is itself Isaac-Sim-based -- see "AM-bench's own USD assets" below). `ambench_quad_arm` is pre-baked into that same USD (`bundled_into_drone=True`), not a separate mount. Only remaining gap: AM-bench's own rotor model has no KF/KM to port -- that pair would need to be chosen, not read off. |
+| `fahexa750_gripper` | `ambench_750` | `ambench_hexa_arm` | bundled | Same status as the quad preset (`hexa_scorpion.usd`); tilt-rotor hexacopter. |
 
 Naming convention: `<drone size+family><manipulator type>_<mount position>`.
 Mount position (`top`/`bottom`) is cited from each source bundle's own docs
@@ -445,7 +445,7 @@ translation-only `(0, 0, 0.008)`) -- no derivation needed, unlike the
 airbot_play/Inspire Hand sagas earlier in this project.
 
 Live-verified end to end: `scripts/show_hummingbird_dynamixel.py` spawns
-`hummingbird340_dynamixel2r_bottom` (real OmniDrones Hummingbird + real
+`hummingbird340_2dof_gripper` (real OmniDrones Hummingbird + real
 imported arm + real rigid gripper, all three welded via `mount_child`) with
 zero errors; screenshots show the arm hanging correctly off the drone belly
 and the gripper's three fin-ray-shaped fingers at the end, matching the

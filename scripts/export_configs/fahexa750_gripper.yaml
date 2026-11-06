@@ -2,7 +2,7 @@
 # spawned directly from AM-bench's own hexa_scorpion.usd (referenced via
 # AMBENCH_750_USD_PATH) instead of going through a preset -- see
 # aetos_multiam/robots/drones/ambench_750.py's docstring.
-output: fahexa750_ambencharm_top.usd
+output: fahexa750_gripper.usd
 robots:
-  - name: fahexa750_ambencharm_top
+  - name: fahexa750_gripper
     raw_usd_path: "aetos_multiam.robots.drones.ambench_750:AMBENCH_750_USD_PATH"

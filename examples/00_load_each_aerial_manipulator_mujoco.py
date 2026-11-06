@@ -3,10 +3,10 @@ confirm each compiles and steps, and render a combined grid preview.
 
 The 5 (matching robots/presets.py's PRESETS, one MJCF bundle per preset):
   1. amov950_airbot_bottom      -> amov950_airbot_final/
-  2. hummingbird340_dynamixel2r_bottom -> hummingbird_2r_three_finger_50pct/
-  3. iris650_soarm100_bottom    -> iris_650_so_arm100_final/
-  4. uaquad600_ambencharm_top   -> ambench_quad_600_top_arm_final/
-  5. fahexa750_ambencharm_top   -> ambench_fa_hexa_750_final/
+  2. hummingbird340_2dof_gripper -> hummingbird_2r_three_finger_50pct/
+  3. iris650_soarm100    -> iris_650_so_arm100_final/
+  4. uaquad600_gripper   -> ambench_quad_600_top_arm_final/
+  5. fahexa750_gripper   -> ambench_fa_hexa_750_final/
 
 4 of these 5 also have (partial) Isaac Sim USD assets today -- only
 hummingbird+three-finger doesn't, because its gripper is a MuJoCo
@@ -34,10 +34,10 @@ BUNDLE_ROOT = os.path.join(REPO_ROOT, "aetos_multiam", "assets", "mjcf")
 
 BUNDLES = [
     ("amov950_airbot_bottom", "amov950_airbot_final"),
-    ("hummingbird340_dynamixel2r_bottom", "hummingbird_2r_three_finger_50pct"),
-    ("iris650_soarm100_bottom", "iris_650_so_arm100_final"),
-    ("uaquad600_ambencharm_top", "ambench_quad_600_top_arm_final"),
-    ("fahexa750_ambencharm_top", "ambench_fa_hexa_750_final"),
+    ("hummingbird340_2dof_gripper", "hummingbird_2r_three_finger_50pct"),
+    ("iris650_soarm100", "iris_650_so_arm100_final"),
+    ("uaquad600_gripper", "ambench_quad_600_top_arm_final"),
+    ("fahexa750_gripper", "ambench_fa_hexa_750_final"),
 ]
 
 tiles = []

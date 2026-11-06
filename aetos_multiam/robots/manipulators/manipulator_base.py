@@ -39,6 +39,12 @@ class ManipulatorSpec:
     """Key into GRIPPER_REGISTRY to use when the caller doesn't ask for a specific one."""
     mount_translation: Sequence[float] = (0.0, 0.0, 0.0)
     mount_orientation: Optional[Sequence[float]] = None
+    deactivate_body_names: Sequence[str] = field(default_factory=tuple)
+    """Only used when ``bundled_into_drone``: body/joint prim names (relative
+    to the drone's own prim path) to deactivate before a real gripper spec
+    mounts onto ``eef_body_name`` -- e.g. removing a stock gripper that's
+    baked into the same USD as the arm, so a different gripper can take over
+    the same wrist DOF instead of fighting it."""
     note: str = ""
 
     def check_asset(self) -> None:

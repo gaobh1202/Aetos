@@ -16,27 +16,27 @@ MJCF viewer export): total mass **4.40692603122443 kg**, rotor positions
 all 4, X-config), spin directions ``[-1, 1, -1, 1]``, thrust axis +Z,
 thrust range 0-23 N per rotor.
 
-Still can't build a ``RotorGroup``-compatible yaml: AM-bench models rotor
-thrust with its own reduced-order ``RotorActuator`` (direct thrust command
-with a response-time-constant transient, no physical rotor speed), not the
-``force_constant``/``max_rotation_velocity`` pair ``RotorGroup`` expects.
-That pair would need to be *chosen* (e.g. back-solved from a target max
-rotor speed), not read off -- not fabricated here. This is the one
-remaining real gap; the USD itself is not a gap any more.
+``ambench_600.yaml`` now exists. AM-bench models rotor thrust with its own
+reduced-order ``RotorActuator`` (direct thrust command with a response-time
+transient, no physical rotor speed) and never exposes the
+``force_constant``/``max_rotation_velocity`` pair ``RotorGroup`` needs, so
+that pair is back-solved from AM-bench's own 23 N per-rotor ceiling at a
+chosen 838 rad/s maximum rotor speed -- a documented modelling choice, see
+the yaml's own header for the full derivation and for which numbers are read
+rather than chosen.
 """
 
 import os.path as osp
 
-from omni_drones.robots.drone.multirotor import MultirotorBase
-
 from aetos_multiam.assets import ASSET_PATH, USD_PATH
 from .drone_base import DroneSpec, register_drone
+from .rotorless_multirotor import RotorlessMultirotor
 
 MJCF_SOURCE_PATH = osp.join(ASSET_PATH, "mjcf", "ambench_quad_600_top_arm_final", "robot.xml")
 AMBENCH_600_USD_PATH = (
     "/home/benhua/ambench/source/ambench/ambench/assets/robots/quad_scorpion.usd"
 )
-AMBENCH_600_PARAM_PATH = osp.join(USD_PATH, "ambench_600.yaml")  # does not exist yet (needs KF/KM, see above)
+AMBENCH_600_PARAM_PATH = osp.join(USD_PATH, "ambench_600.yaml")
 
 TOTAL_MASS_KG = 4.40692603122443
 ROTOR_POSITIONS_M = (
@@ -49,9 +49,16 @@ SPIN_DIRECTIONS = (-1, 1, -1, 1)
 MAX_THRUST_PER_ROTOR_N = 23.0
 
 
-class _AmbenchQuadScorpion(MultirotorBase):
+class _AmbenchQuadScorpion(RotorlessMultirotor):
+    """The asset's rotors are visuals only, so the rotor geometry lives here
+    instead of being read off ``rotor_*`` rigid bodies -- see
+    ``rotorless_multirotor``. Positions below are the asset's own; all four
+    thrust axes are +Z (the default), which is what ``LeePositionController``'s
+    planar mixer assumes, so this platform flies correctly through it."""
+
     usd_path: str = AMBENCH_600_USD_PATH
     param_path: str = AMBENCH_600_PARAM_PATH
+    rotor_positions_b = ROTOR_POSITIONS_M
 
 
 AMBENCH_600 = register_drone(
@@ -65,8 +72,8 @@ AMBENCH_600 = register_drone(
         note=(
             f"Real Isaac Sim USD at {AMBENCH_600_USD_PATH} (AM-bench's own "
             f"asset, arm+gripper bundled in -- see {MJCF_SOURCE_PATH} for a "
-            "cross-checked geometry reference); still no RotorGroup-compatible "
-            "KF/KM (AM-bench's own rotor model doesn't expose that pair)."
+            "cross-checked geometry reference). Flies via RotorlessMultirotor; "
+            "KF/KM back-solved from AM-bench's 23N ceiling, see ambench_600.yaml."
         ),
     )
 )

@@ -10,7 +10,7 @@ env:
   max_episode_length: 500
 
 aerial_manipulators:
-  - preset: uaquad600_ambencharm_top
+  - preset: uaquad600_gripper
   - preset: amov950_airbot_bottom
 
 time_encoding: true

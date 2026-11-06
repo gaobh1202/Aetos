@@ -131,6 +131,23 @@ def mount_child(
         orientation=local_orientation,
     )
 
+    # The MJCF/URDF importer marks every body's visuals/collisions Xform
+    # `instanceable`, and Kit's render-side InstanceAdapter loses the
+    # prototype for some of them once the subtree is referenced in here and
+    # then starts moving: on iris650_soarm100 the JAW's mesh rendered frozen
+    # at the robot's spawn pose while the rest of the arm flew away with the
+    # drone, with Kit logging "InstanceAdapter - cannot find cache item for
+    # proto .../jaw/visuals.proto_mesh_id0" every frame. Physics was never
+    # wrong -- the jaw link's transform holds a constant offset from
+    # base_link throughout the flight (measured), it is purely what gets
+    # drawn. Dropping instancing on this subtree fixes the render and costs
+    # effectively nothing: GridCloner clones envs by REFERENCE
+    # (copy_from_source defaults to False), so mesh data is still shared
+    # across envs.
+    for prim in [p for p in Usd.PrimRange(prim_utils.get_prim_at_path(child_prim_path))
+                 if p.IsInstanceable()]:
+        prim.SetInstanceable(False)
+
     child_body_path = f"{child_prim_path}/{child_root_body}"
     parent_prim = prim_utils.get_prim_at_path(parent_body_path)
     child_prim = prim_utils.get_prim_at_path(child_body_path)

@@ -1,7 +1,7 @@
 """AerialCabinetGrasp -- three AMs (two hexacopter-arm + one quad-arm) around a cabinet.
 
 Agents (via ``cfg/task/AerialCabinetGrasp.yaml``): two
-``fahexa750_ambencharm_top`` + one ``iris650_soarm100_bottom``. None of the
+``fahexa750_gripper`` + one ``iris650_soarm100``. None of the
 three presets are spawnable yet (all MJCF-only, pending USD conversion), so
 this registers and configures correctly but cannot actually run today.
 

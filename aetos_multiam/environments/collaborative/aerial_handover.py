@@ -1,7 +1,7 @@
 """AerialHandover -- two heterogeneous AMs rendezvous to hand an object off.
 
-Agents (via ``cfg/task/AerialHandover.yaml``): ``hummingbird340_dynamixel2r_bottom``
-+ ``uaquad600_ambencharm_top``. Neither preset is spawnable yet (both are
+Agents (via ``cfg/task/AerialHandover.yaml``): ``hummingbird340_2dof_gripper``
++ ``uaquad600_gripper``. Neither preset is spawnable yet (both are
 MJCF-only, pending USD conversion -- see docs/ARCHITECTURE.md), so this
 registers and configures correctly but cannot actually run today.
 

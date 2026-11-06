@@ -31,7 +31,7 @@ for a single standalone robot file.
 Usage:
     python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm100.yaml
 
-Not covered here: uaquad600_ambencharm_top, which needs bespoke arm
+Not covered here: uaquad600_gripper, which needs bespoke arm
 re-mount surgery (reposing 8 bodies + patching a joint's local frame) on top
 of the spawn -- a one-time fix for one specific asset, not something a
 declarative config is a good fit for. See export_uaquad600_usd.py, kept as

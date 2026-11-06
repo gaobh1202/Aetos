@@ -9,15 +9,27 @@ plunger) or a plain ``RigidPrimView`` (for rigid fixtures).
 import omni.isaac.core.utils.prims as prim_utils
 from omni_drones.views import ArticulationView, RigidPrimView
 
+from aetos_multiam.utils import yaw_deg_to_quat
+
 
 class AetosObject:
     usd_path: str
     has_joints: bool = False
 
-    def __init__(self, name: str, translation=(0.0, 0.0, 0.0), orientation=None):
+    def __init__(
+        self,
+        name: str,
+        translation=(0.0, 0.0, 0.0),
+        orientation=None,
+        yaw_deg: float = 0.0,
+        scale: float = 1.0,
+    ):
         self.name = name
         self.translation = translation
-        self.orientation = orientation
+        self.orientation = orientation if orientation is not None else (
+            yaw_deg_to_quat(yaw_deg) if yaw_deg else None
+        )
+        self.scale = scale
         self._view = None
 
     def spawn(self, template_env_ns: str) -> str:
@@ -27,6 +39,7 @@ class AetosObject:
             usd_path=self.usd_path,
             translation=self.translation,
             orientation=self.orientation,
+            scale=(self.scale, self.scale, self.scale) if self.scale != 1.0 else None,
         )
         return prim_path
 

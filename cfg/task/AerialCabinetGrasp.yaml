@@ -10,9 +10,9 @@ env:
   max_episode_length: 500
 
 aerial_manipulators:
-  - preset: fahexa750_ambencharm_top
-  - preset: fahexa750_ambencharm_top
-  - preset: iris650_soarm100_bottom
+  - preset: fahexa750_gripper
+  - preset: fahexa750_gripper
+  - preset: iris650_soarm100
 
 time_encoding: true
 goal_radius: 0.5

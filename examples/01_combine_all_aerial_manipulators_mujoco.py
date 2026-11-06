@@ -78,10 +78,10 @@ BUNDLE_ROOT = os.path.join(REPO_ROOT, "aetos_multiam", "assets", "mjcf")
 
 BUNDLES = [
     ("amov950_airbot_bottom", "amov950_airbot_final", "am"),
-    ("hummingbird340_dynamixel2r_bottom", "hummingbird_2r_three_finger_50pct", "hb"),
-    ("iris650_soarm100_bottom", "iris_650_so_arm100_final", "ir"),
-    ("uaquad600_ambencharm_top", "ambench_quad_600_top_arm_final", "qd"),
-    ("fahexa750_ambencharm_top", "ambench_fa_hexa_750_final", "hx"),
+    ("hummingbird340_2dof_gripper", "hummingbird_2r_three_finger_50pct", "hb"),
+    ("iris650_soarm100", "iris_650_so_arm100_final", "ir"),
+    ("uaquad600_gripper", "ambench_quad_600_top_arm_final", "qd"),
+    ("fahexa750_gripper", "ambench_fa_hexa_750_final", "hx"),
 ]
 
 N = len(BUNDLES)

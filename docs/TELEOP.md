@@ -7,7 +7,7 @@ is welded to the world (gravity zeroed) -- this is for teleoperating/testing
 the arm, not flight (drone flight control is a planned follow-up, see the
 script's own module docstring for the extension points).
 
-By default it uses the `iris650_soarm100_bottom` preset; any preset whose
+By default it uses the `iris650_soarm100` preset; any preset whose
 manipulator isn't SO-ARM-family (`manipulator_type` containing `so_arm`)
 is rejected with a clear error at startup, since the leader-to-sim mapping
 is a direct per-joint mirror onto SO-ARM joint names.
@@ -121,7 +121,7 @@ all of them side by side) -- useful for a quick "does this preset's USD
 exist and mount correctly" check, independent of teleop:
 
 ```bash
-python examples/show_robot.py --robot iris650_soarm100_bottom
+python examples/show_robot.py --robot iris650_soarm100
 python examples/show_robot.py --robot all
 python examples/show_robot.py --robot all --headless   # screenshot only
 ```

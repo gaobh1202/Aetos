@@ -9,7 +9,7 @@ Gravity is zeroed scene-wide; this is for looking at geometry/mounting, not
 flight -- matches the convention every one of those older scripts used.
 
 Usage:
-    python examples/show_robot.py --robot iris650_soarm100_bottom
+    python examples/show_robot.py --robot iris650_soarm100
     python examples/show_robot.py --robot all
     python examples/show_robot.py --robot all --headless   # screenshot only
 

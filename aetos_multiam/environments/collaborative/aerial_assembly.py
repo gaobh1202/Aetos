@@ -1,6 +1,6 @@
 """AerialAssembly -- two heterogeneous AMs converge to jointly assemble a part.
 
-Agents (via ``cfg/task/AerialAssembly.yaml``): ``uaquad600_ambencharm_top``
+Agents (via ``cfg/task/AerialAssembly.yaml``): ``uaquad600_gripper``
 + ``amov950_airbot_bottom``. Only the second preset is spawnable today
 (the first is MJCF-only, pending USD conversion), so this registers and
 configures correctly but cannot actually run as a two-AM task yet.

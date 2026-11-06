@@ -7,15 +7,20 @@
 # (source_base_inertia_kg_m2 here == stock iris.yaml's inertia exactly) times
 # a uniform frame_scale=1.3158865458626872 (mass x scale^3, inertia x scale^5).
 #
-# NOTE: arm_lengths/rotor_angles below come from this bundle's own
+# arm_lengths/rotor_angles below come from this bundle's own
 # rotor_positions_m, converted to polar coordinates. They do NOT match a
 # naive "scale stock iris.yaml's rotor_angles by the same factor" -- e.g.
 # stock rotor0 is at angle -0.533708 rad, this bundle's rotor0 is at
-# -1.037088 rad. This could mean the arm's added mass shifted the rotor
-# layout to rebalance CG, or that this bundle's rotor_0..3 ordering doesn't
-# correspond 1:1 to omni_drones' own Iris rotor ordering. Verify rotor
-# index <-> physical rotor_link_N correspondence against the live USD
-# before trusting directions/signs here.
+# -1.037088 rad. That is because stock iris.yaml's own angles have x/y
+# swapped relative to the real Iris airframe (PX4's iris has its rotors at
+# (+-0.13, +-0.22), i.e. angle +-1.0375); the values below are the real
+# layout. VERIFIED against the live USD: with the articulation root on
+# base_link, rotor_0..3 sit at (+-0.17107, +-0.28950/+-0.26318, +0.03027)
+# relative to base_link, whose polar angles/radii reproduce every
+# rotor_angles/arm_lengths entry here to 4 decimals, in index order. Do not
+# re-derive these; if flight looks wrong, the frame is the suspect, not this
+# file (see drones/iris_650.py and
+# assets/mjcf/iris_650_so_arm100_final/fix_iris650_usd.py).
 name: iris_650
 inertia:
   xx: 0.13712787903426818

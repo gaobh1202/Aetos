@@ -1,4 +1,4 @@
-"""Bake uaquad600_ambencharm_top into one standalone USD -- WITH the arm
+"""Bake uaquad600_gripper into one standalone USD -- WITH the arm
 re-mount surgery AM-bench's own quad_scorpion.usd never actually got.
 
 Background: aetos_multiam/robots/manipulators/ambench_quad_arm.py's
@@ -68,7 +68,7 @@ sim = SimulationContext(
     sim_params={"use_gpu": False, "use_gpu_pipeline": False, "gravity": (0.0, 0.0, 0.0)},
 )
 
-ROOT_PATH = "/uaquad600_ambencharm_top"
+ROOT_PATH = "/uaquad600_gripper"
 prim_utils.create_prim(ROOT_PATH, usd_path=AMBENCH_600_USD_PATH)
 
 stage = prim_utils.get_current_stage()
@@ -135,7 +135,7 @@ out_dir = os.path.join(
 )
 out_dir = os.path.normpath(out_dir)
 os.makedirs(out_dir, exist_ok=True)
-out_path = os.path.join(out_dir, "uaquad600_ambencharm_top.usd")
+out_path = os.path.join(out_dir, "uaquad600_gripper.usd")
 
 flat_layer = stage.Flatten(addSourceFileComment=False)
 flat_layer.Export(out_path)

@@ -4,7 +4,7 @@ real SOArmLeader (lerobot SO101/SO-ARM100 leader, read over USB-serial).
 This is the generalized, extensible successor to the one-off
 scripts/teleop_so101_leader.py built while debugging this pipeline. For now
 it only wires up what that script already proved out -- default scene,
-single robot (``iris650_soarm100_bottom``), 1:1 arm teleop, drone body
+single robot (``iris650_soarm100``), 1:1 arm teleop, drone body
 pinned in place -- but the pieces are split out so the planned follow-ups
 slot in without a rewrite:
 
@@ -31,7 +31,7 @@ from aetos_multiam import init_simulation_app
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
-    "--robot", type=str, default="iris650_soarm100_bottom",
+    "--robot", type=str, default="iris650_soarm100",
     help="Preset name from aetos_multiam.robots.presets.PRESETS. Must have an SO-ARM-family "
     "manipulator (manipulator_type containing 'so_arm') -- this script 1:1-mirrors the leader "
     "onto SO-ARM joint names, so it can't drive anything else.",
@@ -92,7 +92,7 @@ def require_soarm_manipulator(preset_name: str) -> None:
             f"Preset '{preset_name}' has manipulator_type={cfg.manipulator_type!r}, "
             "which isn't an SO-ARM-family manipulator. amteleop_soarm_leader.py mirrors the "
             "SOArmLeader 1:1 onto SO-ARM joint names and can't drive anything else -- pick a "
-            "preset whose manipulator_type contains 'so_arm' (e.g. 'iris650_soarm100_bottom')."
+            "preset whose manipulator_type contains 'so_arm' (e.g. 'iris650_soarm100')."
         )
 
 
@@ -207,6 +207,15 @@ class Teleop:
         self.am.drone._view.set_joint_positions(
             arm_targets.reshape(1, 1, -1), joint_indices=self.arm_and_gripper_indices
         )
+        # Deliberately NOT writing a joint velocity alongside this, even
+        # though it would remove the arm's visible per-frame flicker (stale
+        # solver velocity gets integrated past the pose just written, then
+        # snapped back). Zeroing the velocity dumps the arm's angular momentum
+        # into the drone body, and even a commanded finite difference costs
+        # real attitude quality -- see the measured table in
+        # aerial_manipulator_control_demo.py's own arm-write block. Harmless
+        # here while the base is pinned, but keep the two teleop paths
+        # identical so a fix lands in both.
 
         # TODO(data recording): append (joint_state, radians, the robot's
         # own joint positions/velocities, wall-clock timestamp) to a buffer

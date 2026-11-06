@@ -9,7 +9,7 @@ spawning happens later, from inside an active ``SimulationContext``, via
 
 import os.path as osp
 from dataclasses import dataclass, field
-from typing import Dict, Type
+from typing import Dict, Optional, Sequence, Type
 
 from aetos_multiam.assets import AssetNotAvailableError
 
@@ -24,6 +24,22 @@ class DroneSpec:
     """Body on the drone that a manipulator's root gets mounted/welded onto."""
     class_size_mm: int = 0
     """Nominal rotor-to-rotor diameter class, informational only."""
+    eef_body_name: Optional[str] = None
+    """Only set when this drone's own USD bakes in an arm with no separate
+    ManipulatorSpec (e.g. amov_drone_arm): the body a task should track as
+    the end effector, directly under the drone's own prim (bodies here are
+    flat siblings, not nested under mount_body_name/manipulator/...)."""
+    bundled_arm_joint_names: Sequence[str] = field(default_factory=tuple)
+    """Only set alongside eef_body_name: static joint-name list for a baked-in
+    arm, so tasks can size observation/action specs before initialize() has
+    populated the drone's own live arm_joint_indices/num_arm_joints."""
+    bundled_gripper_joint_names: Sequence[str] = field(default_factory=tuple)
+    """The baked-in arm's own gripper finger joints, if it has any. They are
+    NOT driven by a separate gripper controller (there is no GripperSpec for a
+    gripper that is already part of the drone's USD) -- the drone class's
+    auto-detected "every non-rotor DOF" lumps them in with the arm, so they
+    count toward AerialManipulatorBase.num_controlled_arm_joints. Leaving them
+    undeclared makes every task's action spec that many dims too short."""
     note: str = ""
 
     def check_asset(self) -> None:

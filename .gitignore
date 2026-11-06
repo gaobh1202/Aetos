@@ -32,3 +32,13 @@ examples/all_five_combined.xml
 # specific to whichever physical leader arm was calibrated on this machine,
 # not something to ship/share.
 aetos_multiam/devices/.cache/
+
+# Task-object model binaries (USD + meshes/textures), migrated from
+# raids-am-simulator's shelf_grasp scene -- same netdisk-distribution
+# convention as aetos_multiam/assets/meshes/ above, see docs/ASSETS.md.
+aetos_multiam/objects/assets/
+
+# Mission recordings rendered by examples/show_am_action.py -- the 3x GIFs
+# next to them are committed (the README table embeds them), the ~11 MB
+# source mp4s are not. Re-render with --video.
+resources/*.mp4

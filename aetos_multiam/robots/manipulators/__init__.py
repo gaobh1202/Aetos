@@ -6,6 +6,7 @@ from .manipulator_base import (
 )
 
 from . import airbot_play  # noqa: F401
+from . import amov_arm_bare  # noqa: F401
 from . import dynamixel_2r  # noqa: F401
 from . import ambench_quad_arm  # noqa: F401
 from . import ambench_hexa_arm  # noqa: F401

@@ -57,6 +57,40 @@ aetos_multiam/assets/
                                            CONVERSION_NOTES, preview thumbnails, launch.py, ...)
 ```
 
+## Task-object assets (`objects/assets/`)
+
+`aetos_multiam/objects/assets/{shelf_chrome,gearwheel,button,power_drill,
+tote_box}/` holds the USD/mesh/texture binaries for the `ShelfButtonGrasp`
+task's props, migrated from raids-am-simulator's shelf_grasp scene. Same
+not-committed-to-git convention as `assets/meshes/` above (`.gitignore`
+entry: `aetos_multiam/objects/assets/`) -- copy the folder from
+raids-am-simulator's `assets/objects/{shelf_chrome,gearwheel,button,
+power_drill,tote_box}/` (or wherever it's redistributed from) if it's
+missing. Each prop's Python wrapper (`aetos_multiam/objects/{gearwheel,
+shelf_button,power_drill,tote_box}.py`) points at its own subfolder here via
+a path relative to `objects/__init__.py`, not an absolute path into another
+repo.
+
+Three more vendored bundles live here too, from NVIDIA's SimReady asset
+library (downloaded directly, not via raids-am-simulator):
+`powerTool_drill_b01/`, `handTool_hammer_crossPeen_b01/` and
+`attached_lid_tote/`. Each folder is that asset's own `simready_usd/`
+payload as-is (root `.usd`/`.usda` + `payloads/`/`forgecad/` +
+`Textures`/`assets` + thumbnails) plus its `LICENSE.txt` where the download
+included one -- no `.cache/huggingface` download bookkeeping or
+`.metadata/*.json` conformance reports carried over, those aren't asset
+content. **No Python object wrapper exists for any of these yet** (no
+`AetosObject` subclass, no task references them) -- they're vendored for
+future use. Follow the `gearwheel.py`/`power_drill.py` pattern to add one:
+point a new `AetosObject` subclass's `usd_path` at the root `.usd`/`.usda`
+file here, and read that file's own body names for `root_body_name`.
+
+`white_bucket/` is wired up already -- see `objects/white_bucket.py`
+(`WhiteBucket`, used by `ShelfBucketGrasp`). It's PalatialSim's
+`palatial-nv-asset-library` dataset asset `D00436` rather than an NVIDIA
+SimReady download, laid out the same way (`simready_usd/` + `.metadata/` +
+`com.nvidia.simready.packaging.json`, no `.cache/huggingface` bookkeeping).
+
 `aetos_multiam.assets.USD_PATH` (and everything derived from it --
 `MESHES_PATH`, every manipulator/gripper spec's `usd_path`) points into
 `assets/meshes/usd/`; each MJCF bundle's `robot.xml`/`scene.xml` resolves
@@ -73,7 +107,7 @@ tracked in git at its own path, referenced directly via `ASSET_PATH`
 
 ## Regenerating the combined files
 
-Every file under `combined/` except `uaquad600_ambencharm_top.usd` isn't
+Every file under `combined/` except `uaquad600_gripper.usd` isn't
 hand-authored -- it's produced by spawning one or more presets (or, for
 drones with no RotorGroup-compatible param yaml yet, referencing their raw
 source USD directly) and flattening the stage, driven by a YAML config:
@@ -87,7 +121,7 @@ One config per output file under `scripts/export_configs/` -- see
 Re-run the relevant one any time a mount offset or manipulator/gripper spec
 changes, then re-upload the regenerated file to Google Drive.
 
-`uaquad600_ambencharm_top.usd` is the one exception: it needs bespoke arm
+`uaquad600_gripper.usd` is the one exception: it needs bespoke arm
 re-mount surgery on top of the spawn (AM-bench's own source USD never
 actually got re-mounted top-side-up, only its MJCF viewer copy did -- see
 `scripts/export_uaquad600_usd.py`'s module docstring for the full story),

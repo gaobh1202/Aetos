@@ -1,4 +1,4 @@
 output: hummingbird_dynamixel_combined.usd
 robots:
   - name: hummingbird_dynamixel
-    preset: hummingbird340_dynamixel2r_bottom
+    preset: hummingbird340_2dof_gripper

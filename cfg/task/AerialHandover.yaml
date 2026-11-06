@@ -10,8 +10,25 @@ env:
   max_episode_length: 500
 
 aerial_manipulators:
-  - preset: hummingbird340_dynamixel2r_bottom
-  - preset: uaquad600_ambencharm_top
+  - preset: hummingbird340_2dof_gripper
+  - preset: uaquad600_gripper
+
+# Fraction of each arm link's mass/inertia left on the link; the rest is
+# lumped onto base_link so a moving arm barely reacts on the drone
+# (measurements + rationale: docs/ARM_DISTURBANCE.md). hummingbird340_2dof_
+# gripper needs this least of the three measured robots -- fully coupled it
+# already only costs 8.3 deg of roll -- and the response is linear: 1.0 ->
+# 8.27 deg of roll / 0.51 m, 0.3 -> 2.19 / 0.153, 0.1 -> 0.72 / 0.052,
+# 0.01 -> 0.07 / 0.005, 0.001 -> 0.01 / 0.0005. 0.1 is comfortable while
+# keeping a tenth of the real coupling. Set 1.0 to restore true dynamics.
+# NOTE: only examples/aerial_manipulator_control_demo.py reads these, and it
+# drives one robot -- for this two-agent scene they are declarative for now.
+arm_dynamics_residual: 0.1
+# Nothing to lock: dynamixel_2r has no base-rotation joint at all (just the
+# R1/R2 pitch hinges plus three fingers), so the so_arm100 shoulder_pan
+# failure mode cannot occur here -- measured yaw is <=0.09 deg on every
+# joint, and every joint's drive works with other dynamic bodies moving.
+arm_locked_joints: []
 
 time_encoding: true
 goal_radius: 0.5

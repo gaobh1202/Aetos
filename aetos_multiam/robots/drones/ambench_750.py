@@ -19,25 +19,34 @@ authored -- the MJCF export's own conversion had to clamp Izz to
 USD's PhysX mass properties have the same issue (and need the same
 clamping) hasn't been checked.
 
-Same gap as ``ambench_600``: no ``RotorGroup``-compatible KF/KM (AM-bench's
-reduced-order ``RotorActuator`` has no equivalent pair to port). A
-tilt-rotor layout also needs ``RotorGroup``'s per-rotor thrust-axis support
-(not just angle+arm-length), which isn't verified to exist in the version
-this benchmark imports.
+The cant is FIXED, not actuated -- six rotors at constant non-coplanar
+angles, which is how this airframe gets full 6-DOF wrench authority with no
+moving parts. Measured from that geometry: equal thrust gives net force
+(0.003, 0, 5.196) and net torque ~0, so it hovers level on equal thrusts,
+and the 6x6 wrench matrix has rank 6 / condition number 4.2.
+
+``ambench_750.yaml`` now exists. ``RotorGroup`` never needed per-rotor
+thrust-axis support -- ``RotorlessMultirotor`` carries the axes (and the
+positions) itself, and the 4-row map LeePositionController actually commands
+turns out to be *exactly* representable in the yaml's own parameter family
+once the thrust variable is taken to be each rotor's vertical component
+(residual 5.6e-17). See the yaml's header for the full derivation and
+``rotorless_multirotor``'s docstring for the two conventions that make it
+work. What this does not give is the lateral force the cant could produce at
+a level attitude: that needs a 6-DOF wrench allocator, not this yaml.
 """
 
 import os.path as osp
 
-from omni_drones.robots.drone.multirotor import MultirotorBase
-
 from aetos_multiam.assets import ASSET_PATH, USD_PATH
 from .drone_base import DroneSpec, register_drone
+from .rotorless_multirotor import RotorlessMultirotor
 
 MJCF_SOURCE_PATH = osp.join(ASSET_PATH, "mjcf", "ambench_fa_hexa_750_final", "robot.xml")
 AMBENCH_750_USD_PATH = (
     "/home/benhua/ambench/source/ambench/ambench/assets/robots/hexa_scorpion.usd"
 )
-AMBENCH_750_PARAM_PATH = osp.join(USD_PATH, "ambench_750.yaml")  # does not exist yet (needs KF/KM, see above)
+AMBENCH_750_PARAM_PATH = osp.join(USD_PATH, "ambench_750.yaml")
 
 TOTAL_MASS_KG = 6.63499978557229
 ROTOR_POSITIONS_M = (
@@ -56,14 +65,35 @@ ROTOR_THRUST_AXES = (
     (0.5003473468241608, 0.0, 0.8658247701042185),
     (-0.24941267034179734, -0.43335272628497695, 0.8660246731441039),
 )
+# The same axes rescaled so each has z-component 1 -- the convention
+# RotorlessMultirotor requires, because the thrust variable everything else
+# carries is then the rotor's vertical force component (see that module).
+ROTOR_THRUST_AXES_Z_NORMALIZED = (
+    (-0.287997187697, 0.500393048516, 1.0),
+    (0.577885230477, 0.0, 1.0),
+    (-0.287997187697, -0.500393048516, 1.0),
+    (-0.287997187697, 0.500393048516, 1.0),
+    (0.577885230477, 0.0, 1.0),
+    (-0.287997187697, -0.500393048516, 1.0),
+)
 SPIN_DIRECTIONS = (1, -1, 1, -1, 1, -1)
+ROTOR_REACTION_TORQUE_RATIO = 0.02  # AM-bench's own reaction_torque_ratio
 MAX_THRUST_PER_ROTOR_N = 23.0
 CLAMPED_INERTIA_ZZ = 0.395604  # see docstring; source Izz=0.460 violates the triangle inequality
 
 
-class _AmbenchHexaScorpion(MultirotorBase):
+class _AmbenchHexaScorpion(RotorlessMultirotor):
+    """Rotors are visuals only, and canted -- so both the positions and the
+    per-rotor thrust axes live here rather than being read off ``rotor_*``
+    rigid bodies. ``ambench_750.yaml``'s arm_lengths/rotor_angles/
+    moment_constants are the *effective* values derived from this geometry;
+    the physical drag ratio stays here, where the plant can use it."""
+
     usd_path: str = AMBENCH_750_USD_PATH
     param_path: str = AMBENCH_750_PARAM_PATH
+    rotor_positions_b = ROTOR_POSITIONS_M
+    rotor_axes_b = ROTOR_THRUST_AXES_Z_NORMALIZED
+    rotor_drag_ratio = ROTOR_REACTION_TORQUE_RATIO
 
 
 AMBENCH_750 = register_drone(
@@ -77,7 +107,10 @@ AMBENCH_750 = register_drone(
         note=(
             f"Real Isaac Sim USD at {AMBENCH_750_USD_PATH} (AM-bench's own "
             f"asset, arm+gripper bundled in -- see {MJCF_SOURCE_PATH} for a "
-            "cross-checked geometry reference); still no RotorGroup-compatible KF/KM."
+            "cross-checked geometry reference). Flies via RotorlessMultirotor "
+            "with effective mixer parameters derived from its fixed rotor cant "
+            "(see ambench_750.yaml); the cant's 6-DOF authority is NOT used, "
+            "LeePositionController commands only 4 DOFs."
         ),
     )
 )

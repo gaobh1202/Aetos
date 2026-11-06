@@ -1,0 +1,34 @@
+name: ShelfButtonGrasp
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+
+env:
+  num_envs: 32
+  env_spacing: 8
+
+# Robot for this scene -- default amov_airbot_gripper (preset
+# amov950_airbot_bottom). Swap it by editing this preset name, or via a
+# hydra override: aerial_manipulators.0.preset=<other_preset>.
+aerial_manipulators:
+  - preset: amov950_airbot_bottom
+
+# --- teleop tuning, read by examples/aerial_manipulator_control_demo.py ---
+# Fraction of its real mass/inertia each arm link keeps under
+# --arm_dynamics frozen. airbot_play on a 13.3kg airframe needs a MUCH harder
+# freeze than iris650_soarm100 does (that one is tuned to 0.1), and unlike it
+# this one is monotonic all the way down -- measured worst body yaw with all
+# eight joints sweeping: 1.0 -> 269 deg, 0.1 -> 98, 0.02 -> 18.5, 0.005 ->
+# 18.5, 0.001 -> 4.5, 0.0001 -> 0.71. No cliff found.
+arm_dynamics_residual: 0.001  # measurements + rationale: docs/ARM_DISTURBANCE.md
+# Nothing to lock here: no single joint dominates this arm's reaction (worst
+# single joint is 8 deg of yaw), and unlike so_arm100's shoulder_pan every
+# joint on this arm drives correctly with other dynamic bodies moving.
+arm_locked_joints: []
+
+time_encoding: true
+
+success_distance: 0.05
+reward_distance_scale: 1.2
+reward_success_weight: 10.0
