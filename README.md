@@ -114,14 +114,18 @@ arm from two independently-selected devices:
 | `--arm_dynamics` | `frozen`, `coupled` | `frozen` (arm doesn't push back) |
 | `--mode` | `dynamic`, `kinematic` | real rotor thrust vs. teleported pose |
 | `--controller` | `auto`, `lee`, `fa` | `auto` (6-DOF where the airframe allows) |
+| `--agent` | agent index in a multi-robot `--task` | `0` |
 
-Keys -- drone: `WASD` translate, `E`/`Q` up/down, `Left`/`Right` yaw. Arm:
-`1`-`9` select a joint, `]`/`[` **or** `Up`/`Down` move it, `G`/`H` close/open
-every gripper DOF, `Z` home the arm. The arm bindings are generic over whatever DOFs the preset
-has, so the same keys drive a 2-DOF arm or a 12-DOF dexterous hand.
+Key bindings are listed under [Task](#task). They are generic over whatever
+DOFs the preset has, so the same keys drive a 2-DOF arm or a 12-DOF dexterous
+hand.
+
+The robot comes from either a **task** (`--task <TaskName>`, see
+[Task](#task)) or a bare **preset** (`--preset <name>`, on an empty ground
+plane):
 
 ```bash
-# fly a preset and drive its arm, both from the keyboard
+# a bare preset on a ground plane
 python examples/aerial_manipulator_control_demo.py --preset iris650_soarm100 \
     --mode dynamic --uav_control keyboard --arm_control keyboard
 
@@ -134,18 +138,59 @@ python examples/aerial_manipulator_control_demo.py --preset iris650_soarm100 \
 to the world); serial permissions and first-run calibration in
 [`docs/TELEOP.md`](docs/TELEOP.md).
 
-### Run a task
+### Task
+
+One entry point: name the task, pick where the drone and the arm are driven
+from. It builds the whole registered scene -- bay, props, robots -- and flies
+the robot that scene declares.
+
+```bash
+python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp \
+    --mode dynamic --uav_control keyboard --arm_control keyboard
+```
+
+**Keys.** Drone: `Q`/`E` descend/ascend, `W`/`S` forward/backward, `A`/`D`
+strafe left/right, `Left`/`Right` yaw. Arm: number keys `1`-`9` select a
+joint, `Up`/`Down` (or `[`/`]`) move the selected joint, `G`/`H` close/open
+every gripper DOF, `Z` home the arm.
+
+Translation is in the drone's own frame (FLU: +x forward, +y left) and
+rotates with the current heading, so "forward" always means the nose -- which
+on every preset carrying an arm is the direction that arm reaches
+(`iris650_soarm100`'s end effector sits 0.30 m ahead of `base_link` and 0.31 m
+below it).
+
+The five built scenes:
+
+| task | robot(s) | scene |
+|---|---|---|
+| `AerialAssembly` | `iris650_soarm100` x2 | <img src="resources/scenes/AerialAssembly.png" width="300"> |
+| `AerialHandover` | `iris650_soarm100` + `uaquad600_gripper` | <img src="resources/scenes/AerialHandover.png" width="300"> |
+| `AerialTransport` | `iris650_soarm100` x2 | <img src="resources/scenes/AerialTransport.png" width="300"> |
+| `AerialButtonGrasp` | `amov950_airbot_bottom` | <img src="resources/scenes/AerialButtonGrasp.png" width="300"> |
+| `AerialBucketGrasp` | `amov950_airbot_bottom` | <img src="resources/scenes/AerialBucketGrasp.png" width="300"> |
+
+All five share `WarehouseArena` (18 x 20 x 5.4 m bay, concrete floor, two
+painted spawn zones). `--agent N` picks which robot you drive in a two-robot
+scene; the others hold the pose they spawned at. `ButtonGrasp`,
+`AerialAssemblyTriple` and `AerialCabinetGrasp` also run, on plainer scenes.
+
+Scene and robot are both config: `task=<TaskName>` picks the scene,
+`aerial_manipulators.0.preset=<name>` picks the robot, no code change.
+
+Random-action smoke tests, for checking a scene still builds and steps:
 
 ```bash
 python scripts/run_button_grasp.py headless=true
-python scripts/run_shelf_button_grasp.py task=ShelfButtonGrasp headless=true
+python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
+python scripts/run_collab_smoke.py task=AerialAssembly headless=true
 
-# shelf scene with pluggable drone/arm control sources (policy / replay / device)
-python examples/run_task_ShelfButtonGrasp.py --headless --max_steps 500
+# the original standalone shelf scene, with pluggable drone/arm control
+# sources (policy / replay / device). It builds that scene itself, matching a
+# trained checkpoint's physics byte-for-byte, so it stayed on bare ground
+# while AerialButtonGrasp moved into the warehouse bay.
+python examples/run_task_AerialButtonGrasp.py --headless --max_steps 500
 ```
-
-Scene and robot are both config: `task=<SceneName>` picks the scene,
-`aerial_manipulators.0.preset=<name>` picks the robot, no code change.
 
 ### Regenerate combined USDs
 
@@ -165,8 +210,8 @@ aetos_multiam/
   devices/                                 # teleop input devices (keyboard UAV + arm, SO-ARM leader)
   actuators/, controllers/                 # rotor thrust, arm/gripper/composite controllers
   scenes/, objects/                        # arenas and task objects
-  environments/single/                     # ButtonGrasp, ShelfButtonGrasp, ShelfBucketGrasp
-  environments/collaborative/              # 5 config-driven multi-AM tasks (scaffolding)
+  environments/single/                     # ButtonGrasp, AerialButtonGrasp, AerialBucketGrasp
+  environments/collaborative/              # 3 built multi-AM scenes + 2 config-only
   utils/usd_compose.py                     # the drone x arm x gripper mounting mechanism
   utils/arm_dynamics.py                    # arm-reaction isolation
   controllers/drone/allocation.py          # 6-DOF wrench allocation (fully-actuated airframes)

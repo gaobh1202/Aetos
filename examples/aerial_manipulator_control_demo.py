@@ -47,16 +47,18 @@ composition machinery buys nothing.
 registered scene (``cfg/task/<TaskName>.yaml`` -> ``environments.make()``) --
 arena, props and all -- and drives **the robot that scene itself declares**, so
 the robot choice lives with the scene instead of being retyped on the command
-line. ``ShelfBucketGrasp``, for instance, declares
-``aerial_manipulators: [{preset: iris650_soarm100}]``, and that is what you
-end up flying around its shelf. The scene is built and then driven straight
+line. ``AerialBucketGrasp``, for instance, declares
+``aerial_manipulators: [{preset: amov950_airbot_bottom}]``, and that is what
+you end up flying around its shelf. The scene is built and then driven straight
 off ``SimulationContext.step()``: this is teleop, so the env's own
 step/reward/episode-reset machinery is deliberately bypassed (otherwise the
 episode timer would yank the drone back to spawn mid-flight). The env is used
 as a scene builder and a robot registry, nothing more.
 
 A scene that welds its robot to the world needs to be told not to -- this
-script passes ``task.weld_robot=false``, which ``ShelfBucketGrasp`` honours.
+script passes ``task.weld_robot=false``, which ``AerialBucketGrasp`` honours
+(it defaults to false there now, but passing it costs nothing and keeps the
+script working against a scene that welds).
 A scene without that switch will simply not move.
 
 ``--preset <name>`` is the bare version of the same thing: one aerial
@@ -101,18 +103,24 @@ hand.
 
 Usage:
     # scene's robot, nothing driven -- just holds station
-    python examples/aerial_manipulator_control_demo.py --task ShelfBucketGrasp --mode dynamic
+    python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp --mode dynamic
 
-    # fly it with the keyboard
-    python examples/aerial_manipulator_control_demo.py --task ShelfBucketGrasp --mode dynamic \
-        --uav_control keyboard
+    # fly it with the keyboard, arm on the keyboard too
+    python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp --mode dynamic \
+        --uav_control keyboard --arm_control keyboard
+
+    # a multi-robot scene: pick which agent you drive. Every other agent in
+    # the scene holds the pose it spawned at (without that they get no rotor
+    # command at all and drop to the floor).
+    python examples/aerial_manipulator_control_demo.py --task AerialAssembly --mode dynamic \
+        --uav_control keyboard --arm_control keyboard --agent 1
 
     # ...and drive the arm from a real SO-ARM leader at the same time
-    python examples/aerial_manipulator_control_demo.py --task ShelfBucketGrasp --mode dynamic \
+    python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp --mode dynamic \
         --uav_control keyboard --arm_control soarm_leader --arm-port /dev/ttyACM0
 
     # no hardware: sine-sweep the arm instead
-    python examples/aerial_manipulator_control_demo.py --task ShelfBucketGrasp --mode dynamic \
+    python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp --mode dynamic \
         --arm_control soarm_leader --arm-fake
 
     # no scene, bare drone + arm on a ground plane
@@ -133,8 +141,11 @@ parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.R
 parser.add_argument("--mode", choices=["kinematic", "dynamic"], default="kinematic")
 parser.add_argument("--drone-model", type=str, default="Hummingbird", help="Key into MultirotorBase.REGISTRY.")
 parser.add_argument("--task", type=str, default=None,
-                    help="Registered scene to fly in (e.g. ShelfBucketGrasp). The scene's own "
+                    help="Registered scene to fly in (e.g. AerialBucketGrasp). The scene's own "
                          "cfg/task/<name>.yaml declares which robot gets spawned.")
+parser.add_argument("--agent", type=int, default=0,
+                    help="Which agent of a multi-robot --task scene the control sources drive. "
+                         "Every other agent in the scene holds the pose it spawned at.")
 parser.add_argument("--preset", type=str, default=None,
                     help="aetos_multiam preset to fly WITH its arm (e.g. iris650_soarm100). "
                          "Takes precedence over --drone-model.")
@@ -225,7 +236,7 @@ if args.task:
                 # key because it never welds its robot in the first place.
                 "++task.weld_robot=false",
                 # You fly ONE drone with one keyboard; a task's training
-                # num_envs (32 for ShelfButtonGrasp) just clones it.
+                # num_envs (32 for AerialButtonGrasp) just clones it.
                 "++task.env.num_envs=1",
             ],
         )
@@ -336,7 +347,12 @@ try:
         env = make_env(task_cfg.task.name, task_cfg, headless=args.headless)
         env.reset()
         sim = env.sim  # the env built its own SimulationContext; reuse it
-        am = env.drone  # the AerialManipulatorBase, not the bare drone
+        if not 0 <= args.agent < len(env.aerial_manipulators):
+            raise SystemExit(
+                f"--agent {args.agent} out of range: {task_cfg.task.name} has "
+                f"{len(env.aerial_manipulators)} agent(s)."
+            )
+        am = env.aerial_manipulators[args.agent]  # AerialManipulatorBase, not the bare drone
         drone = am.drone
         controller = (
             make_position_controller(drone, 9.81, args.controller).to(drone.device)
@@ -401,6 +417,46 @@ try:
                   f"(now {frozen['base_mass']:.3f} kg, inertia diag "
                   f"{[round(v, 4) for v in frozen['base_inertia_diag']]}, "
                   f"residual={frozen['residual']})", flush=True)
+
+    # --- every other agent in a multi-robot scene -------------------------
+    # You drive one of them. The rest would otherwise never get a rotor
+    # command and would just fall out of the sky, which makes a two-robot
+    # scene pointless to look at -- so each one holds the pose its scene
+    # spawned it at, arm parked at rest.
+    passive = []
+    if args.task:
+        for other in env.aerial_manipulators:
+            if other is am:
+                continue
+            if args.arm_dynamics == "frozen":
+                _r = args.arm_residual
+                if _r is None:
+                    _r = other.cfg.arm_dynamics_residual
+                freeze_arm_dynamics(other, residual=float(_r))
+            _st = other.drone.get_state()
+            _idx = other.teleop_joint_indices
+            _arm = None
+            if _idx is not None:
+                _lim = other.drone._view.get_dof_limits()[0, 0][_idx].to(other.drone.device)
+                _arm = torch.zeros(1, len(_idx), device=other.drone.device).clamp(
+                    _lim[:, 0], _lim[:, 1]
+                )
+            passive.append({
+                "am": other,
+                "controller": (
+                    make_position_controller(other.drone, 9.81, args.controller)
+                    .to(other.drone.device)
+                    if want_controller else None
+                ),
+                "pos": _st[..., :3].reshape(1, 3).clone(),
+                "quat": _st[..., 3:7].reshape(1, 4).clone(),
+                "yaw": quaternion_to_euler(_st[..., 3:7].reshape(1, 4))[:, 2].clone(),
+                "arm": _arm,
+            })
+        if passive:
+            print(f"[am_control] driving agent {args.agent} of "
+                  f"{len(env.aerial_manipulators)}; {len(passive)} other agent(s) "
+                  f"holding their spawn pose", flush=True)
 
     # --- the one generic arm handle every teleop device writes through ----
     # Works for presets whose arm is a separate USD welded at spawn time AND
@@ -575,9 +631,11 @@ try:
         cmd = keyboard.read_command() if keyboard is not None else IDLE_UAV_CMD
         dt = rate_limiter.sleep_duration
 
-        # Rotate the body-frame (vx=right, vy=forward) intent into world
+        # Rotate the body-frame FLU intent (vx=forward, vy=left) into world
         # frame by the CURRENT target yaw, so "forward" tracks whichever way
-        # the setpoint is already facing, then integrate.
+        # the setpoint is already facing, then integrate. Forward is the nose
+        # -- the direction the arm reaches -- not 90 deg off it; see
+        # devices/keyboard_uav_control.py.
         cos_yaw, sin_yaw = torch.cos(target_yaw), torch.sin(target_yaw)
         dx = (cmd["vx"] * cos_yaw - cmd["vy"] * sin_yaw) * args.linear_speed * dt
         dy = (cmd["vx"] * sin_yaw + cmd["vy"] * cos_yaw) * args.linear_speed * dt
@@ -596,6 +654,19 @@ try:
             drone_state = drone.get_state()[..., :13].squeeze(0)
             action = controller.compute(drone_state, target_pos=target_pos, target_yaw=target_yaw)
             drone.apply_action(action)
+
+        for _p in passive:
+            _pam = _p["am"]
+            if args.mode == "kinematic" or _p["controller"] is None:
+                _pam.drone.set_world_poses(_p["pos"], _p["quat"])
+                _pam.drone.set_velocities(torch.zeros(1, 6))
+            else:
+                _pam.drone.apply_action(_p["controller"].compute(
+                    _pam.drone.get_state()[..., :13].squeeze(0),
+                    target_pos=_p["pos"], target_yaw=_p["yaw"],
+                ))
+            if _p["arm"] is not None:
+                _pam.hold_joints(_p["arm"], zero_velocity=True)
 
         if arm_keyboard is not None:
             acmd = arm_keyboard.read_command()
@@ -696,10 +767,18 @@ try:
                     " arm_cmd=" + str([round(v, 2) for v in arm_radians.reshape(-1).tolist()])
                     + " arm_act=" + str([round(v, 2) for v in actual.reshape(-1).tolist()])
                 )
+            # A held agent that quietly fell on the floor looks exactly like a
+            # held agent that is holding, unless its position is printed too.
+            held_note = ""
+            if passive:
+                held_note = " held=" + str([
+                    [round(v, 2) for v in _p["am"].drone.get_state()[..., :3].reshape(-1).tolist()]
+                    for _p in passive
+                ])
             print(
                 f"[am_control] step={step} target_pos={target_pos.tolist()} "
                 f"target_yaw={round(float(target_yaw[0]), 3)} pos={pos} "
-                f"tilt={math.degrees(math.acos(max(-1.0, min(1.0, up_z)))):.1f}deg{arm_note}",
+                f"tilt={math.degrees(math.acos(max(-1.0, min(1.0, up_z)))):.1f}deg{arm_note}{held_note}",
                 flush=True,
             )
         if args.max_steps and step >= args.max_steps:

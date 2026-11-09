@@ -5,10 +5,17 @@ Both aerial-manipulator scenes therefore declare two knobs, read by
 `examples/aerial_manipulator_control_demo.py` and overridable on the
 command line:
 
-| key (in `cfg/task/<Scene>.yaml`) | ShelfBucketGrasp<br>(`iris650_soarm100`) | ShelfButtonGrasp<br>(`amov950_airbot_bottom`) | AerialHandover<br>(`hummingbird340_2dof_gripper`) | CLI override |
+| key (in `cfg/task/<Scene>.yaml`) | `iris650_soarm100` | `amov950_airbot_bottom` | `hummingbird340_2dof_gripper` | CLI override |
 |---|---|---|---|---|
 | `arm_dynamics_residual` | `0.1` | `0.001` | `0.1` | `--arm-residual` |
 | `arm_locked_joints` | `[shoulder_pan]` | `[]` | `[]` | `--arm-lock-joints` |
+
+The columns are per **preset**, not per scene: a scene declares whatever its
+own robot needs. `AerialButtonGrasp` and `AerialBucketGrasp` both ship the
+airbot column (both fly `amov950_airbot_bottom` as of 2026-11-09 --
+`AerialBucketGrasp` used to be the `iris650_soarm100` scene). The so_arm100
+column is still the measured answer for that preset; override it on the
+command line, or in a scene yaml that declares it.
 
 (`AerialHandover` is a two-agent collaborative scene and the demo script that
 reads these keys drives one robot, so there they are declarative for now --
@@ -26,7 +33,7 @@ and the whole point of making it one number per scene.
 
 `arm_locked_joints` holds a joint at rest instead of following the operator.
 
-## Measured: ShelfButtonGrasp / airbot at the shipped `residual: 0.001`
+## Measured: AerialButtonGrasp / airbot at the shipped `residual: 0.001`
 
 Per-joint, each joint swept at 40 % of its own half-range (capped 0.6 rad)
 at 0.25 Hz, teleport writes, Lee controller holding position:
@@ -161,7 +168,7 @@ the real coupling.
 
 The mass fix is generic, so it also corrected `amov950_airbot_bottom`, whose
 yaml overstated its mass by 3.6 % (13.332 declared vs 12.873 real). Its
-ShelfButtonGrasp all-joints sweep moved from `1.36° yaw / 0.12° pitch /
+AerialButtonGrasp all-joints sweep moved from `1.36° yaw / 0.12° pitch /
 0.0921 m` to `3.48° / 2.01° / 0.0448 m` -- position error halved, attitude
 slightly worse, both small. `iris650_soarm100` is unaffected (its own
 `initialize` already set the true total, measured 0.0 % error).
@@ -203,7 +210,7 @@ body, every joint drives to the same value. Worth an upstream report.
   against hardware.
 - airbot has no manipulator teleop channel in the demo --
   `--arm_control soarm_leader` rejects non-SO-ARM manipulators -- so
-  `arm_locked_joints` is currently inert for ShelfButtonGrasp.
+  `arm_locked_joints` is currently inert for AerialButtonGrasp.
 - When probing, a catastrophic case poisons later `env.reset()`s in the same
   process: the `residual: 1.0` run reported 1.5° for the all-joints case,
   smaller than `joint1` alone. Only the first case in a loop runs on a clean

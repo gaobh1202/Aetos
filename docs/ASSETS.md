@@ -60,7 +60,7 @@ aetos_multiam/assets/
 ## Task-object assets (`objects/assets/`)
 
 `aetos_multiam/objects/assets/{shelf_chrome,gearwheel,button,power_drill,
-tote_box}/` holds the USD/mesh/texture binaries for the `ShelfButtonGrasp`
+tote_box}/` holds the USD/mesh/texture binaries for the `AerialButtonGrasp`
 task's props, migrated from raids-am-simulator's shelf_grasp scene. Same
 not-committed-to-git convention as `assets/meshes/` above (`.gitignore`
 entry: `aetos_multiam/objects/assets/`) -- copy the folder from
@@ -86,7 +86,7 @@ point a new `AetosObject` subclass's `usd_path` at the root `.usd`/`.usda`
 file here, and read that file's own body names for `root_body_name`.
 
 `white_bucket/` is wired up already -- see `objects/white_bucket.py`
-(`WhiteBucket`, used by `ShelfBucketGrasp`). It's PalatialSim's
+(`WhiteBucket`, used by `AerialBucketGrasp`). It's PalatialSim's
 `palatial-nv-asset-library` dataset asset `D00436` rather than an NVIDIA
 SimReady download, laid out the same way (`simready_usd/` + `.metadata/` +
 `com.nvidia.simready.packaging.json`, no `.cache/huggingface` bookkeeping).

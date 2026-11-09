@@ -37,10 +37,11 @@ USD/mesh 同理,放在 `aetos_multiam/objects/assets/`。
 | 键盘控制无人机 | ✅ 全部六个 |
 | 键盘控制机械臂/夹爪 | ✅ 全部六个(两个已知打折,见 §4) |
 | SO-ARM leader 实物遥操作 | ✅ 仅 `iris650_soarm100`(SO-ARM 系) |
-| `ButtonGrasp` 任务端到端 | ✅ |
-| `ShelfButtonGrasp` 任务 + 回放 | ✅ headless GPU PhysX 下跑完 605 帧,无 flip |
-| `ShelfBucketGrasp` | ⚠️ 写法同上但没在 Isaac Sim 里启动过 |
-| 5 个多机协作任务 | ⚠️ 只有注册和配置,是脚手架 |
+| `ButtonGrasp` 任务端到端 | ✅ 2026-11-09 修掉三个"内置臂没处理"的缺陷后重新跑通(见 §4) |
+| `AerialButtonGrasp` 任务 + 回放 | ✅ headless GPU PhysX 下跑完 605 帧,无 flip(回放脚本用的是旧的货架场景常量,见 §8) |
+| `AerialBucketGrasp` | ✅ 换场景后 headless 跑完 200 步随机动作 |
+| `AerialAssembly` / `AerialHandover` / `AerialTransport` | ⚠️ 场景搭好、物理能跑,奖励和抓取控制器还没写 |
+| `AerialAssemblyTriple` / `AerialCabinetGrasp` | ⚠️ 只有注册和配置,是脚手架 |
 | 全驱动 6-DOF wrench 分配器 | ✅ fahexa750 已用,水平飞行姿态 ≤ 0.23° |
 | 外骨骼 / Apple Vision Pro 遥操作 | ❌ 未实现,只留了接入点 |
 
@@ -173,7 +174,7 @@ airframe 的 frame/桨数量对得上、且没有任何 livery 材质漏到机�
 
 ---
 
-## 4. 已修复的八个缺陷
+## 4. 已修复的缺陷
 
 每一个都是真实缺陷,而且大多是**飞起来才发现的** —— 数值指标全过,只有在
 视口里才看得出来。
@@ -188,6 +189,16 @@ airframe 的 frame/桨数量对得上、且没有任何 livery 材质漏到机�
 | Inspire 手指一命令运动就 non-finite | 资产把手指 authoring 成 `kp=0.05`,却和 `kp=1e7` 的臂关节同处一个 articulation | 该 preset 用 `arm_write="teleport"` |
 | **两个机器人同场景直接 segfault**(崩在 `get_body_masses` 里,没有 Python traceback) | `initialize()` 里为修 rest pose 调的第二次 `sim.reset()` 是**全局**的,会销毁 physics simulation view,让其他机器人手里的 view handle 全部失效 | `initialize(reset_rest_pose=False)` + `reattach()`,由调用方统一 reset 一次 |
 | 资产修复对"单独挂载的臂"静默失效 | `_apply_asset_fixups` 跑在 `mount_child` 之前,那时臂还不存在 | 移到 mount 循环之后的第二遍 |
+
+`ButtonGrasp` 另外单独欠了三个,同一个病根 —— 它是最早写的任务,后面两个货架任务
+都升级过"机械臂可能是内置在无人机 USD 里的"这一情况,它没有,而它自己的默认 preset
+(`amov950_airbot_bottom`)恰好就是内置臂。2026-11-09 一起修掉:
+
+| 现象 | 成因 |
+|---|---|
+| 建场景就崩:`'NoneType' object has no attribute 'eef_body_name'` | eef 路径只写了"单独挂载的臂"那一种,而且还把它拼在 `mount_body_name/` 下面(`mount_child` 实际上挂成**兄弟**节点) |
+| `env.step` 崩:`expanded size of the tensor (4) must match the existing size (12)` | 建 arm controller 的判据是 `manipulator_spec is not None`,内置臂没有这个 spec → 没有臂控制器 → `split_action` 把 12 维动作整个塞给了 4 旋翼的无人机。判据应该是 `arm_joint_indices is not None` |
+| `scripts/run_button_grasp.py` 崩:`tuple indexing only supports integers...` | 脚本里 `env.action_spec["agents","action"]`,但单智能体时 torchrl 已经自动拆包成叶子 spec 了。兄弟脚本早就修过,这个没跟上 |
 
 ### 多机同场景的正确初始化顺序
 
@@ -377,9 +388,21 @@ python examples/show_am_action.py --preset fahexa750_gripper --controller lee   
 
 ### 按键
 
-无人机:`WASD` 平移,`E`/`Q` 升降,`Left`/`Right` 偏航。
+无人机:`W`/`S` 前进/后退,`A`/`D` 左移/右移,`E`/`Q` 升降,
+`Left`/`Right` 偏航。
 机械臂:`1`-`9` 选关节,`]`/`[` **或** `↑`/`↓` 正反转,`G`/`H` 闭合/张开所有
 夹爪自由度,`Z` 回零位。
+
+平移是**机体系 FLU**:+x 前(机头方向)、+y 左、+z 上,整体跟着当前偏航转。
+"机头方向"就是机械臂伸出去的方向 —— 实测 `iris650_soarm100` 的末端在
+`base_link` 前方 0.301 m、下方 0.311 m,`amov950_airbot_bottom` 是 +0.297 /
+-0.344。
+
+> **2026-11-09 修正**:原来 `_AXIS_KEYS` 把 `W`/`S` 接在 +y 上、`A`/`D` 接在
+> +x 上,等于把"前"定义偏了 90° —— 按 W 是横着飞,真正沿机头/机械臂方向走的
+> 是 `A`/`D`。`devices/keyboard_uav_control.py` 和
+> `examples/show_am_action.py` 的脚本化任务(它那三条 `forward`/`left`/`right`
+> 腿用的是同一套写反的约定)都已改正,README 里那六个动图也按新方向重录了。
 
 关节正反转给了两套键,因为 `[`/`]` 在非美式键盘布局上不在同一个物理键上
 (德式要 AltGr+8/9),而 carb 读的是**物理键**不是字符 —— 方向键则是布局无关的。
@@ -406,6 +429,7 @@ python examples/show_am_action.py --preset fahexa750_gripper --controller lee   
 | `--mode` | `kinematic` / `dynamic` | `kinematic` | 见上 |
 | `--preset` | preset 名 | — | 在空地面上加载这个 preset |
 | `--task` | 场景名 | — | 用场景 yaml 里声明的机器人 |
+| `--agent` | int | 0 | 多机场景里你开哪一台,其余的原地悬停保持 |
 | `--drone-model` | OmniDrones 机型名 | `Hummingbird` | 裸无人机,不带臂 |
 | `--uav_control` | `none` / `keyboard` | `none` | |
 | `--arm_control` | `none` / `keyboard` / `soarm_leader` | `none` | |
@@ -423,8 +447,30 @@ python examples/show_am_action.py --preset fahexa750_gripper --controller lee   
 | `--headless` / `--max_steps` | | | |
 
 三者选其一决定加载什么机器人:`--task <场景名>`(场景 yaml 自己声明,如
-`ShelfBucketGrasp` → `iris650_soarm100`)、`--preset <名字>`(空地面)、
+`AerialBucketGrasp` → `amov950_airbot_bottom`)、`--preset <名字>`(空地面)、
 `--drone-model`(裸无人机)。
+
+### 这就是"按任务名 + 控制源跑任务"的那个脚本
+
+不用另写一个。`--task` 会把整个注册场景建起来(地形、道具、机器人全都有),然后
+用 `--uav_control` / `--arm_control` 指定的控制源去开它:
+
+```bash
+python examples/aerial_manipulator_control_demo.py --task AerialBucketGrasp \
+    --mode dynamic --uav_control keyboard --arm_control keyboard
+```
+
+八个注册任务全部实测可用:`ButtonGrasp`、`AerialButtonGrasp`、
+`AerialBucketGrasp`、`AerialAssembly`、`AerialHandover`、`AerialTransport`、
+`AerialAssemblyTriple`、`AerialCabinetGrasp`。
+
+多机场景用 `--agent N` 选你开哪一台(默认 0)。**其余的每台都会悬停保持
+spawn 位姿** —— 这是 2026-11-09 补的:在那之前它们一条旋翼指令都收不到,直接
+掉到地上,两机场景等于只有一台能看。每 50 步的状态行里多了一个 `held=[...]`,
+打印被保持的那几台的位置,因为"掉在地上的保持"和"真的在保持"从日志上看是一样的。
+
+`--task` 还会自动加三个 override:`task.env.num_envs=1`(一个键盘只能开一台,
+训练用的 32 份克隆没意义)、`++task.weld_robot=false`、`headless` 跟着命令行走。
 
 ### 6bis. SO-ARM 夹爪的开闭范围(实测)
 
@@ -529,17 +575,41 @@ done
 python scripts/run_button_grasp.py headless=true
 ```
 
-### `ShelfButtonGrasp` / `ShelfBucketGrasp`
+### `AerialButtonGrasp` / `AerialBucketGrasp`
 
-四层镀铬货架,上面放齿轮、按钮、电钻、周转箱,从 raids-am-simulator 的
-`shelf_grasp.usd` 迁过来(`scenes/shelf_arena.py` + `objects/{gearwheel,
-shelf_button,power_drill,tote_box}.py`)。
+(原 `ShelfButtonGrasp` / `ShelfBucketGrasp`,2026-11-09 改名并换了场景。)
+
+四层镀铬货架,从 raids-am-simulator 的 `shelf_grasp.usd` 迁过来
+(`scenes/shelf_arena.py` + `objects/{gearwheel,shelf_button,power_drill,
+tote_box,white_bucket}.py`)。`AerialButtonGrasp` 的货架顶层放齿轮、按钮、电钻、
+周转箱,`AerialBucketGrasp` 把前三件换成一个白桶、周转箱去掉。
+
+场景换成了和 `AerialAssembly` 同一个:`WarehouseArena` + 混凝土地面、无龙门架。
+
+* 货架立在**场地正中**(`SHELF_POS = (0,0,0)`),并且**转了 90°**
+  (`SHELF_YAW_DEG`)—— 它的开口面原本朝局部 +y,转过来之后朝 -x,正对机器人
+  出发的那个黄框。
+* 机器人**落在地面的黄框里**(`arena.spawn_zone_centers[0]` = (-4.5, 0),
+  z = 0.5 —— amov950 从 0.5 m 落下来稳定在 0.478,所以这个高度就是"站在地上"),
+  机头朝 +x 对着货架。要飞大约 4.5 m 过去。
+* 两个任务都用 `amov950_airbot_bottom`(原来 `ShelfBucketGrasp` 用的是
+  `iris650_soarm100`;换机型之后 `arm_dynamics_residual` 和 `arm_locked_joints`
+  也跟着换成 airbot 那套 0.001 / `[]`,原来那套 0.1 / `[shoulder_pan]` 是
+  so_arm100 专用的,airbot 上根本没有 `shoulder_pan` 这个关节)。
+
+货架上每个物件的坐标**一个数都没改** —— 它们仍然是当初在未旋转货架上量出来的
+局部坐标,由 `scenes.on_shelf()` 跟着货架一起旋转。所以货架上的相对摆放和迁过来
+时逐位一致。
+
+`AerialBucketGrasp` 的 `weld_robot` 默认从 `true` 改成了 **`false`**:焊接是为了
+"机器人就停在货架前、只动机械臂",现在它起点在 4.5 m 外的黄框里,焊住就永远够
+不着桶了。想要只动机械臂的变体,得连 spawn 位姿一起改,不是翻个开关的事。
 
 ```bash
-python scripts/run_shelf_button_grasp.py task=ShelfButtonGrasp headless=true
+python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
 
 # 换机器人,不改代码
-python scripts/run_shelf_button_grasp.py task=ShelfButtonGrasp \
+python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp \
     aerial_manipulators.0.preset=amov950_airbot_dexterous_bottom headless=true
 ```
 
@@ -726,7 +796,7 @@ carry_box 落位后移动 0.0 mm
 搬运需要一个闭合运动链(两个固定关节连到同一个刚体),那是另一件工程。奖励仍是
 占位实现,但目标点设在了**放置桌上各自提手的正上方**,至少指向是对的。
 
-### `examples/run_task_ShelfButtonGrasp.py` —— 带真实控制源
+### `examples/run_task_AerialButtonGrasp.py` —— 带真实控制源
 
 货架场景真正当成**任务**跑:场景 + 一个东西飞无人机 + 一个东西动机械臂,
 两边的控制源各自独立显式指定。
@@ -736,7 +806,7 @@ carry_box 落位后移动 0.0 mm
   预留接口(抛 `NotImplementedError`)。
 - `--arm-control {replay,policy,device}`(默认 `replay`):`replay` 回放迁移过来
   的 raids-am-simulator 录制片段(臂关节 + 夹爪 + 4 个物体位姿,放在
-  `aetos_multiam/data/shelf_button_grasp/episodes/`);另外两个是预留接口。
+  `aetos_multiam/data/aerial_button_grasp/episodes/`);另外两个是预留接口。
 
 **让无人机不翻,需要六个修复**,都值得记住:
 
@@ -851,7 +921,7 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
 ## 9bis. `scripts/` 和 `debug/` 的分界
 
 - **`scripts/`** —— 和具体任务或算法强相关的:任务入口
-  (`run_button_grasp.py`、`run_collab_smoke.py`、`run_shelf_*.py`)、资产导出
+  (`run_button_grasp.py`、`run_collab_smoke.py`、`run_aerial_*_grasp.py`)、资产导出
   工具(`export_robot_usd.py`),以及**绑定到某个任务**的验证脚本 ——
   `check_gear_assembly.py` 会直接构建 `AerialAssembly` 环境、断言那个任务自己的
   要求(两个齿轮都座住且啮合),所以它和任务入口放在一起。
