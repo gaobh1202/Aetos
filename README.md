@@ -45,23 +45,105 @@ attitude independently, so it slides sideways without tilting. The other five
 are under-actuated and lean to translate, as they must. `--controller lee`
 flies the hexa the under-actuated way for comparison.
 
-## Setup
+## Installation
+
+Linux only -- Isaac Sim does not support Windows. The stack below is what
+this benchmark is developed and tested on; the Isaac Sim / Python / torch
+rows are the ones that actually have to match, the rest is context.
+
+| | version |
+|---|---|
+| OS | Ubuntu 22.04.5 LTS |
+| GPU / driver | RTX 3080 Ti Laptop, 580.126.09 |
+| Isaac Sim | **4.1.0** |
+| Isaac Lab | 0.20.0 (`omni.isaac.lab`) |
+| Python | **3.10** (conda env, not Isaac Sim's bundled interpreter) |
+| PyTorch | **2.2.2+cu121** |
+| torchrl / tensordict | **0.3.1** / 0.3.1 |
+| numpy | 1.26.0, from Isaac Sim's `pip_prebundle` |
+
+### 1. Isaac Sim 4.1.0
+
+Install it per the [Omniverse
+docs](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_workstation.html),
+then point `ISAACSIM_PATH` at it in `~/.bashrc`. Any location works -- this
+machine uses a standalone unpack, not the Omniverse Launcher layout:
 
 ```bash
-pip install -e /home/benhua/OmniDrones   # aetos_multiam imports omni_drones directly
-pip install -e .
+export ISAACSIM_PATH=/home/benhua/isaacsim
+# launcher installs instead look like:
+# export ISAACSIM_PATH="${HOME}/.local/share/ov/pkg/isaac-sim-4.1.0"
 ```
 
-Robot model binaries (USD + MJCF mesh geometry) aren't committed -- download
-them and unzip into `aetos_multiam/assets/meshes`, see
+### 2. Conda environment
+
+Isaac Sim ships its own Python, but a separate conda env is far easier to
+work in. OmniDrones provides the activate/deactivate hooks that put Isaac
+Sim on the interpreter's path -- copy them into the env:
+
+```bash
+conda create -n omnidrone python=3.10
+conda activate omnidrone
+
+# from the OmniDrones checkout
+cp -r conda_setup/etc "$CONDA_PREFIX"
+conda activate omnidrone   # re-activate so the hook runs
+
+# verification
+python -c "from isaacsim import SimulationApp"
+python -c "import torch, numpy; print(torch.__version__, numpy.__version__)"
+# -> 2.2.2+cu121 1.26.0
+```
+
+> `ISAACSIM_PATH` must be exported **before** `conda activate`: the hook
+> sources `$ISAACSIM_PATH/setup_conda_env.sh`, and that is what puts Isaac
+> Sim's numpy 1.26 ahead of whatever the env itself has. Skip it and `import
+> torch` dies with *"A module that was compiled using NumPy 1.x cannot be run
+> in NumPy 2.x"* -- nothing in the message mentions Isaac Sim.
+
+### 3. Isaac Lab
+
+```bash
+sudo apt install cmake build-essential
+git clone git@github.com:isaac-sim/IsaacLab.git
+conda activate omnidrone
+pip install usd-core==23.11 lxml==4.9.4 tqdm xxhash   # pinned by nvidia-srl-usd
+cd IsaacLab && ./isaaclab.sh --install
+```
+
+### 4. OmniDrones, then this repo
+
+`aetos_multiam` imports `omni_drones` directly (rotor actuators, the Lee
+controller, `IsaacEnv`), so OmniDrones goes in first:
+
+```bash
+pip install -e /path/to/OmniDrones
+pip install -e /path/to/Aetos_MultiAM
+```
+
+### 5. Assets
+
+Robot model binaries (USD + MJCF mesh geometry, ~400 MB) are not committed.
+Download and unpack them into `aetos_multiam/assets/meshes`, and fetch the
+IsaacLab Factory gears `AerialAssembly` uses -- both in
 [`docs/ASSETS.md`](docs/ASSETS.md).
 
-Every script below needs Isaac Sim on the interpreter's path:
+### 6. Check it works
 
 ```bash
 export ISAACSIM_PATH=/home/benhua/isaacsim
 conda activate omnidrone
+
+python examples/show_robot.py --robot all --headless    # all six robots spawn
+python debug/verify_iris650_flight.py                   # one of them actually flies
+python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
 ```
+
+Run everything through this conda env, never through Isaac Sim's own
+`python.sh` -- that interpreter has neither `aetos_multiam` nor
+`omni_drones` installed. Tasks default to the **GPU** PhysX pipeline
+(`cfg/base/sim_base.yaml`): `AerialAssembly`'s gears use SDF colliders,
+which have no collision at all on a CPU pipeline.
 
 ## Usage
 

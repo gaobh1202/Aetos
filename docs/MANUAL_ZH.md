@@ -15,10 +15,16 @@ pip install -e /home/benhua/OmniDrones   # aetos_multiam 直接 import omni_dron
 pip install -e .
 ```
 
-两点容易踩:
+完整的从零安装步骤和实测版本表在 [README 的 Installation
+节](../README.md#installation)。这里只记两点最容易踩的:
 
-- `conda activate omnidrone` 的激活脚本在没有 `ISAACSIM_PATH` 时会**静默空转**,
-  新开的 shell 从来不会自带这个变量,所以顺序不能反。
+- **`ISAACSIM_PATH` 必须在 `conda activate` 之前导出**,顺序不能反。激活脚本做的
+  事是 `source ${ISAACSIM_PATH}/setup_conda_env.sh`,变量没设时它会报一句
+  `/setup_conda_env.sh: No such file or directory` 然后继续 —— 于是 Isaac Sim
+  自带的 numpy 1.26 没能排到前面,用的是 env 自己的 numpy 2.x,接着
+  `import torch` 直接死在 *"A module that was compiled using NumPy 1.x cannot
+  be run in NumPy 2.2.6"*。报错里一个字都没提 Isaac Sim。新开的 shell 从来不会
+  自带这个变量。
 - 不要用 Isaac Sim 自带的 `python.sh` —— 那个解释器里没装 `aetos_multiam` /
   `omni_drones`。
 
