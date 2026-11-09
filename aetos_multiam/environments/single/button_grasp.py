@@ -85,10 +85,20 @@ class ButtonGrasp(AerialManipulationEnv):
 
         manipulator_spec = self.drone.manipulator_spec
         gripper_spec = self.drone.gripper_spec
-        dof_limits = self.drone.drone._view.get_dof_limits()[0]  # (num_dof, 2), same across envs
+        # get_dof_limits() is (count, group, num_dof, 2) -- squeeze both
+        # leading dims, not just the first, or arm_joint_indices (into the
+        # num_dof axis) silently indexes the wrong axis and goes out of
+        # bounds (CUDA device-side assert under the GPU pipeline).
+        dof_limits = self.drone.drone._view.get_dof_limits()[0, 0]  # (num_dof, 2), same across envs
 
         arm_controller = None
-        if manipulator_spec is not None and self.drone.arm_joint_indices is not None:
+        # NOT "manipulator_spec is not None": this task's own default preset
+        # bakes its arm into the drone's USD and has no ManipulatorSpec, so
+        # that test left the arm uncontrolled and split_action handed all 12
+        # action dims to a 4-rotor drone ("expanded size of the tensor (4)
+        # must match the existing size (12)"). arm_joint_indices is the one
+        # that answers "is there an arm to drive" for both layouts.
+        if self.drone.arm_joint_indices is not None:
             limits = dof_limits[self.drone.arm_joint_indices]
             arm_controller = JointPositionController(
                 joint_lower=limits[:, 0].tolist(),
@@ -103,10 +113,23 @@ class ButtonGrasp(AerialManipulationEnv):
         )
 
         # Track the manipulator's eef body world pose for the reward/obs.
-        eef_prim_glob = (
-            f"{self.env_ns}/env_.*/{self.drone.name}_0/"
-            f"{self.drone.drone_spec.mount_body_name}/manipulator/{manipulator_spec.eef_body_name}"
-        )
+        # Same two cases AerialButtonGrasp/AerialBucketGrasp handle: this used
+        # to assume a separately-mounted arm AND to nest it under
+        # mount_body_name, and its own default preset (amov950_airbot_bottom)
+        # is neither -- the arm is baked into the drone's USD, so the task
+        # crashed on load with "'NoneType' object has no attribute
+        # 'eef_body_name'".
+        if manipulator_spec is not None:
+            # mount_child() references the manipulator as a SIBLING of the
+            # drone's own top-level prim (not nested under mount_body_name)
+            # -- see usd_compose.mount_child's own docstring.
+            eef_prim_glob = (
+                f"{self.env_ns}/env_.*/{self.drone.name}_0/manipulator/{manipulator_spec.eef_body_name}"
+            )
+        else:
+            # Arm baked into the drone's own USD (no ManipulatorSpec) --
+            # bodies are flat siblings directly under the drone's own prim.
+            eef_prim_glob = f"{self.env_ns}/env_.*/{self.drone.name}_0/{self.drone.drone_spec.eef_body_name}"
         self.eef_view = RigidPrimView(eef_prim_glob, reset_xform_properties=False)
         self.eef_view.initialize()
 

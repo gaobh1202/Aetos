@@ -45,7 +45,11 @@ def main(cfg):
     num_steps = int(os.environ.get("AETOS_SMOKE_TEST_STEPS", "200"))
     any_success = False
     for step in range(num_steps):
-        action_shape = env.action_spec["agents", "action"].shape
+        # env.action_spec auto-unwraps to the bare per-agent leaf spec when
+        # there's exactly one agent/action key (torchrl EnvBase's own
+        # action_spec property getter) -- indexing it with ["agents",
+        # "action"] again fails since it's no longer a CompositeSpec.
+        action_shape = env.action_spec.shape
         action = torch.zeros(action_shape, device=env.device)
         tensordict.set(("agents", "action"), action)
         tensordict = env.step(tensordict)
