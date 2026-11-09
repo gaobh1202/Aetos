@@ -5,13 +5,22 @@ defaults:
   - /base/sim_base@_here_
 
 env:
-  num_envs: 16
-  env_spacing: 8
+  # Each env is a whole 18 x 20 m warehouse bay, so they have to be spaced
+  # further apart than the usual bare-ground tasks.
+  num_envs: 1
+  env_spacing: 24
   max_episode_length: 500
 
 aerial_manipulators:
-  - preset: uaquad600_gripper
-  - preset: amov950_airbot_bottom
+  - preset: iris650_soarm100
+  - preset: iris650_soarm100
+
+# Scale on the whole gear set (base + both gears). 1.0 would be IsaacLab's own
+# sizes -- 42 mm and 22 mm gears on a 150 x 75 mm plate, which disappear next
+# to a 650 mm drone. At 4x: 168 mm and 88 mm gears, 600 x 300 mm plate, 38 mm
+# shafts. The grab post each gear carries stays 30 mm regardless, so changing
+# this does not change whether the gripper can pick them up.
+gear_scale: 4.0
 
 time_encoding: true
 goal_radius: 0.5

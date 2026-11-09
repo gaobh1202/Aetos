@@ -5,13 +5,17 @@ defaults:
   - /base/sim_base@_here_
 
 env:
-  num_envs: 32
-  env_spacing: 10
+  # Each env is a whole 18 x 20 m warehouse bay, so they have to be spaced
+  # further apart than the usual bare-ground tasks.
+  num_envs: 1
+  env_spacing: 24
   max_episode_length: 500
 
+# Identical on purpose: a two-point lift only makes sense when both ends
+# behave the same. Order matters -- agent 0 gets the -x zone and the -x handle.
 aerial_manipulators:
-  - preset: amov950_airbot_bottom
-  - preset: amov950_airbot_bottom
+  - preset: iris650_soarm100
+  - preset: iris650_soarm100
 
 time_encoding: true
 goal_radius: 0.5

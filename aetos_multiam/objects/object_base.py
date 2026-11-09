@@ -7,6 +7,7 @@ plunger) or a plain ``RigidPrimView`` (for rigid fixtures).
 """
 
 import omni.isaac.core.utils.prims as prim_utils
+from omni.isaac.core.simulation_context import SimulationContext
 from omni_drones.views import ArticulationView, RigidPrimView
 
 from aetos_multiam.utils import yaw_deg_to_quat
@@ -48,7 +49,12 @@ class AetosObject:
             self._view = ArticulationView(prim_paths_expr, reset_xform_properties=False)
         else:
             self._view = RigidPrimView(prim_paths_expr, reset_xform_properties=False)
-        self._view.initialize()
+        # Hand it the context's own physics view rather than letting it build a
+        # second one: creating another simulation view invalidates every handle
+        # already taken out of the first, which is how a robot initialized
+        # earlier ends up segfaulting on its next read (same trap as
+        # AerialManipulationEnv._setup_references).
+        self._view.initialize(SimulationContext.instance().physics_sim_view)
 
     def get_world_pose(self, clone: bool = False):
         """Root prim world pose -- good enough as a coarse position proxy for

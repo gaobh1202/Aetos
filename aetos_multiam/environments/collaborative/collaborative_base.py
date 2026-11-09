@@ -101,8 +101,9 @@ class CollaborativeAerialEnv(AerialManipulationEnv):
     def _reset_idx(self, env_ids: torch.Tensor) -> None:
         for am in self.aerial_manipulators:
             am.drone._reset_idx(env_ids, train=True)
-            if am.arm_joint_indices is not None:
-                am.drone.reset_arm_joints(env_ids)
+            # Through the AM, not the drone: only AmovDrone has an arm of its
+            # own to reset, every other preset mounts one at runtime.
+            am.reset_arm_joints(env_ids)
 
     def _pre_sim_step(self, tensordict: TensorDict) -> None:
         for key, am in zip(self._agent_keys, self.aerial_manipulators):

@@ -164,6 +164,11 @@ for rig in rigs:
     rig.am.reattach()
 ```
 
+**同一个 bug 在 env 这条路径上也存在过**:`AerialManipulationEnv._setup_references`
+原来就是一个朴素的 `for am: am.initialize()` 循环。单智能体任务看不出来;两个
+智能体时,第二个的第一次写入就报 `Failed to get DOF positions from backend`,
+紧接着段错误。现在那里用的是上面同一套顺序。
+
 ### 两个已知仍然打折的点
 
 - `iris650_soarm100` 的 `shoulder_pan` 只能到达命令值的 2%。
@@ -381,6 +386,37 @@ python examples/show_am_action.py --preset fahexa750_gripper --controller lee   
 `ShelfBucketGrasp` → `iris650_soarm100`)、`--preset <名字>`(空地面)、
 `--drone-model`(裸无人机)。
 
+### 6bis. SO-ARM 夹爪的开闭范围(实测)
+
+```bash
+python debug/measure_gripper_range.py
+```
+
+`gripper` 关节行程 **−10° … +100°**(−0.1745 … +1.7453 rad),共 110°。换算成
+两个指尖之间的距离:
+
+| q | 开口 | q | 开口 |
+|---|---|---|---|
+| **−10°**(闭合) | **6.9 mm** | +45° | 83.2 mm |
+| +2.2° | 23.9 mm | +63° | 105.7 mm |
+| +14.4° | 41.5 mm | +82° | 125.5 mm |
+| +26.7° | 58.7 mm | **+100°**(张开) | **142.0 mm** |
+
+近似线性,**每度约 1.44 mm**。指长:动指 85.0 mm,定指 89.1 mm(自铰链量起)。
+所以 Ø30 mm 的抓取柱只需要 +6.5°,余量极大。
+
+量法上两个坑:
+
+- **必须用 `set_joint_positions` 传送,不能用 PD 目标。** 实测命令 +31.5° 时 PD
+  只到 +12°(开口 20.7 mm 而非 65 mm);而且一旦开重力,没有保持驱动的手臂会垮
+  下来,量的就不是同一个姿态了。
+- **只能取两个指头的 mesh**(`moving_jaw_so101_v1` 和
+  `wrist_roll_follower_so101_v1`)。`gripper` 这个 link 上还挂着伺服舵机
+  `sts3215_03a_v1`,它离铰链更远,会冒充"指尖"。
+
+顺带一提:这把夹爪在资产上**其实是 SO101 不是 SO-ARM100**(Lightwheel 的
+`so101_follower.usd` 替代件,见 `manipulators/so_arm100.py`),原尺寸、无缩放。
+
 ---
 
 ## 7. `show_am_action.py` —— 脚本化任务
@@ -448,6 +484,189 @@ python scripts/run_shelf_button_grasp.py task=ShelfButtonGrasp \
     aerial_manipulators.0.preset=amov950_airbot_dexterous_bottom headless=true
 ```
 
+### `AerialAssembly` —— 两台 AM 各取一个齿轮插进同一块底板
+
+场景是 `WarehouseArena` + 混凝土地面(§8bis)、**不要龙门架**
+(`WarehouseArena(gantry=False)`):
+
+* 两个黄框正中间立一个**方柱**(截面和底板一样大,高 0.65 m),顶上装 IsaacLab 的
+  `factory_gear_base` 齿轮底板,三根轴朝上;
+* 圆柱旁边一张**更低的桌子**(台面 0.60 m 高、1.20 × 0.50 m),两端各放一个齿轮;
+* 两台 `iris650_soarm100`,各在一个黄框正中(`(±4.5, 0, 1.2)`,从
+  `arena.spawn_zone_centers` 读,不硬编码)。
+
+每个智能体飞到桌子自己那一端取走齿轮,运到圆柱上方,沿轴放下去。用的是
+**medium + small** 两个齿轮 —— 它们落在相邻的两根轴上,座好之后正好互相啮合,
+所以"都插进去"和"啮合上"是同一个终态,不是两个条件。
+
+### 尺寸:`gear_scale = 4` + 固定尺寸的抓取柱
+
+`task.gear_scale` 默认是 **4** 不是 1。IsaacLab 原尺寸的齿轮只有 Ø42 / Ø22 mm,
+放在 18 m 的厂房里、650 mm 的无人机旁边等于看不见。4 倍之后:
+
+| | 1× | 4× |
+|---|---|---|
+| 底板 | 150 × 75 mm | **600 × 300 mm** |
+| 轴 | Ø9.56 × 20 mm | **Ø38 × 80 mm** |
+| medium 齿轮 | Ø42 × 25 mm | **Ø168 × 100 mm** |
+| small 齿轮 | Ø22 × 25 mm | **Ø88 × 100 mm** |
+| 两轴间距 | 30.5 mm | **122 mm** |
+
+放大之后齿轮本体早就超出夹爪行程了,所以每个齿轮的轴心上**立了一根固定尺寸的
+抓取柱**:Ø30 mm × 80 mm,`FactoryGear.grab_post_diameter_m` /
+`grab_post_length_m`。夹爪闭合的是这根柱子,不是齿轮本体 —— 于是"物体放多大"和
+"夹爪够不够得着"彻底解耦。Ø30 mm 对应 SO-ARM 夹爪约 **+6.5°**,而它有 110° 行程
+(见 §6bis);80 mm 的柱长也刚好在 85 mm 的指长之内。
+
+实现上两个细节:柱子是作为**齿轮刚体的子 prim** 建的(加 `CollisionAPI`,不另建
+刚体、不加关节),所以它天然跟着齿轮走;而它的半径和高度要**除以 spawn 的
+scale**,因为 scale 挂在上一层包装 prim 上,否则柱子会跟着齿轮一起放大 ——
+那就白做了。齿轮的质量是资产里写死的 50 g,加一根柱子不会改变它。
+
+方柱和桌子的高度也跟着调了(方柱 0.60 × 0.30 × 0.65 m —— 截面跟着
+`gear_scale` 走,始终和底板一样大;桌面 0.45 m),让抓取柱落在悬停在 1.2 m 的
+无人机手臂够得着的高度。
+
+每个智能体的目标点改成了它自己那根轴正上方,不再是场地中心。
+
+```bash
+AETOS_SMOKE_TEST_STEPS=30 python scripts/run_collab_smoke.py task=AerialAssembly headless=true
+python scripts/check_gear_assembly.py headless=true     # 验证真能插进去且啮合
+```
+
+`check_gear_assembly.py` 不用机器人:把两个齿轮依次传送到各自轴的上方松手
+(高度按 `gear_scale` 缩放),等它们落位,然后把其中一个**一次性**转起来、看另一个
+转不转。4× 下实测:
+
+```
+gear_0_medium: dz=+0.0007 m  dxy=0.0059 m  tilt=4.18 deg
+gear_1_small : dz=+0.0022 m  dxy=0.0026 m  tilt=0.91 deg
+driven medium 转到 +4.00 rad/s -> follower small 峰值 0.404 rad/s(反向)
+```
+
+啮合测试在 4× 下改成了**给一次初速度再让它自己滑行**:原来那种"每步强制设定
+速度"在大尺寸下完全失效(接触求解器把指令吃掉,两个齿轮都停在 0.01 rad/s),
+看起来像没啮合,其实只是驱动方式不对。
+
+三个踩过的坑,都写在 `objects/factory_gear.py` 里:
+
+1. **每个齿轮资产都带 `ArticulationRootAPI`**(IsaacLab 自己用 Articulation 包装
+   器驱动它们),PhysX 于是把它当成单连杆关节体而不是自由刚体,`RigidPrimView`
+   一无所获 —— 报 "did not match any rigid bodies",没有任何 cooking 报错能指向
+   它。底板没有这个 API,所以底板一直是好的。`strip_articulation_root()` 解决。
+2. **几何偏置烘进了网格顶点**:每个齿轮的网格中心都在它该去的那根轴正上方
+   (large −30.25 mm / medium +20.25 mm / small +50.75 mm,底面在 z=+5 mm),
+   所有 xform 都是单位阵。所以把齿轮生成在底板**同一个坐标**上就自动套在轴上;
+   放到别处必须减掉这个偏置(`resting_translation()` 干这件事)。
+3. **松手高度必须小于 20 mm**:孔从物体原点往上 5 mm 开始、轴高 25 mm,放得更高
+   孔就完全脱离轴,齿轮只会倒在板上。早期用 20 mm 时两个都倒了(倾角 57° / 102°)。
+
+另外两个齿轮**必须一个一个放**:同时松手会齿对齿卡住。放的时候给一点绕轴自转
+让齿自己找相位 —— 这个自转速度要**按 `gear_scale` 反比缩放**:同样是 2 rad/s,
+对 42 mm 的齿轮是轻轻一拨,对 168 mm 的直接把它甩下轴(实测偏心 20.6 mm、倾角
+14.6°)。这和真实装配是一回事。
+
+`env_spacing` 从 8 提到 24:每个 env 现在是一整栋 18 × 20 m 的厂房,8 m 会重叠。
+`num_envs` 降到 1,因为这个任务还没有真实的抓取/插入奖励(奖励和成功判定仍是
+`CollaborativeAerialEnv` 的占位实现),没人在训它。
+
+### `AerialHandover` —— 一台取锤子、交给另一台、丢进箱子
+
+场景同样是 `WarehouseArena` + 混凝土地面、不要龙门架:
+
+* 两个黄框之间的空档(|x| 2.6~6.4 之外的 5.2 m)里摆**两张桌子**,各在一台机器人
+  面前:`x = -2.0` 的桌上放一把锤子,`x = +2.0` 的桌上放一个周转箱;
+* `iris650_soarm100` 在 −x 框,`uaquad600_gripper` 在 +x 框。
+
+设想的流程:SO-ARM 那台把锤子从桌上拿起来,两台在场地正中会合完成递交,
+再由夹爪那台丢进箱子。这条流程需要的三个航路点
+(`hammer_pickup_position` / `handover_position` / `box_drop_position`)是
+env 上的 property,不是埋在奖励里的数字 —— 以后无论谁来驱动机器人都从同一个
+地方读。
+
+**故意做成异构的**:5 自由度臂 + 单爪 递交给 4 自由度臂 + 平行夹爪,这是同构
+编队永远测不到的情况。
+
+```bash
+AETOS_SMOKE_TEST_STEPS=30 python scripts/run_collab_smoke.py task=AerialHandover headless=true
+```
+
+物体:锤子是 NVIDIA SimReady 的 `handTool_hammer_crossPeen_b01`
+(268 × 104 × 36 mm,**627 g**),箱子是 shelf 场景里就有的 `ToteBox`
+(600 × 400 × 170 mm,开口朝上)。627 g 挂在 SO-ARM100 末端,真实伺服是扛不住
+的,仿真里靠 `arm_dynamics_residual` 才拿得动 —— 这一点要记着。
+
+实测摆放稳定:锤子落位后只动了 2.0 mm,箱子 0.0 mm。
+
+抓取、递交本身、以及任何知道这些阶段的奖励**都还没实现**,奖励和成功判定仍是
+`CollaborativeAerialEnv` 的占位实现(两台都靠近共同目标点,目标点设成递交点)。
+
+#### 两个新修的缺陷
+
+1. **SimReady 道具是 `instanceable` 的,PhysX 不给它建刚体。** 锤子的
+   `hammer_01_obj_00` 上明明有 `PhysicsRigidBodyAPI`,碰撞网格却在 instance
+   prototype 里,普通的 stage traverse 根本看不到它(要用
+   `Usd.TraverseInstanceProxies`),而 PhysX 对 instanceable 的 prim 不会建
+   per-instance 的 actor —— 症状又是那句 "did not match any rigid bodies"。
+   `utils/usd_fixups.make_non_instanceable()` 把整棵子树的 instanceable 清掉。
+2. **`reset_arm_joints` 本来挂在 drone 上,对非 Amov 机型直接崩。**
+   `CollaborativeAerialEnv._reset_idx` 调的是 `am.drone.reset_arm_joints()`,
+   而只有 `AmovDrone` 有这个方法(它的臂烘在自己的 USD 里);其他 preset 的臂是
+   运行时挂上去的,drone 类压根不知道有臂,于是报
+   `'_AmbenchQuadScorpion' object has no attribute 'reset_arm_joints'`。
+   现在方法挪到了 `AerialManipulatorBase` 上(回零位,并按各关节自身限位钳位 ——
+   airbot 的 `joint3` 范围是 [-0.094, 3.161],不钳位就会初始化到限位之外)。
+   顺带把一直跑不起来的 `AerialCabinetGrasp` 也修好了。
+
+### `AerialTransport` —— 两台一起抬一个箱子
+
+场景同样是 `WarehouseArena` + 混凝土地面、不要龙门架,两张桌子都在 x = 0、
+沿 Y 排开:
+
+* **取件桌**(y = 0)上放一个**双提手箱**,长轴沿世界 X,两个提手因此落在 ∓x,
+  一台机器人一个;
+* **放置桌**(y = 2.5)是空的,台面上用**绿线**画了一个矩形,标出箱子该落在哪;
+* 两台 `iris650_soarm100`,各在一个黄框里。
+
+**故意用同构的两台**(和 `AerialHandover` 相反):两点起吊只有在两端行为一致时
+才说得通。
+
+```bash
+AETOS_SMOKE_TEST_STEPS=30 python scripts/run_collab_smoke.py task=AerialTransport headless=true
+```
+
+航路点同样是 property:`pick_table_center` / `drop_table_center` /
+`handle_position(index, on_drop_table=False)`。**索引 0 是 −x 提手,也正是在
+−x 黄框里出生的那台机器人** —— 两个顺序是故意对齐的。实测:
+
+```
+handles (pick) [(-0.42, 0.0, 0.79), (0.42, 0.0, 0.79)]
+handles (drop) [(-0.42, 2.5, 0.79), (0.42, 2.5, 0.79)]
+carry_box 落位后移动 0.0 mm
+```
+
+#### 提手箱是拼出来的,不是找来的
+
+`objects/carry_box.py`。资产库里没有"一个刚体 + 两个已知间距的抓取特征"这种
+东西,所以直接用图元拼:根 Xform 带 `RigidBodyAPI`/`MassAPI`,箱体和两个提手
+作为子 prim 各带 `CollisionAPI` —— PhysX 看到的是**一个 actor、多个 shape**,
+和 IsaacLab 齿轮资产的结构、以及 `FactoryGear` 那根抓取柱用的是同一招。
+
+箱体 0.90 × 0.40 × 0.22 m、1.0 kg(两条臂分摊,各 0.5 kg)。每个提手是个"U":
+两根短柱从箱顶靠近短边处立起,上面架一根横杆,横杆沿 Y。夹爪闭合的是**横杆**,
+Ø30 mm —— 和齿轮抓取柱同一个尺寸,对应 SO-ARM 夹爪约 +6.5°(见 §6bis)。
+横杆离箱顶 120 mm,够夹爪从上方套进去而不碰到箱体。
+
+提手做成**朝上的 U** 而不是嵌在短边立面上,是因为 aerial manipulator 的臂是向下
+挂的,只能从上方抓 —— 立面上的提手它够不着。
+
+绿色矩形是纯视觉的(箱子 footprint 加 80 mm 余量),和黄框一样不带碰撞:放箱子
+的时候台面上多出 2 mm 的台阶迟早会出接触问题。
+
+抓取、双点起吊的闭链动力学、以及对应的奖励**都还没实现** —— 真正刚性的两点
+搬运需要一个闭合运动链(两个固定关节连到同一个刚体),那是另一件工程。奖励仍是
+占位实现,但目标点设在了**放置桌上各自提手的正上方**,至少指向是对的。
+
 ### `examples/run_task_ShelfButtonGrasp.py` —— 带真实控制源
 
 货架场景真正当成**任务**跑:场景 + 一个东西飞无人机 + 一个东西动机械臂,
@@ -491,6 +710,61 @@ aetos_multiam 整个存在的意义就是可换的 drone × arm × gripper 运�
 
 ---
 
+## 8bis. 场景
+
+`aetos_multiam/scenes/` 下每个 `Arena` 只负责填充**一个 template env** 的内容,
+env 原点的网格复制由 `IsaacEnv` 的 `GridCloner` 负责(从 OmniDrones 继承)。
+看某个场景(不放机器人):
+
+```bash
+python examples/show_scene.py --scene default
+python examples/show_scene.py --scene warehouse
+python examples/show_scene.py --scene warehouse --floor concrete --headless
+```
+
+### `Arena` —— 默认场景
+
+一块地面,别的什么都没有,其他场景都从它继承。地面是 Isaac 自己的
+`Environments/Grid/default_environment.usd`,染成白色 —— 这正是 AM-Bench 的做法
+(`spawn_ground_plane(cfg=GroundPlaneCfg(color=(1.0, 1.0, 1.0)))`),同一个 USD、
+同一种染色,所以渲染出来就是他们那个蓝底白格的地面。OmniDrones 对同一个调用的
+默认值是近黑的 `(0.065, 0.0725, 0.080)`,之前那六个任务视频就是在那个地面上录的。
+
+### `WarehouseArena` —— 仓库
+
+18 × 20 × 5.4 m 的封闭厂房,四面墙 + 墙裙 + 蓝色壁柱;地面上两个 3.8 × 4.0 m 的
+黄色框,中心在 (±4.5, 0);两框**正中间**一个四柱龙门架,跨度 8 m(立柱在
+y = ±4)、进深 1.6 m(立柱在 x = ±0.8)、大梁在 4.43 m,梁上两个小车位。
+
+布局参考的是 `industrial_warehouse_mujoco/build_scene.py`,**有一处故意改了**:
+那边龙门架在两个黄框的**后面**、横跨它们;这里改成在两框**中间**,大梁沿 Y 走向
+——因为两个框是两台 aerial manipulator 的起飞区,龙门架是它们汇合的地方,所以
+四个立柱必须落在两个框之外、不挡航道。
+
+几个实现上的决定:
+
+- **黄线是纯视觉的**(`VisualCuboid`,无碰撞),和 MJCF 里的
+  `contype=0 conaffinity=0` 一致。2 mm 的台阶卡在起落架下面是迟早要出的接触 bug。
+- **`floor_color` 默认 `None`**,也就是直接用 AM-Bench 那块地面。给它一个 RGB
+  (混凝土是 `(0.70, 0.70, 0.68)`)会**替换**掉地面而不是盖在上面 —— 盖在上面会
+  整片 z-fighting,而把 grid plane 的可见几何隐藏起来并不可靠(网格不是由 Mesh
+  prim 画的)。替换之后这块板本身是碰撞体,所以地面是有限大的 —— 封闭厂房里无所谓。
+- **USD prim 名不能带 `-` 和 `+`**,所以正负号在名字里写成 `p`/`n`。
+- **Kit 的视口会自己画一层参考网格**(还有红绿世界轴),叠在地面上看起来像地面
+  自带的纹理。`show_scene.py` 把 `/app/viewport/grid/enabled` 关掉了。
+- **Kit 的透视相机住在 session layer**,用 `prim.GetAttribute().Set()` 改
+  `focalLength` 会"成功"但没效果,得走 `ChangeProperty` 命令。默认 18.1 mm 的镜头
+  在屋子里根本装不下整个场景,warehouse 预设用的是 10 mm。
+
+背景杂物(货架、纸箱、后墙卷帘门)没做 —— 那是布景,任务不碰它。MJCF 那份烘的
+混凝土贴图也没有对应物,除非专门写一个材质。
+
+龙门架下面的挂点坐标是 `WarehouseArena.hang_anchor_positions`
+(`(0, ±1.6, 4.25)`),起飞区中心是 `spawn_zone_centers` —— 任务从这两个属性读,
+不要再硬编码一遍。
+
+---
+
 ## 9. 资产导出
 
 `assets/meshes/usd/combined/` 下的每个文件(除了 `uaquad600_gripper.usd`,
@@ -507,6 +781,21 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
 
 ---
 
+## 9bis. `scripts/` 和 `debug/` 的分界
+
+- **`scripts/`** —— 和具体任务或算法强相关的:任务入口
+  (`run_button_grasp.py`、`run_collab_smoke.py`、`run_shelf_*.py`)、资产导出
+  工具(`export_robot_usd.py`),以及**绑定到某个任务**的验证脚本 ——
+  `check_gear_assembly.py` 会直接构建 `AerialAssembly` 环境、断言那个任务自己的
+  要求(两个齿轮都座住且啮合),所以它和任务入口放在一起。
+- **`debug/`** —— 只回答"这个资产/仿真器本身是不是我们以为的那样",不碰任务也不碰
+  算法,benchmark 里没有任何代码 import 它们:
+  `measure_gripper_range.py`(夹爪开口 vs 关节角)、
+  `verify_iris650_flight.py`(iris650 改完资产后还推不推得动、悬不悬得住)、
+  `record_iris650_trajectory.py`(把一段脚本飞行录成 PNG 序列)。
+
+---
+
 ## 10. 其他容易踩的坑
 
 - **Isaac Sim 会把 USD 的 default prim 合并进 spawn root**,所以子 prim 直接
@@ -520,6 +809,12 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
   的二进制,再不行退 mpeg4。
 - **在渲染脚本里用 `set -u` 会打断 conda 的激活钩子**(`PYTHONPATH: unbound
   variable`),整批任务静默产不出东西。
+- **`instanceable` 的 prim 不会成为 PhysX 刚体**。NVIDIA SimReady 道具默认就是
+  这样 authoring 的:碰撞网格在 instance prototype 里,普通 traverse 看不见,PhysX 也
+  不建 actor。用 `make_non_instanceable()`。
+- **"did not match any rigid bodies" 有至少三种成因**:prim 上挂了
+  `ArticulationRootAPI`(IsaacLab 的齿轮)、prim 是 `instanceable`(SimReady 道具)、
+  或者 prim 路径本身写错了。三种的报错一模一样,而且都没有别的日志能区分。
 
 ---
 

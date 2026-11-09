@@ -17,8 +17,12 @@ class ToteBox(AetosObject):
     usd_path = USD_PATH
     root_body_name = "E_tote_box_1"
 
-    def __init__(self, name: str = "tote_box", translation=(0.0, 0.0, 0.0), yaw_deg: float = 90.0):
-        super().__init__(name, translation=translation, yaw_deg=yaw_deg, scale=0.7)
+    #: Unscaled footprint, metres -- 600 x 400 x 170 mm, open on top.
+    SIZE_M = (0.60, 0.40, 0.17)
+
+    def __init__(self, name: str = "tote_box", translation=(0.0, 0.0, 0.0),
+                 yaw_deg: float = 90.0, scale: float = 0.7):
+        super().__init__(name, translation=translation, yaw_deg=yaw_deg, scale=scale)
 
     def spawn(self, template_env_ns: str) -> str:
         prim_path = super().spawn(template_env_ns)

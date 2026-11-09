@@ -13,6 +13,8 @@ longer list, not a code change -- see ``cfg/task/Aerial*.yaml`` and
 import abc
 from typing import List, Optional, Sequence
 
+from omni.isaac.core.simulation_context import SimulationContext
+
 from aetos_multiam.robots import AerialManipulatorBase, AerialManipulatorCfg, get_preset
 from aetos_multiam.scenes import Arena
 from .base_env import AetosEnv
@@ -73,8 +75,20 @@ class AerialManipulationEnv(AetosEnv):
         raise NotImplementedError
 
     def _setup_references(self) -> None:
+        # Not a plain ``am.initialize()`` loop: that call does a global
+        # ``SimulationContext.reset()`` to re-solve a mounted arm's rest pose,
+        # and the reset destroys the physics simulation view, so every robot
+        # already initialized is left holding a stale handle. With one agent
+        # it is invisible; with two the second agent's first write dies with
+        # "Failed to get DOF positions from backend" and the process then
+        # segfaults. Same sequence ``examples/show_am_action.py`` uses --
+        # initialize everyone, reset once for the whole scene, reattach.
         for am in self.aerial_manipulators:
-            am.initialize()
+            am.initialize(reset_rest_pose=False)
+        if any(am.manipulator_spec is not None for am in self.aerial_manipulators):
+            SimulationContext.instance().reset()
+            for am in self.aerial_manipulators:
+                am.reattach()
         self._setup_object_references()
 
     @abc.abstractmethod

@@ -366,6 +366,30 @@ def set_joint_local_pose(joint_prim_path: str, position, orientation) -> None:
     joint.CreateLocalRot0Attr(Gf.Quatf(w, Gf.Vec3f(x, y, z)))
 
 
+def make_non_instanceable(prim_path: str) -> int:
+    """Clear ``instanceable`` on a prim and everything under it, returning how
+    many were cleared.
+
+    PhysX will not build a rigid body out of an instanceable prim: its shapes
+    live in a shared prototype, so there is nothing per-instance to simulate.
+    The symptom is the tensor API reporting "did not match any rigid bodies"
+    for a prim that plainly has ``PhysicsRigidBodyAPI`` on it and nothing else
+    wrong -- NVIDIA's SimReady props are authored this way (their collider
+    mesh sits inside the prototype and never shows up in an ordinary stage
+    traverse either).
+    """
+    stage = get_current_stage()
+    prim = stage.GetPrimAtPath(prim_path)
+    if not prim.IsValid():
+        raise RuntimeError(f"make_non_instanceable: prim not found: {prim_path}")
+    cleared = 0
+    for p in Usd.PrimRange(prim, Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)):
+        if p.IsInstanceable():
+            p.SetInstanceable(False)
+            cleared += 1
+    return cleared
+
+
 def strip_articulation_root(prim_path: str) -> None:
     """Remove ArticulationRootAPI from a prim that's about to be made
     kinematic. PhysX just ignores (with a warning) an ArticulationRootAPI

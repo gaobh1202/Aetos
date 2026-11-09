@@ -5,8 +5,7 @@ A benchmark for **multi aerial-manipulator (AM) collaboration**: one robot
 composed from swappable drone / manipulator / gripper models, built on Isaac
 Sim's `omni.isaac.core` API.
 
-📖 **中文详细手册: [`docs/MANUAL_ZH.md`](docs/MANUAL_ZH.md)** -- 已验证到什么程度、
-每个机型为什么这样配、八个已修复的缺陷、每个脚本的完整参数说明。
+📖 **中文详细手册: [`docs/MANUAL_ZH.md`](docs/MANUAL_ZH.md)**
 
 ## Key features
 
@@ -73,6 +72,24 @@ python examples/show_robot.py --robot iris650_soarm100
 python examples/show_robot.py --robot all            # all six side by side
 python examples/show_robot.py --robot all --headless # screenshot only
 ```
+
+### View a scene
+
+Arenas with no robot in them -- for checking layout and dimensions before a
+task exists:
+
+```bash
+python examples/show_scene.py --scene default      # ground plane, nothing else
+python examples/show_scene.py --scene warehouse    # enclosed bay, 2 spawn zones, gantry
+python examples/show_scene.py --scene warehouse --floor concrete --headless
+```
+
+`WarehouseArena` is an 18 x 20 x 5.4 m bay with two 3.8 x 4.0 m yellow spawn
+zones at x = +-4.5 and a four-post gantry between them (8 m span, beam at
+4.43 m) for task objects to hang from. The floor is AM-Bench's own ground
+plane; `--floor concrete` swaps it for a plain slab.
+
+![warehouse arena](examples/show_scene_warehouse.png)
 
 ### Fly the scripted mission
 
@@ -156,6 +173,7 @@ aetos_multiam/
   utils/usd_fixups.py                      # vendored-asset repairs applied at spawn
 cfg/task/                                  # hydra task configs
 scripts/                                   # task entry points + USD export tooling
+debug/                                     # asset/simulator measurement + verification (see debug/README.md)
 examples/                                  # show_robot, show_am_action, teleop demos
 ```
 

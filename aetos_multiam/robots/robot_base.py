@@ -447,6 +447,37 @@ class AerialManipulatorBase:
             positions.reshape(count, 1, -1), joint_indices=indices
         )
 
+    #: Cached home pose for ``reset_arm_joints``; class-level so it exists
+    #: before ``initialize`` has run.
+    _arm_home = None
+
+    def reset_arm_joints(self, env_ids=None) -> None:
+        """Put every teleop DOF back to its home pose: zero, clamped into each
+        joint's own range.
+
+        Belongs here, not on the drone: ``AmovDrone`` happens to carry a method
+        of the same name because its arm is baked into its own USD, but every
+        other preset mounts its arm at runtime and the drone class knows
+        nothing about it -- calling the drone's version crashes with
+        ``'_AmbenchQuadScorpion' object has no attribute 'reset_arm_joints'``.
+        Clamped rather than plain zeros because a joint whose range excludes
+        zero (airbot's ``joint3`` is [-0.094, 3.161]) would otherwise start
+        outside its own limit.
+        """
+        indices = self.teleop_joint_indices
+        if indices is None:
+            return
+        if self._arm_home is None:
+            limits = self.drone._view.get_dof_limits()[0, 0][indices].to(self.drone.device)
+            self._arm_home = torch.zeros(len(indices), device=self.drone.device).clamp(
+                limits[:, 0], limits[:, 1]
+            )
+        count = self.drone._view.count
+        home = self._arm_home.expand(count, 1, -1).contiguous()
+        self.drone._view.set_joint_positions(home, joint_indices=indices)
+        self.drone._view.set_joint_velocities(torch.zeros_like(home), joint_indices=indices)
+        self.drone._view.set_joint_position_targets(home, joint_indices=indices)
+
     def _resolve_joint_indices(self):
         """Look up arm/gripper DOF indices by name within the drone's merged articulation.
 

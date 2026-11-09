@@ -127,6 +127,29 @@ actually got re-mounted top-side-up, only its MJCF viewer copy did -- see
 `scripts/export_uaquad600_usd.py`'s module docstring for the full story),
 so it stays its own standalone script rather than a YAML config.
 
+## The Factory gear set (downloadable, not on the netdisk)
+
+`AerialAssembly` uses IsaacLab's own gear assets. They are **not** shipped
+with Isaac Sim 4.1 -- its `Props/Factory/` has only nuts and bolts -- but they
+exist in the 4.5 and 5.0 asset trees and load fine in 4.1. Fetch them into
+`aetos_multiam/objects/assets/factory_gears/` (gitignored like every other
+object asset):
+
+```bash
+mkdir -p aetos_multiam/objects/assets/factory_gears
+cd aetos_multiam/objects/assets/factory_gears
+BASE=https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/IsaacLab/Factory
+for f in factory_gear_base factory_gear_large factory_gear_medium factory_gear_small; do
+    curl -O "$BASE/$f.usd"
+done
+```
+
+Two properties of these files that cost real debugging time, both documented
+in `aetos_multiam/objects/factory_gear.py`: each gear carries an
+`ArticulationRootAPI` (so PhysX never registers it as a free rigid body until
+that is stripped), and the colliders are SDF (so they have **no collision at
+all** under a CPU PhysX pipeline).
+
 ## History note
 
 Everything under `assets/meshes/` used to be split across
