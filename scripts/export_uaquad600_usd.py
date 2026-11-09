@@ -55,6 +55,7 @@ from omni.isaac.core.simulation_context import SimulationContext
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 from aetos_multiam.robots.drones.ambench_600 import AMBENCH_600_USD_PATH
+from aetos_multiam.utils import apply_drone_livery
 
 logging.basicConfig(level=logging.INFO)
 
@@ -128,6 +129,12 @@ joint = stage.GetPrimAtPath(f"{ROOT_PATH}/joints/arm_base_fixed")
 joint.GetAttribute("physics:localPos0").Set(Gf.Vec3f(TARGET_POS))
 joint.GetAttribute("physics:localRot0").Set(Gf.Quatf(TARGET_QUAT))
 logging.info("Updated arm_base_fixed joint localPos0/localRot0 to match.")
+
+# This export spawns the raw USD instead of going through
+# AerialManipulatorBase.spawn, so the livery it would normally apply has to
+# be applied by hand -- otherwise the baked file is the only uaquad600 in the
+# project still wearing the asset's white frame and silver propellers.
+apply_drone_livery(ROOT_PATH)
 
 out_dir = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "aetos_multiam", "assets",

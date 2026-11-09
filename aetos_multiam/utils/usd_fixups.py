@@ -10,7 +10,7 @@ import math
 
 import omni.isaac.core.utils.prims as prim_utils
 import omni.physx.scripts.utils as physx_script_utils
-from pxr import Gf, Usd, UsdGeom, UsdPhysics
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
 
 get_current_stage = prim_utils.get_current_stage
 
@@ -403,3 +403,83 @@ def strip_articulation_root(prim_path: str) -> None:
         raise RuntimeError(f"strip_articulation_root: prim not found: {prim_path}")
     if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
         prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+
+
+# The two materials omnidrones_340's own asset binds to its frame and its
+# propellers. Reused verbatim (same MDL, same subidentifier) rather than
+# approximated with an OmniPBR colour, so every drone ends up the exact black
+# and red that asset already renders.
+PLASTIC_MDL = (
+    "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Materials/"
+    "vMaterials_2/Plastic/Plastic_Thick_Translucent.mdl"
+)
+FRAME_MATERIAL = "plastic_black"
+PROP_MATERIAL = "plastic_red"
+
+_PROP_NAME_TOKENS = ("rotor", "prop")
+
+
+def _define_mdl_material(stage, prim_path: str, subidentifier: str):
+    material = UsdShade.Material.Define(stage, prim_path)
+    shader = UsdShade.Shader.Define(stage, f"{prim_path}/Shader")
+    shader.SetSourceAsset(PLASTIC_MDL, "mdl")
+    shader.SetSourceAssetSubIdentifier(subidentifier, "mdl")
+    material.CreateSurfaceOutput("mdl").ConnectToSource(shader.ConnectableAPI(), "out")
+    return material
+
+
+def apply_drone_livery(drone_prim_path: str) -> int:
+    """Re-bind a drone's airframe to the shared black frame / red propeller
+    livery, returning how many visual prims were re-bound.
+
+    Only the drone itself is touched: ``base_link`` (AM-bench's assets keep
+    their propellers inside its subtree rather than as separate bodies) plus
+    any sibling body whose name says rotor/propeller. A mounted manipulator
+    or gripper -- and a bundled-in arm, whose bodies are flat siblings of
+    base_link on amov_drone_arm -- keeps whatever colours its own asset ships.
+
+    shortcut: a prim whose *name* contains "prop" is taken to be a propeller,
+    which would miscolour ambench_750's "v2_prop_arm_*" frame booms; that
+    asset keeps ``DroneSpec.livery = False`` anyway. Revisit if a new asset
+    names its booms that way.
+    """
+    stage = get_current_stage()
+    root = stage.GetPrimAtPath(drone_prim_path)
+    if not root.IsValid():
+        raise RuntimeError(f"apply_drone_livery: prim not found: {drone_prim_path}")
+
+    frame = _define_mdl_material(stage, f"{drone_prim_path}/Looks/livery_frame", FRAME_MATERIAL)
+    prop = _define_mdl_material(stage, f"{drone_prim_path}/Looks/livery_prop", PROP_MATERIAL)
+
+    bodies = [stage.GetPrimAtPath(f"{drone_prim_path}/base_link")]
+    bodies += [
+        child for child in root.GetChildren()
+        if any(token in child.GetName().lower() for token in _PROP_NAME_TOKENS)
+    ]
+
+    bound = 0
+    for body in bodies:
+        if not body.IsValid():
+            continue
+        for prim in Usd.PrimRange(body):
+            # AM-bench's assets bind one material on the body prim itself as
+            # "strongerThanDescendants", which silently outranks anything
+            # bound per-mesh underneath -- the meshes end up re-bound and
+            # still render in the asset's own colour.
+            binding = prim.GetRelationship("material:binding")
+            if binding and binding.GetTargets():
+                UsdShade.MaterialBindingAPI.SetMaterialBindingStrength(
+                    binding, UsdShade.Tokens.weakerThanDescendants
+                )
+            if not prim.IsA(UsdGeom.Gprim):
+                continue
+            relative = prim.GetPath().pathString[len(drone_prim_path):].lower()
+            # "sites" are the MJCF marker gprims these assets carry (IMU, per-
+            # rotor thrust points) -- not geometry anyone sees.
+            if "collision" in relative or "/sites/" in relative:
+                continue
+            is_prop = any(token in relative for token in _PROP_NAME_TOKENS)
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(prop if is_prop else frame)
+            bound += 1
+    logging.info("apply_drone_livery: re-bound %d visual prims under %s", bound, drone_prim_path)
+    return bound

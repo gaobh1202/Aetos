@@ -20,6 +20,7 @@ OMNIDRONES_340 = register_drone(
         param_path=_Hummingbird.param_path,
         mount_body_name="base_link",
         class_size_mm=340,
+        livery=False,  # the asset this project's livery copies its colours from
         note="Real asset and physics; not exercised by any task yet.",
     )
 )

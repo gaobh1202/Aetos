@@ -17,6 +17,7 @@ from omni.isaac.core.simulation_context import SimulationContext
 
 from aetos_multiam.utils import (
     add_articulation_root,
+    apply_drone_livery,
     deactivate_prim,
     mount_child,
     normalize_joint_drives,
@@ -179,6 +180,8 @@ class AerialManipulatorBase:
         # which is exactly the one case the drive fixup was added for.
         for prim in prims:
             self._apply_asset_fixups(prim.GetPath().pathString)
+            if self.drone_spec.livery:
+                apply_drone_livery(prim.GetPath().pathString)
         return prims
 
     def _apply_asset_fixups(self, drone_prim_path: str) -> None:

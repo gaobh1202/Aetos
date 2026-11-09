@@ -133,6 +133,46 @@ teleport 一条路,而 teleport 会把无人机偏航 67.8°。两条都在
 
 ---
 
+## 3bis. 统一涂装:黑机架 + 红桨
+
+六个机型的资产来自四个不同的源,颜色各自为政:amov 的 `material_100100100` 和
+ambench 的 `DefaultMaterial` 都是纯白,iris650 是深青灰 (0.18, 0.25, 0.32),
+uaquad600 的桨是 Carpaint 银色。只有 omnidrones_340(黑机架 + 红桨)和
+ambench_750(黑桨)看着是对的。
+
+所以 **spawn 时统一重绑材质**:`utils.apply_drone_livery(drone_prim_path)`,由
+`AerialManipulatorBase.spawn` 的第二遍循环在 `_apply_asset_fixups` 之后调用。
+
+- 用的就是 omnidrones_340 自己那两个材质 —— vMaterials_2 的
+  `Plastic_Thick_Translucent.mdl` 里的 `plastic_black` / `plastic_red`,整份
+  MDL 原样引用,不是拿 OmniPBR 调个近似色,这样颜色和手感和那个资产完全一致。
+  代价是这个 MDL 走 HTTP 拉取(omnidrones_340 本来就依赖它,所以不是新增的失败
+  点);离线时会退化成默认灰。
+- **只动无人机自己**:`base_link`(ambench 的桨就挂在它的子树里,不是独立刚体)
+  加上名字里带 rotor/prop 的兄弟刚体。机械臂、夹爪,以及 amov_drone_arm 那种
+  "内置机械臂、body 和 base_link 平级"的情况,都保持资产原有配色。
+- 哪些算桨:相对路径里出现 rotor/prop。**shortcut**:ambench_750 的
+  `v2_prop_arm_*` 是机臂不是桨,会被误判 —— 它本来就 `livery=False`,但以后新资产
+  要是这么命名就得改判据。
+- `collision` 和 `sites`(MJCF 的 IMU / 推力点标记)跳过。
+- 退出开关是 `DroneSpec.livery`,omnidrones_340 和 ambench_750 设成 `False`。
+
+两个踩过的坑,都不报错、只是"颜色没变":
+
+1. **ambench 的资产在 `base_link` 上绑了一个
+   `strongerThanDescendants` 的材质**,会直接盖过底下每个 mesh 的绑定 ——
+   uaquad600 重绑了 5 个 mesh,渲染出来还是原色。现在遍历时顺手把子树里所有已有
+   绑定的强度降成 `weakerThanDescendants`。
+2. iris650 的 `sites/` 下有 IMU 和每个旋翼的推力点 gprim,一起被染了色(看不见,
+   但计数对不上)。
+
+验证:`python debug/check_drone_livery.py` —— spawn 全部六个机型,断言每个
+airframe 的 frame/桨数量对得上、且没有任何 livery 材质漏到机械臂上;两个
+`livery=False` 的机型必须一个都没碰。当前输出:四个重绘机型都是 frame=1 / props=4,
+另外两个 opted out。
+
+---
+
 ## 4. 已修复的八个缺陷
 
 每一个都是真实缺陷,而且大多是**飞起来才发现的** —— 数值指标全过,只有在
@@ -456,7 +496,26 @@ python examples/show_am_action.py --preset all --headless --video out.mp4
 `--video-fps`(25)/ `--headless`。
 
 README 里那六个动图就是 `--video` 出来的 mp4 转的 3 倍速 GIF。mp4 本身
-(`resources/*.mp4`,每个约 11 MB)不进 git。
+(`resources/*.mp4`,每个约 11 MB)不进 git,GIF 进。重新生成:
+
+```bash
+# 1) 每个机型录一段(约 40 秒一个,745 帧 / 25 fps)
+for p in amov950_airbot_bottom amov950_airbot_dexterous_bottom \
+         hummingbird340_2dof_gripper iris650_soarm100 \
+         uaquad600_gripper fahexa750_gripper; do
+    python examples/show_am_action.py --preset $p --headless --video resources/$p.mp4
+done
+
+# 2) 转 3 倍速 GIF(240 px / 10 fps / 32 色,每个约 1 MB)
+#    系统 ffmpeg 没有 libx264 也没有 png 解码器,用 imageio_ffmpeg 自带的那个
+FF=$(python -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())")
+for f in resources/*.mp4; do
+    $FF -y -i "$f" -filter_complex \
+      "[0:v]setpts=PTS/3,fps=10,scale=240:-1:flags=lanczos,split[a][b];\
+       [a]palettegen=max_colors=32[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" \
+      -loop 0 "${f%.mp4}.gif"
+done
+```
 
 ---
 
@@ -779,6 +838,14 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
 `export_robot_usd.py` 自己的 module docstring,什么时候该重跑哪一份见
 [`ASSETS.md`](ASSETS.md)。
 
+注意 `export_uaquad600_usd.py` 和 `fahexa750_gripper.yaml` 都是直接
+`create_prim` 原始 USD,绕开了 `AerialManipulatorBase.spawn` —— 所以统一涂装
+(§3bis)不会自动生效。uaquad600 的脚本里已经手工补了一次
+`apply_drone_livery(ROOT_PATH)`;fahexa750 本来就 `livery=False`,不需要。
+以后再加走 `raw_usd_path` 的机型,记得这一条。
+
+这六个 USD 和 `resources/` 里的六个动图,都在 2026-11-09 用统一涂装重新生成过。
+
 ---
 
 ## 9bis. `scripts/` 和 `debug/` 的分界
@@ -792,7 +859,8 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
   算法,benchmark 里没有任何代码 import 它们:
   `measure_gripper_range.py`(夹爪开口 vs 关节角)、
   `verify_iris650_flight.py`(iris650 改完资产后还推不推得动、悬不悬得住)、
-  `record_iris650_trajectory.py`(把一段脚本飞行录成 PNG 序列)。
+  `record_iris650_trajectory.py`(把一段脚本飞行录成 PNG 序列)、
+  `check_drone_livery.py`(见 §3bis)。
 
 ---
 

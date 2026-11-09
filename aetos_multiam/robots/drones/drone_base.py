@@ -24,6 +24,12 @@ class DroneSpec:
     """Body on the drone that a manipulator's root gets mounted/welded onto."""
     class_size_mm: int = 0
     """Nominal rotor-to-rotor diameter class, informational only."""
+    livery: bool = True
+    """Whether spawn re-binds this drone's airframe to the shared black-frame/
+    red-propeller livery (``utils.apply_drone_livery``). False for the two
+    assets that already look right: omnidrones_340, whose own plastic_black/
+    plastic_red the livery copies, and ambench_750, whose black propellers
+    were kept on request."""
     eef_body_name: Optional[str] = None
     """Only set when this drone's own USD bakes in an arm with no separate
     ManipulatorSpec (e.g. amov_drone_arm): the body a task should track as

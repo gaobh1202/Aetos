@@ -117,6 +117,7 @@ AMBENCH_750 = register_drone(
         param_path=AMBENCH_750_PARAM_PATH,
         mount_body_name="base_link",
         class_size_mm=750,
+        livery=False,  # already black-propped, kept as-is on request
         note=(
             f"Real Isaac Sim USD at {AMBENCH_750_USD_PATH} (AM-bench's own "
             f"asset, arm+gripper bundled in -- see {MJCF_SOURCE_PATH} for a "

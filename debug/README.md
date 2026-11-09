@@ -9,6 +9,7 @@ actually what we think it is", and nothing in the benchmark imports them.
 | `measure_gripper_range.py` | how far the SO-ARM jaw opens, in millimetres, against joint angle |
 | `verify_iris650_flight.py` | does `iris650_soarm100` still thrust, hover and track after an asset change |
 | `record_iris650_trajectory.py` | what a scripted flight looks like, as a PNG sequence to encode |
+| `check_drone_livery.py` | did every airframe get the shared black/red livery, and only the airframe |
 
 Anything tied to a specific task stays in `scripts/` instead -- e.g.
 `scripts/check_gear_assembly.py` builds the `AerialAssembly` env and asserts

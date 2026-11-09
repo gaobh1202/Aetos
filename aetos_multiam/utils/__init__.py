@@ -2,6 +2,7 @@ from .arm_dynamics import freeze_arm_dynamics
 from .usd_compose import mount_child
 from .usd_fixups import (
     add_articulation_root,
+    apply_drone_livery,
     add_joint_drive,
     deactivate_prim,
     disable_collision,
@@ -21,6 +22,7 @@ __all__ = [
     "freeze_arm_dynamics",
     "mount_child",
     "add_articulation_root",
+    "apply_drone_livery",
     "add_joint_drive",
     "deactivate_prim",
     "disable_collision",
