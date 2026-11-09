@@ -78,16 +78,17 @@ export ISAACSIM_PATH=/home/benhua/isaacsim
 ### 2. Conda environment
 
 Isaac Sim ships its own Python, but a separate conda env is far easier to
-work in. OmniDrones provides the activate/deactivate hooks that put Isaac
-Sim on the interpreter's path -- copy them into the env:
+work in. [OmniDrones](https://github.com/btx0424/OmniDrones) provides the
+activate/deactivate hooks that put Isaac Sim on the interpreter's path --
+copy them into the env (the env name is arbitrary; `aetos` here):
 
 ```bash
-conda create -n omnidrone python=3.10
-conda activate omnidrone
+conda create -n aetos python=3.10
+conda activate aetos
 
 # from the OmniDrones checkout
 cp -r conda_setup/etc "$CONDA_PREFIX"
-conda activate omnidrone   # re-activate so the hook runs
+conda activate aetos   # re-activate so the hook runs
 
 # verification
 python -c "from isaacsim import SimulationApp"
@@ -106,7 +107,7 @@ python -c "import torch, numpy; print(torch.__version__, numpy.__version__)"
 ```bash
 sudo apt install cmake build-essential
 git clone git@github.com:isaac-sim/IsaacLab.git
-conda activate omnidrone
+conda activate aetos
 pip install usd-core==23.11 lxml==4.9.4 tqdm xxhash   # pinned by nvidia-srl-usd
 cd IsaacLab && ./isaaclab.sh --install
 ```
@@ -114,7 +115,8 @@ cd IsaacLab && ./isaaclab.sh --install
 ### 4. OmniDrones, then this repo
 
 `aetos_multiam` imports `omni_drones` directly (rotor actuators, the Lee
-controller, `IsaacEnv`), so OmniDrones goes in first:
+controller, `IsaacEnv`), so
+[OmniDrones](https://github.com/btx0424/OmniDrones) goes in first:
 
 ```bash
 pip install -e /path/to/OmniDrones
@@ -132,7 +134,7 @@ IsaacLab Factory gears `AerialAssembly` uses -- both in
 
 ```bash
 export ISAACSIM_PATH=/home/benhua/isaacsim
-conda activate omnidrone
+conda activate aetos
 
 python examples/show_robot.py --robot all --headless    # all six robots spawn
 python debug/verify_iris650_flight.py                   # one of them actually flies
