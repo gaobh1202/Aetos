@@ -427,7 +427,10 @@ def main():
         return int(round(n / DT))
 
     # (label, steps, (vx, vy, vz, yaw_rate), arm_phase)
-    # vx = right, vy = forward, both in the current target-yaw frame.
+    # Body-frame FLU in the current target-yaw frame: vx = forward (the nose,
+    # i.e. the direction the arm reaches), vy = left, vz = up. Same convention
+    # devices/keyboard_uav_control.py uses -- it used to be written 90 deg off
+    # here too, so "forward" legs actually flew the robot sideways.
     leg = seconds(args.leg / args.linear_speed)
     climb = seconds((args.cruise_z - args.spawn_z) / args.z_speed)
     turn = seconds(math.pi / args.yaw_speed)
@@ -436,14 +439,14 @@ def main():
         ("idle",      seconds(1.0),  (0, 0, 0, 0),   None),
         ("climb",     climb,         (0, 0, 1, 0),   None),
         ("settle",    seconds(1.5),  (0, 0, 0, 0),   None),
-        ("forward",   leg,           (0, 1, 0, 0),   None),
+        ("forward",   leg,           (1, 0, 0, 0),   None),
         ("settle",    seconds(1.0),  (0, 0, 0, 0),   None),
-        ("left",      leg,           (-1, 0, 0, 0),  None),
-        ("right",     leg,           (1, 0, 0, 0),   None),
+        ("left",      leg,           (0, 1, 0, 0),   None),
+        ("right",     leg,           (0, -1, 0, 0),  None),
         ("settle",    seconds(1.0),  (0, 0, 0, 0),   None),
         ("yaw180",    turn,          (0, 0, 0, 1),   None),
         ("settle",    seconds(1.0),  (0, 0, 0, 0),   None),
-        ("forward",   leg,           (0, 1, 0, 0),   None),
+        ("forward",   leg,           (1, 0, 0, 0),   None),
         ("settle",    seconds(1.5),  (0, 0, 0, 0),   None),
         ("arm +45",   sweep,         (0, 0, 0, 0),   +1),
         ("arm back",  sweep,         (0, 0, 0, 0),   -1),
