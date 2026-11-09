@@ -1,11 +1,11 @@
-"""Run ShelfBucketGrasp as an actual task, not just the zero-action smoke
-test ``scripts/run_shelf_bucket_grasp.py`` already is.
+"""Run AerialBucketGrasp as an actual task, not just the zero-action smoke
+test ``scripts/run_aerial_bucket_grasp.py`` already is.
 
-Unlike ``run_task_ShelfButtonGrasp.py``, this doesn't have a policy+replay
-pair to drive it: ShelfBucketGrasp is a brand-new task with no trained
+Unlike ``run_task_AerialButtonGrasp.py``, this doesn't have a policy+replay
+pair to drive it: AerialBucketGrasp is a brand-new task with no trained
 hover/reach policy and no recorded raids-am-simulator episode for this arm
 to replay. The drone side needs nothing anyway -- it's welded to the world
-at spawn (``ShelfBucketGrasp``'s own design, see that class's module
+at spawn (``AerialBucketGrasp``'s own design, see that class's module
 docstring), so there's no drone control source to plug in here at all.
 
 For the arm, this script does a brief **random-shooting search** instead of
@@ -14,15 +14,15 @@ chain per preset -- overkill for "make the scene visibly do something"):
 sample ``--search-trials`` random normalized joint targets, give each
 ``--search-settle-steps`` physics steps to settle from a fresh reset, score
 it by the env's own ``rpos_eef_bucket`` norm (the same quantity
-``ShelfBucketGrasp.reward()`` shapes on), and keep the closest. The arm is
+``AerialBucketGrasp.reward()`` shapes on), and keep the closest. The arm is
 then smoothly ramped from its reset pose to that best-found target over
 ``--ramp-steps`` and held there -- enough real motion to see the task scene
 actually run end to end, without claiming to be a real reach policy.
 
 Usage:
-    python examples/run_task_ShelfBucketGrasp.py task=ShelfBucketGrasp
-    python examples/run_task_ShelfBucketGrasp.py task=ShelfBucketGrasp headless=true --max-steps 500
-    python examples/run_task_ShelfBucketGrasp.py task=ShelfBucketGrasp --search-trials 80
+    python examples/run_task_AerialBucketGrasp.py task=AerialBucketGrasp
+    python examples/run_task_AerialBucketGrasp.py task=AerialBucketGrasp headless=true --max-steps 500
+    python examples/run_task_AerialBucketGrasp.py task=AerialBucketGrasp --search-trials 80
 """
 
 import logging
@@ -100,7 +100,7 @@ def main(cfg):
         )
 
     logging.info(
-        "[run_task_ShelfBucketGrasp] search done, best_distance=%.4f after %d trials",
+        "[run_task_AerialBucketGrasp] search done, best_distance=%.4f after %d trials",
         best_distance, _own_args.search_trials,
     )
 
@@ -114,7 +114,7 @@ def main(cfg):
         step += 1
 
     logging.info(
-        "[run_task_ShelfBucketGrasp] reach ramp done at step=%d distance=%.4f", step, distance_now()
+        "[run_task_AerialBucketGrasp] reach ramp done at step=%d distance=%.4f", step, distance_now()
     )
 
     any_success = False
@@ -127,7 +127,7 @@ def main(cfg):
             any_success = any_success or success
             if step % 50 == 0:
                 logging.info(
-                    "[run_task_ShelfBucketGrasp] step=%d distance=%.4f any_success=%s",
+                    "[run_task_AerialBucketGrasp] step=%d distance=%.4f any_success=%s",
                     step, distance_now(), any_success,
                 )
             if _own_args.max_steps and step >= _own_args.max_steps:
@@ -136,7 +136,7 @@ def main(cfg):
         pass
 
     logging.info(
-        "[run_task_ShelfBucketGrasp] finished at step=%d distance=%.4f any_success=%s",
+        "[run_task_AerialBucketGrasp] finished at step=%d distance=%.4f any_success=%s",
         step, distance_now(), any_success,
     )
     simulation_app.close()

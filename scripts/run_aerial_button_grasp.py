@@ -1,15 +1,14 @@
-"""Headless/GUI smoke test for the ShelfBucketGrasp task.
+"""Headless/GUI smoke test for the AerialButtonGrasp task.
 
-Same pattern as ``run_shelf_button_grasp.py`` -- boots Isaac Sim, steps the
-env with zero actions for a few hundred steps, then (in GUI mode) keeps
-stepping with zero action and keeps the window open until you close it --
-without ``headless=true`` the app closes itself right after the fixed step
-count, which otherwise just looks like the window flashing open and shut.
-Scene and robot are both set via hydra config:
+Boots Isaac Sim the same way ``scripts/run_button_grasp.py`` does, then
+steps the env with random actions for a few hundred steps. The scene and
+robot are both set via hydra config -- change the scene by pointing
+``task=`` at a different cfg file, change the robot by overriding
+``aerial_manipulators.0.preset``:
 
-    python scripts/run_shelf_bucket_grasp.py task=ShelfBucketGrasp headless=true
-    python scripts/run_shelf_bucket_grasp.py task=ShelfBucketGrasp \\
-        aerial_manipulators.0.preset=amov950_airbot_bottom headless=true
+    python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
+    python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp \\
+        aerial_manipulators.0.preset=amov950_airbot_dexterous_bottom headless=true
 """
 
 import logging
@@ -55,7 +54,7 @@ def main(cfg):
         if step % 50 == 0:
             logging.info("step=%d success_so_far=%s", step, any_success)
 
-    logging.info("ShelfBucketGrasp smoke test finished. any_success=%s", any_success)
+    logging.info("AerialButtonGrasp smoke test finished. any_success=%s", any_success)
 
     if cfg.headless:
         simulation_app.close()

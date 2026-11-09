@@ -1,7 +1,7 @@
-"""Run the ShelfButtonGrasp scene as an actual task: scene + a real control
+"""Run the AerialButtonGrasp scene as an actual task: scene + a real control
 source driving the drone and a real control source driving the arm,
 independently of each other -- this is the piece raids-am-simulator had
-that the plain scene migration (environments/single/shelf_button_grasp.py)
+that the plain scene migration (environments/single/aerial_button_grasp.py)
 didn't: a runnable combination of "what flies the drone" and "what moves
 the arm", matching what raids-am-simulator could already do:
 
@@ -57,7 +57,7 @@ Arm control source (--arm-control):
     joint angles + gripper + all 4 object poses) via PD position targets.
     See ArmReplayController; data migrated from raids-am-simulator/
     raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ into
-    aetos_multiam/data/shelf_button_grasp/episodes/ -- the same episode set
+    aetos_multiam/data/aerial_button_grasp/episodes/ -- the same episode set
     OmniDrones' own HoverAmovDynaArmReplay task trains against.
   policy -- NOT YET IMPLEMENTED. No manipulation policy has been trained
     for this robot's action/observation layout yet -- extension point,
@@ -138,9 +138,9 @@ USD) and fix 6 (the hover action remap) together -- the asset fix alone
 disturbance margin independently of the asset mismatch.
 
 Usage:
-    python examples/run_task_ShelfButtonGrasp.py
-    python examples/run_task_ShelfButtonGrasp.py --arm-control replay --drone-control policy
-    python examples/run_task_ShelfButtonGrasp.py --headless --max_steps 1200
+    python examples/run_task_AerialButtonGrasp.py
+    python examples/run_task_AerialButtonGrasp.py --arm-control replay --drone-control policy
+    python examples/run_task_AerialButtonGrasp.py --headless --max_steps 1200
 """
 
 import os
@@ -161,7 +161,7 @@ from aetos_multiam import init_simulation_app
 
 # Hand-tuned scene layout read back from raids-am-simulator's shelf_grasp.usd
 # (raids_am_Scene/build_isaacsim_scene.py) -- same constants as
-# aetos_multiam.environments.single.shelf_button_grasp.ShelfButtonGrasp.
+# aetos_multiam.environments.single.aerial_button_grasp.AerialButtonGrasp.
 GEARWHEEL_POS = (-0.006728, 0.038057, 1.386416)
 BUTTON_POS = (0.172601, 0.045351, 1.365782)
 DRILL_POS = (0.376657, 0.021583, 1.441908)
@@ -184,7 +184,7 @@ DEFAULT_DRONE_POLICY_CKPT = (
     "/home/benhua/OmniDrones/wandb/run-20260922_084532-yau99ypc/files/checkpoint_latest.pt"
 )
 DEFAULT_DRONE_POLICY_MAX_EPISODE_LENGTH = 1500
-_EPISODES_DIR = Path(__file__).resolve().parent.parent / "aetos_multiam" / "data" / "shelf_button_grasp" / "episodes"
+_EPISODES_DIR = Path(__file__).resolve().parent.parent / "aetos_multiam" / "data" / "aerial_button_grasp" / "episodes"
 DEFAULT_EPISODE_PATHS = sorted(str(p) for p in _EPISODES_DIR.glob("*.npz"))
 
 OBJECT_NAMES = ("gearwheel", "button", "power_drill", "tote_box")
@@ -320,7 +320,7 @@ class ArmReplayController(ArmController):
     index** (not a raw control-step counter) -- the recording runs at
     ``DATASET_FPS`` (30), independent of the sim's own control rate, so the
     caller must remap elapsed control steps to a frame index itself (see
-    ``run_task_ShelfButtonGrasp.py``'s FLY_IN/REPLAY loop below); indexing
+    ``run_task_AerialButtonGrasp.py``'s FLY_IN/REPLAY loop below); indexing
     1:1 by control step plays the recording back ~2x too fast at this
     sim's ~62 Hz control rate.
 
@@ -583,7 +583,7 @@ try:
             hover_cmd_offset = float((2.0 * _hover_frac - 1.0).item())
             hover_cmd_scale = float(1.0 - abs(hover_cmd_offset))
         print(
-            f"[run_task_ShelfButtonGrasp] hover action normalization: "
+            f"[run_task_AerialButtonGrasp] hover action normalization: "
             f"hover_frac={_hover_frac.item():.4f} offset={hover_cmd_offset:.4f} "
             f"scale={hover_cmd_scale:.4f}",
             flush=True,
@@ -601,7 +601,7 @@ except Exception:
     raise
 
 print(
-    f"[run_task_ShelfButtonGrasp] robot_usd={AMOV_DRONE_ARM_USD_PATH} "
+    f"[run_task_AerialButtonGrasp] robot_usd={AMOV_DRONE_ARM_USD_PATH} "
     f"drone-control={args.drone_control} arm-control={args.arm_control}",
     flush=True,
 )
@@ -652,7 +652,7 @@ try:
 
         if up_z < 0.5:
             print(
-                f"[run_task_ShelfButtonGrasp] drone appears to have flipped "
+                f"[run_task_AerialButtonGrasp] drone appears to have flipped "
                 f"(up_z={up_z:.3f}) at step={step} -- stopping.",
                 flush=True,
             )
@@ -667,14 +667,14 @@ try:
                 phase = "REPLAY"
                 replay_start_step = step
                 print(
-                    f"[run_task_ShelfButtonGrasp] FLY_IN -> REPLAY at step={step} "
+                    f"[run_task_AerialButtonGrasp] FLY_IN -> REPLAY at step={step} "
                     f"pos_err={pos_err:.3f} (timeout={step >= args.fly_in_timeout_steps})",
                     flush=True,
                 )
 
         if step % 50 == 0:
             print(
-                f"[run_task_ShelfButtonGrasp] step={step} phase={phase} "
+                f"[run_task_AerialButtonGrasp] step={step} phase={phase} "
                 f"drone_pos={drone_state[..., :3].reshape(-1).tolist()} "
                 f"pos_err={pos_err:.3f} speed={speed:.3f} up_z={up_z:.3f}",
                 flush=True,

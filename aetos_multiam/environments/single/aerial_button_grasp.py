@@ -1,7 +1,16 @@
-"""ShelfButtonGrasp -- migrated from raids-am-simulator's shelf_grasp scene
-(``raids_am_Scene/build_isaacsim_scene.py``): a 4-tier chrome shelf holding
-a gearwheel, a button, a power drill, and a tote box, with an aerial
-manipulator parked in front of it.
+"""AerialButtonGrasp -- fly up to a shelf-mounted button and reach it.
+
+Scene (``WarehouseArena``, concrete floor, no gantry -- the same bay
+``AerialAssembly`` uses): the 4-tier chrome shelf from raids-am-simulator's
+shelf_grasp scene (``raids_am_Scene/build_isaacsim_scene.py``) stands in the
+middle of the bay holding a gearwheel, a button, a power drill and a tote
+box; the robot starts **on the floor inside the painted spawn zone**, about
+4.5 m away, and has to take off and fly to it.
+
+The shelf is yawed so its open front faces the spawn zone. Every prop offset
+below is still the raw number measured against the unrotated shelf in the
+source scene -- ``scenes.on_shelf`` rotates them with it, so the layout on
+the shelf is bit-for-bit the one this task was migrated with.
 
 Defaults to the ``amov950_airbot_bottom`` preset (``amov_airbot_gripper``'s
 drone+arm combo) -- swap it via ``cfg.task.aerial_manipulators[0].preset``
@@ -30,13 +39,13 @@ from aetos_multiam.controllers import (
 )
 from aetos_multiam.objects import Gearwheel, PowerDrill, ShelfButton, ToteBox
 from aetos_multiam.robots import AerialManipulatorBase
-from aetos_multiam.scenes import ShelfArena
+from aetos_multiam.scenes import WarehouseArena, on_shelf, spawn_shelf
 from aetos_multiam.utils import yaw_deg_to_quat
 
 from ..aerial_manipulation_env import AerialManipulationEnv
 
 
-class ShelfButtonGrasp(AerialManipulationEnv):
+class AerialButtonGrasp(AerialManipulationEnv):
     r"""Fly an aerial manipulator up to a shelf-mounted button and reach it.
 
     ## Observation
@@ -56,15 +65,26 @@ class ShelfButtonGrasp(AerialManipulationEnv):
     """
 
     # Hand-tuned layout read back from the source scene's shelf_grasp.usd
-    # (see build_isaacsim_scene.py) -- shelf sits at the template env origin.
+    # (see build_isaacsim_scene.py), in SHELF-LOCAL coordinates -- unrotated
+    # shelf at the origin, which is how they were measured. _load_objects
+    # puts them through on_shelf() to follow SHELF_YAW_DEG.
     GEARWHEEL_POS = (-0.006728, 0.038057, 1.386416)
     BUTTON_POS = (0.172601, 0.045351, 1.365782)
     DRILL_POS = (0.376657, 0.021583, 1.441908)
     DRILL_YAW_DEG = 180.0
     TOTE_BOX_POS = (-0.276033, 0.009358, 1.345964)
     TOTE_BOX_YAW_DEG = 90.0
-    ROBOT_POS = (-0.099038, 0.438106, 2.002114)
-    ROBOT_YAW_DEG = -90.0  # face -y, toward the shelf's open front
+
+    #: Shelf in the middle of the bay, open front turned to face -x, i.e. the
+    #: spawn zone the robot starts in.
+    SHELF_POS = (0.0, 0.0, 0.0)
+    SHELF_YAW_DEG = 90.0
+    #: Which painted zone the robot starts in (index into the arena's own list).
+    SPAWN_ZONE = 0
+    #: Resting height for amov950_airbot_bottom: show_am_action.py drops it
+    #: from 0.5 m and it settles at 0.478, so this is "standing on the floor".
+    SPAWN_HEIGHT_M = 0.5
+    ROBOT_YAW_DEG = 0.0  # face +x, toward the shelf across the bay
 
     def __init__(self, cfg, headless):
         self.reward_distance_scale = float(cfg.task.get("reward_distance_scale", 1.2))
@@ -76,11 +96,15 @@ class ShelfButtonGrasp(AerialManipulationEnv):
 
     # -- scene -----------------------------------------------------------
 
-    def _build_arena(self) -> ShelfArena:
-        return ShelfArena()
+    def _build_arena(self) -> WarehouseArena:
+        return WarehouseArena(floor_color=WarehouseArena.CONCRETE, gantry=False)
 
     def _default_spawn_translation(self, index: int):
-        return self.ROBOT_POS
+        cx, cy = self.arena.spawn_zone_centers[self.SPAWN_ZONE]
+        return (cx, cy, self.SPAWN_HEIGHT_M)
+
+    def _on_shelf(self, local_xyz):
+        return on_shelf(local_xyz, translation=self.SHELF_POS, yaw_deg=self.SHELF_YAW_DEG)
 
     def _load_model(self) -> List[str]:
         # Override to set the robot's yaw (AerialManipulationEnv._load_model
@@ -102,16 +126,20 @@ class ShelfButtonGrasp(AerialManipulationEnv):
         return global_paths
 
     def _load_objects(self) -> List[str]:
-        self.gearwheel = Gearwheel(name="gearwheel", translation=self.GEARWHEEL_POS)
+        spawn_shelf(f"{self.template_env_ns}/shelf",
+                    translation=self.SHELF_POS, yaw_deg=self.SHELF_YAW_DEG)
+        self.gearwheel = Gearwheel(name="gearwheel", translation=self._on_shelf(self.GEARWHEEL_POS))
         self.gearwheel.spawn(self.template_env_ns)
-        self.button = ShelfButton(name="shelf_button", translation=self.BUTTON_POS)
+        self.button = ShelfButton(name="shelf_button", translation=self._on_shelf(self.BUTTON_POS))
         self.button.spawn(self.template_env_ns)
         self.power_drill = PowerDrill(
-            name="power_drill", translation=self.DRILL_POS, yaw_deg=self.DRILL_YAW_DEG
+            name="power_drill", translation=self._on_shelf(self.DRILL_POS),
+            yaw_deg=self.DRILL_YAW_DEG + self.SHELF_YAW_DEG,
         )
         self.power_drill.spawn(self.template_env_ns)
         self.tote_box = ToteBox(
-            name="tote_box", translation=self.TOTE_BOX_POS, yaw_deg=self.TOTE_BOX_YAW_DEG
+            name="tote_box", translation=self._on_shelf(self.TOTE_BOX_POS),
+            yaw_deg=self.TOTE_BOX_YAW_DEG + self.SHELF_YAW_DEG,
         )
         self.tote_box.spawn(self.template_env_ns)
         return []

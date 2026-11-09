@@ -22,7 +22,7 @@ and leave the real coupled dynamics to a learned controller later. Concretely:
 
 ``residual`` is a fraction rather than a flat epsilon on purpose, and its
 response is NOT monotonic -- freezing harder is not safer. Measured on
-ShelfBucketGrasp (GPU pipeline) under an identical hard arm sweep, worst body
+AerialBucketGrasp (GPU pipeline) under an identical hard arm sweep, worst body
 tilt / worst position error over 500 steps:
 
     residual   1.0      0.3      0.1      0.02     0.005     0.0005

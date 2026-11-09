@@ -1,29 +1,25 @@
-"""ShelfBucketGrasp -- same shelf scene as ``ShelfButtonGrasp``, but the
-gearwheel/button/power-drill cluster on the shelf's top tier is replaced by
-one white bucket prop (see ``objects/white_bucket.py``), and the tote box is
-dropped entirely. Defaults to the ``iris650_soarm100`` preset instead of
-``amov950_airbot_bottom``.
+"""AerialBucketGrasp -- same bay and same shelf as ``AerialButtonGrasp``, but
+the gearwheel/button/power-drill cluster on the shelf's top tier is replaced
+by one white bucket prop (see ``objects/white_bucket.py``) and the tote box is
+dropped entirely.
 
-By default the drone body itself isn't flown -- it's welded to the world at
-spawn time (``pin_body_to_world`` on its ``base_link``, same mechanism
+Scene (``WarehouseArena``, concrete floor, no gantry): shelf in the middle of
+the bay with its open front turned toward the painted spawn zone the robot
+starts in, on the floor about 4.5 m away.
+
+``task.weld_robot=true`` pins the drone's ``base_link`` to the world at its
+spawn pose (``pin_body_to_world``, the same mechanism
 ``examples/amteleop_soarm_leader.py`` uses to hold a robot still for arm-only
-teleop) at the same ``ROBOT_POS``/``ROBOT_YAW_DEG`` ``ShelfButtonGrasp`` uses
-for its own (flown) robot. The action space only covers the arm (+ gripper, if
-the preset has one) as a result -- a constant zero rotor command is spliced in
-internally before handing the full vector to ``AerialManipulatorController``
-(which still expects one).
+teleop) and drops the rotor dims from the action space -- a constant zero
+rotor command is spliced in internally before handing the full vector to
+``AerialManipulatorController``, which still expects one.
 
-``task.weld_robot=false`` drops the weld and puts the rotor commands back at
-the FRONT of the action vector, so the same scene can be flown -- that's what
-``examples/aerial_manipulator_control_demo.py --task ShelfBucketGrasp`` uses to
-teleop this scene's own declared robot. Nothing else about the task changes;
-the reward/success logic never looked at the drone.
-
-The source ``ShelfButtonGrasp`` scene is a static layout only (no
-reward/success logic of its own) -- the eef-to-bucket distance reward/
-success below is the same placeholder "reach" stand-in
-``ShelfButtonGrasp`` uses, just retargeted at the bucket instead of the
-button.
+shortcut: that weld is only useful with ``ROBOT_POS`` overridden to somewhere
+within arm's reach of the shelf -- welded at the spawn zone the bucket is
+4.5 m away and the task is unreachable, which is why it now defaults to
+false. It was the default back when this task spawned the robot right in
+front of the shelf. Revisit if an arm-only variant of this scene is wanted
+again; it needs its own spawn pose, not just the flag.
 """
 
 from typing import List
@@ -42,13 +38,13 @@ from aetos_multiam.controllers import (
 )
 from aetos_multiam.objects import WhiteBucket
 from aetos_multiam.robots import AerialManipulatorBase
-from aetos_multiam.scenes import ShelfArena
+from aetos_multiam.scenes import WarehouseArena, on_shelf, spawn_shelf
 from aetos_multiam.utils import pin_body_to_world, yaw_deg_to_quat
 
 from ..aerial_manipulation_env import AerialManipulationEnv
 
 
-class ShelfBucketGrasp(AerialManipulationEnv):
+class AerialBucketGrasp(AerialManipulationEnv):
     r"""Move a stationary aerial manipulator's arm to reach a shelf-mounted bucket.
 
     ## Observation
@@ -67,33 +63,40 @@ class ShelfBucketGrasp(AerialManipulationEnv):
     at `max_episode_length`.
     """
 
-    # Same shelf, same template-env-relative robot pose as ShelfButtonGrasp
-    # (see that class for how ROBOT_POS/ROBOT_YAW_DEG were read back from the
-    # source scene) -- the drone just doesn't need to fly to reach it here.
-    # BUCKET_POS centers the bucket across the x-span the gearwheel/button/
-    # power-drill cluster it replaces used to occupy (-0.007 to 0.377), with
-    # a bit of z clearance above that cluster's own 1.35-1.44 baseline so it
-    # drops onto the shelf surface instead of spawning embedded in it.
+    # SHELF-LOCAL, like AerialButtonGrasp's props: BUCKET_POS centers the
+    # bucket across the x-span the gearwheel/button/power-drill cluster it
+    # replaces used to occupy (-0.007 to 0.377), with a bit of z clearance
+    # above that cluster's own 1.35-1.44 baseline so it drops onto the shelf
+    # surface instead of spawning embedded in it.
     BUCKET_POS = (0.185, 0.045351, 1.40)
-    ROBOT_POS = (-0.099038, 0.438106, 2.002114)
-    ROBOT_YAW_DEG = -90.0  # face -y, toward the shelf's open front
+
+    #: Same placement as AerialButtonGrasp -- see that class.
+    SHELF_POS = (0.0, 0.0, 0.0)
+    SHELF_YAW_DEG = 90.0
+    SPAWN_ZONE = 0
+    SPAWN_HEIGHT_M = 0.5
+    ROBOT_YAW_DEG = 0.0  # face +x, toward the shelf across the bay
 
     def __init__(self, cfg, headless):
         self.reward_distance_scale = float(cfg.task.get("reward_distance_scale", 1.2))
         self.reward_success_weight = float(cfg.task.get("reward_success_weight", 10.0))
         self.success_distance = float(cfg.task.get("success_distance", 0.05))
         self.time_encoding = bool(cfg.task.get("time_encoding", True))
-        self.weld_robot = bool(cfg.task.get("weld_robot", True))
+        self.weld_robot = bool(cfg.task.get("weld_robot", False))
 
         super().__init__(cfg, headless)
 
     # -- scene -----------------------------------------------------------
 
-    def _build_arena(self) -> ShelfArena:
-        return ShelfArena()
+    def _build_arena(self) -> WarehouseArena:
+        return WarehouseArena(floor_color=WarehouseArena.CONCRETE, gantry=False)
 
     def _default_spawn_translation(self, index: int):
-        return self.ROBOT_POS
+        cx, cy = self.arena.spawn_zone_centers[self.SPAWN_ZONE]
+        return (cx, cy, self.SPAWN_HEIGHT_M)
+
+    def _on_shelf(self, local_xyz):
+        return on_shelf(local_xyz, translation=self.SHELF_POS, yaw_deg=self.SHELF_YAW_DEG)
 
     def _load_model(self) -> List[str]:
         # Override to set the robot's yaw (AerialManipulationEnv._load_model
@@ -120,7 +123,9 @@ class ShelfBucketGrasp(AerialManipulationEnv):
         return global_paths
 
     def _load_objects(self) -> List[str]:
-        self.bucket = WhiteBucket(name="white_bucket", translation=self.BUCKET_POS)
+        spawn_shelf(f"{self.template_env_ns}/shelf",
+                    translation=self.SHELF_POS, yaw_deg=self.SHELF_YAW_DEG)
+        self.bucket = WhiteBucket(name="white_bucket", translation=self._on_shelf(self.BUCKET_POS))
         self.bucket.spawn(self.template_env_ns)
         return []
 

@@ -370,7 +370,7 @@ class AerialManipulatorBase:
         agree with what ``_resolve_joint_indices`` ends up producing. When the
         two disagree, ``AerialManipulatorController.split_action`` (which
         derives the drone's slice as ``action_dim - arm - gripper``) cuts the
-        action vector at the wrong offset: ShelfButtonGrasp was handing
+        action vector at the wrong offset: AerialButtonGrasp was handing
         ``AmovDrone`` a 3-wide command for a 4-rotor drone that way, because
         amov_drone_arm's two baked-in gripper DOFs were undeclared.
         ``_resolve_joint_indices`` asserts the two agree.

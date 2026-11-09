@@ -2,7 +2,7 @@
 scene. Distinct from ``objects.button.Button`` (AM-bench's push_button.usd,
 with a real ``PlungerSlideJoint``) -- this is a plain two-part rigid button
 model (``model_redbutton.usd``), no plunger joint, used as the
-``ShelfButtonGrasp`` task's grasp target. All three rigid sub-bodies bake a
+``AerialButtonGrasp`` task's grasp target. All three rigid sub-bodies bake a
 non-standard xform that needs normalizing before PhysX will simulate them --
 see ``aetos_multiam.utils.usd_fixups``.
 

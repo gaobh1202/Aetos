@@ -1,18 +1,25 @@
-name: ShelfButtonGrasp
+name: AerialBucketGrasp
 
 defaults:
   - /base/env_base@_here_
   - /base/sim_base@_here_
 
 env:
-  num_envs: 32
-  env_spacing: 8
+  num_envs: 1
+  env_spacing: 24
 
 # Robot for this scene -- default amov_airbot_gripper (preset
-# amov950_airbot_bottom). Swap it by editing this preset name, or via a
-# hydra override: aerial_manipulators.0.preset=<other_preset>.
+# amov950_airbot_bottom), same as AerialButtonGrasp. Swap it by editing this
+# preset name, or via a hydra override:
+# aerial_manipulators.0.preset=<other_preset>.
 aerial_manipulators:
   - preset: amov950_airbot_bottom
+
+# The robot starts on the floor in the bay's painted spawn zone, ~4.5 m from
+# the shelf, so it has to fly. Welding it there (this used to default true,
+# back when it spawned right in front of the shelf) would leave the bucket
+# permanently out of reach -- see the env's module docstring.
+weld_robot: false
 
 # --- teleop tuning, read by examples/aerial_manipulator_control_demo.py ---
 # Fraction of its real mass/inertia each arm link keeps under
