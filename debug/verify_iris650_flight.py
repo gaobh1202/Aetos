@@ -25,7 +25,7 @@ C. A 1.5 m/s forward + 0.5 m/s climb velocity command held for 2s, then
 
 Run:
     export ISAACSIM_PATH=/home/benhua/isaacsim
-    python scripts/verify_iris650_flight.py
+    python debug/verify_iris650_flight.py
 """
 import math
 import traceback
