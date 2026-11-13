@@ -1,0 +1,55 @@
+# Learn the drone controller of AerialTransport (PX4 CTBR action) by tracking
+# the recorded demonstrations -- curriculum stage 0. See
+# aetos_multiam/environments/collaborative/aerial_transport_track.py.
+name: AerialTransportTrack
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+
+env:
+  num_envs: 32            # ~10 GB RAM; ~0.125 GB per extra env (48 -> 12 GB)
+  env_spacing: 24          # robots spawn 9 m apart; keeps neighbouring envs clear
+  max_episode_length: 500  # control steps (8 s); episodes start at a random demo time
+
+sim:
+  dt: 0.004                # 250 Hz physics = PX4-style rate loop
+  substeps: 4              # 62.5 Hz policy
+
+aerial_manipulators:
+  - preset: iris650_soarm100
+  - preset: iris650_soarm100
+
+drone_action: ctbr
+warehouse: false         # true = full warehouse bay per env (visual only, slow to build)
+visuals: false           # true = render the envs (video/GUI); false saves RAM and build time
+filter_box_arm_contacts: true
+demo_dir: aetos_multiam/data/aerial_transport/episodes
+demo_skip_steps: 63         # drop the demos' 1 s settle phase (motors spinning up from rest, ~8 cm drop)
+min_episode_horizon: 100   # never start closer than this to a demo's end
+
+# Curriculum knobs (stage 0 values). Raise arm_dynamics_residual towards 1.0
+# (full arm reaction; below 0.1 PhysX diverges) and payload_scale towards 1.0.
+arm_dynamics_residual: 0.1
+payload_scale: 1.0
+payload_at: base          # base = force on base_link CoM; grasp = on the gripper at the handle (torque via the arm)
+# [kp, kd] for shoulder_pan, replacing the USD's 2.8 N m/rad (fine on a table, lets the arm
+# swing in yaw on a flying base). Same as shoulder_lift's authored gains; not calibrated
+# against the real servo. null keeps the authored drive.
+shoulder_pan_gains: [24.0, 3.4]
+
+reset_pos_noise_m: 0.02
+reset_rot_noise_deg: 2.0
+terminate_pos_error_m: 0.5
+terminate_tilt_deg: 60.0
+
+reward:
+  pos: 1.0
+  pos_scale: 0.1
+  vel: 0.3
+  vel_scale: 0.3
+  att: 0.3
+  att_scale: 0.2
+  body_rate: 0.01
+  action_rate: 0.02
+  fail: 10.0

@@ -98,9 +98,32 @@ class AerialTransport(CollaborativeAerialEnv):
         self.carry_box.translation = self.carry_box.resting_translation(
             0.0, PICK_TABLE_Y_M, TABLE_TOP_Z_M + 0.002)
         self.carry_box.spawn(ns)
+        if self.cfg.task.get("filter_box_arm_contacts", False):
+            self._filter_box_arm_contacts()
 
         # Everything here is inside the template env and gets cloned.
         return []
+
+    #: SO101 links the box may not collide with when contacts are filtered.
+    ARM_LINKS = ("base", "shoulder", "upper_arm", "lower_arm", "wrist", "gripper", "jaw")
+
+    def _filter_box_arm_contacts(self) -> None:
+        """Box <-> arm-link collisions off (authored before the sim starts).
+
+        For a KINEMATICALLY carried box: with the arm dynamics frozen, every arm
+        link weighs ~1 g, and contact against a teleported 1 kg box bends the
+        elbow ~1 rad and drags the drones off their setpoints. Grasp contact is
+        then judged geometrically instead (see
+        scripts/collect_aerial_transport_demo.py)."""
+        from omni.isaac.core.utils.stage import get_current_stage
+        from pxr import UsdPhysics
+
+        ns = self.template_env_ns
+        rel = UsdPhysics.FilteredPairsAPI.Apply(
+            get_current_stage().GetPrimAtPath(f"{ns}/{self.carry_box.name}")).CreateFilteredPairsRel()
+        for i in range(self.num_agents):
+            for link in self.ARM_LINKS:
+                rel.AddTarget(f"{ns}/am_{i}_0/manipulator/{link}")
 
     def _table_prims(self, tag: str, cy: float) -> None:
         ns = self.template_env_ns

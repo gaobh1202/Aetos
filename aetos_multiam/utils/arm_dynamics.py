@@ -114,8 +114,10 @@ def freeze_arm_dynamics(am, residual: float = DEFAULT_RESIDUAL) -> Optional[dict
         return None
     base_i = body_names.index("base_link")
 
-    masses = view.get_body_masses().reshape(len(body_names))
-    inertias = view.get_body_inertias().reshape(len(body_names), 9)
+    # Computed from env 0 and written to every env: assumes all envs start from
+    # the same asset and rest pose (no per-env mass randomization before this).
+    masses = view.get_body_masses().reshape(-1, len(body_names))[0]
+    inertias = view.get_body_inertias().reshape(-1, len(body_names), 9)[0]
 
     # Each arm link's position relative to base_link, expressed in base_link's
     # own frame. Positions come from the physics view (no quaternion-convention
@@ -167,14 +169,15 @@ def freeze_arm_dynamics(am, residual: float = DEFAULT_RESIDUAL) -> Optional[dict
     # backend, and a write that does not land (wrong pipeline, stale buffer)
     # is otherwise indistinguishable from one that does -- except that the
     # plant is then a half-frozen arm, which is worse than either end state.
-    got_m = view.get_body_masses().reshape(len(body_names)).float()
-    got_i = view.get_body_inertias().reshape(len(body_names), 9).float()
-    bad_m = float((got_m - new_masses.to(got_m.device)).abs().max())
+    all_m = view.get_body_masses().reshape(-1, len(body_names)).float()
+    all_i = view.get_body_inertias().reshape(-1, len(body_names), 9).float()
+    got_m, got_i = all_m[0], all_i[0]  # for the error report
+    bad_m = float((all_m - new_masses.to(all_m.device)).abs().max())
     # PhysX stores inertia as principal moments plus a CoM orientation, so a
     # tensor written with off-diagonal terms reads back diagonalised. Compare
     # the eigenvalues, which that representation change leaves alone.
     want_eig = torch.linalg.eigvalsh(new_inertias.reshape(-1, 3, 3).double()).float()
-    got_eig = torch.linalg.eigvalsh(got_i.reshape(-1, 3, 3).double()).float()
+    got_eig = torch.linalg.eigvalsh(all_i.reshape(-1, len(body_names), 3, 3).double()).float()
     bad_i = float((got_eig - want_eig.to(got_eig.device)).abs().max())
     if bad_m > 1e-3 or bad_i > 1e-3:
         raise RuntimeError(
