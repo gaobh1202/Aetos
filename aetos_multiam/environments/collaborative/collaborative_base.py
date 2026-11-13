@@ -23,6 +23,7 @@ presets have USD assets and/or real task objects exist, following
 ``ButtonGrasp``'s pattern.
 """
 
+import math
 from typing import List, Sequence
 
 import torch
@@ -35,10 +36,37 @@ from ..aerial_manipulation_env import AerialManipulationEnv
 
 
 class CollaborativeAerialEnv(AerialManipulationEnv):
+    #: Motor lag as a time constant. OmniDrones' RotorGroup applies its
+    #: ``tau`` as a per-CALL filter coefficient, so its real lag depends on how
+    #: often apply_action runs; 0.43 per 16 ms step is 28.5 ms, kept here and
+    #: converted for whatever physics dt the task uses.
+    MOTOR_TIME_CONSTANT_S = 0.0285
+
     def __init__(self, cfg, headless):
         self.goal_radius = float(cfg.task.get("goal_radius", 0.5))
         self.time_encoding = bool(cfg.task.get("time_encoding", True))
+        # "rotor": the drone slice of the action is per-rotor commands.
+        # "ctbr": it is [body rates / max_body_rate, 2*thrust_frac - 1] (PX4
+        # offboard interface), closed by a PX4-style rate loop every physics
+        # substep -- see controllers/drone/px4_rate_controller.py.
+        self.drone_action = str(cfg.task.get("drone_action", "rotor"))
+        if self.drone_action not in ("rotor", "ctbr"):
+            raise ValueError(f"task.drone_action must be 'rotor' or 'ctbr', got {self.drone_action!r}")
         super().__init__(cfg, headless)
+
+    def _setup_references(self) -> None:
+        super()._setup_references()
+        physics_dt = self.cfg.sim.dt
+        alpha = 1.0 - math.exp(-physics_dt / self.MOTOR_TIME_CONSTANT_S)
+        self.rate_controllers = []
+        for am in self.aerial_manipulators:
+            am.drone.tau_up.fill_(alpha)
+            am.drone.tau_down.fill_(alpha)
+            if self.drone_action == "ctbr":
+                from aetos_multiam.controllers.drone.px4_rate_controller import PX4RateController
+
+                self.rate_controllers.append(
+                    PX4RateController(am.drone.params, physics_dt, self.num_envs, self.device))
 
     # -- scene: no task object yet, see module docstring ---------------------
 
@@ -71,7 +99,8 @@ class CollaborativeAerialEnv(AerialManipulationEnv):
             num_rotors = am.drone.num_rotors
             drone_state_dim = 19 + num_rotors
             num_arm_joints = len(am.manipulator_spec.arm_joint_names) if am.manipulator_spec else 0
-            action_dim = num_rotors + num_arm_joints + (1 if am.gripper_spec is not None else 0)
+            drone_dim = 4 if self.drone_action == "ctbr" else num_rotors
+            action_dim = drone_dim + num_arm_joints + (1 if am.gripper_spec is not None else 0)
             obs_dim = 3 + drone_state_dim + num_arm_joints + self.time_encoding_dim
 
             agents_obs[key] = CompositeSpec({
@@ -101,6 +130,8 @@ class CollaborativeAerialEnv(AerialManipulationEnv):
     def _reset_idx(self, env_ids: torch.Tensor) -> None:
         for am in self.aerial_manipulators:
             am.drone._reset_idx(env_ids, train=True)
+            for ctrl in getattr(self, "rate_controllers", []):
+                ctrl.reset(env_ids)
             # Through the AM, not the drone: only AmovDrone has an arm of its
             # own to reset, every other preset mounts one at runtime.
             am.reset_arm_joints(env_ids)
@@ -112,7 +143,16 @@ class CollaborativeAerialEnv(AerialManipulationEnv):
             # `actions.expand(*self.shape, ...)` call expects (see the same
             # note in environments/single/button_grasp.py's _pre_sim_step).
             action = tensordict[(key, "action")]
-            am.apply_action(action[..., : am.drone.num_rotors])
+            if self.drone_action == "ctbr":
+                # Runs every physics substep: this IS the rate loop's frequency.
+                from aetos_multiam.controllers.drone.px4_rate_controller import denormalize_ctbr
+
+                rate_sp, thrust_frac = denormalize_ctbr(action[..., :4].reshape(self.num_envs, 4))
+                state = am.drone.get_state()[..., :13].reshape(self.num_envs, 13)
+                cmds = self.rate_controllers[self._agent_keys.index(key)](state, rate_sp, thrust_frac)
+                am.apply_action(cmds.reshape(self.num_envs, 1, -1))
+            else:
+                am.apply_action(action[..., : am.drone.num_rotors])
             # Arm/gripper targets intentionally not driven here yet -- no
             # per-agent controller is wired up in this generic base (see
             # module docstring); concrete tasks that need the arm moving
