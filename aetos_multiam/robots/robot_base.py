@@ -204,6 +204,18 @@ class AerialManipulatorBase:
                 relative_path, tuple(position), tuple(orientation),
             )
 
+        if self.manipulator_spec is not None and self.manipulator_spec.no_collide_with_drone:
+            from omni.isaac.core.utils.stage import get_current_stage
+            from pxr import UsdPhysics
+
+            stage = get_current_stage()
+            for body in self.manipulator_spec.no_collide_with_drone:
+                prim = stage.GetPrimAtPath(f"{drone_prim_path}/manipulator/{body}")
+                if not prim.IsValid():
+                    raise RuntimeError(f"no_collide_with_drone: prim not found: {prim.GetPath()}")
+                UsdPhysics.FilteredPairsAPI.Apply(prim).CreateFilteredPairsRel().AddTarget(
+                    f"{drone_prim_path}/base_link")
+
         if self.cfg.enable_self_collisions is not None:
             kit_utils.set_articulation_properties(
                 self._articulation_prim_path(drone_prim_path),

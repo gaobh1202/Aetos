@@ -45,6 +45,10 @@ class ManipulatorSpec:
     mounts onto ``eef_body_name`` -- e.g. removing a stock gripper that's
     baked into the same USD as the arm, so a different gripper can take over
     the same wrist DOF instead of fighting it."""
+    no_collide_with_drone: Sequence[str] = field(default_factory=tuple)
+    """Arm bodies whose collisions against the drone's ``base_link`` are filtered
+    out: links that sit inside the airframe's collider once mounted. Left
+    colliding, the overlap's friction clamps the joint that moves them."""
     note: str = ""
 
     def check_asset(self) -> None:

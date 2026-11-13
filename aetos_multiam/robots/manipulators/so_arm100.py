@@ -111,6 +111,10 @@ SO_ARM100 = register_manipulator(
         # forward of the drone body, not clipping through it. The rotation
         # itself needed no adjustment -- only the Z translation had a gap.
         mount_orientation=(0.0, 0.7071067811865476, -0.7071067811865476, 0.0),
+        # Mounted flush against the airframe, the shoulder link's collider
+        # overlaps the drone body's. That contact's friction held shoulder_pan
+        # still against any drive torque (long misread as a PhysX drive defect).
+        no_collide_with_drone=("shoulder",),
         note=(
             f"Real SO-ARM100 MJCF source at {MJCF_SOURCE_PATH} (full "
             "original size, so_arm100_scale=1.0) -- but the spawnable USD "

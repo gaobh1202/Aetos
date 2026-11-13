@@ -79,9 +79,11 @@ PRESETS: Dict[str, AerialManipulatorCfg] = {
         manipulator_type="so_arm100",
         gripper_type=None,  # bundled into so_arm100's own chain (the "Jaw" joint)
         # NOT monotonic for this one -- 0.1 is a measured optimum and 0.02 is
-        # already 8x worse. shoulder_pan is locked because its drive is dead
-        # whenever another dynamic body moves, leaving only teleport, which
-        # yaws the drone 67.8 deg. Both: docs/ARM_DISTURBANCE.md.
+        # already 8x worse. shoulder_pan was locked for teleop because its drive
+        # looked dead; the cause was the shoulder collider overlapping the
+        # airframe (fixed 2026-11-12 by so_arm100's no_collide_with_drone). The
+        # lock is kept until teleop is re-measured without it.
+        # docs/ARM_DISTURBANCE.md.
         arm_dynamics_residual=0.1,
         arm_locked_joints=("shoulder_pan",),
     ),

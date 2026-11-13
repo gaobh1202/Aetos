@@ -191,6 +191,19 @@ and the fingers still do too.
 
 ## The `shoulder_pan` drive defect
 
+> **Resolved 2026-11-12 -- it was never a drive defect.** Mounted flush against
+> the airframe, the SO101 `shoulder` link's collider overlaps the drone
+> `base_link`'s, and that contact's friction held the joint against any drive
+> torque: joint velocity read non-zero while position stayed put, gains x10 and
+> max effort x10 changed nothing, a static scene behaved the same, and disabling
+> the shoulder collider freed it at once. Fix: `ManipulatorSpec.no_collide_with_drone`
+> (so_arm100 sets `("shoulder",)`), a filtered pair applied in
+> `AerialManipulatorBase._apply_asset_fixups`. With the joint free its authored
+> gain (2.8 N m/rad) is too soft for flight; AerialTransportTrack overrides it via
+> `task.shoulder_pan_gains`. The "moving rigid body" correlation below was not
+> reproduced. The teleop lock and the measurements in this file predate the fix
+> and have not been re-run.
+
 Minimal repro: drone + so101 mounted, hand-built scene, 200-step PD test,
 target 0.300 rad, gains forced to kp=200/kd=2.0 and read back. Adding one
 extra dynamic rigid body that *moves* (a falling cube 50 m away, or one with
