@@ -50,9 +50,18 @@ try:
     from so101_common import GRASP_LOCAL, T_DRONE_ARMBASE, T
 
     z = np.load(args.plans)
-    offs, dts = z["offset"][z["success"]], z["dt"]
+    dts = z["dt"]
     trajs = [t[:n] for t, n in zip(z["traj"], z["traj_len"])]
-    plan_to_live = np.linalg.inv(z["handle"])  # demo handle frame -> origin, re-anchored on each env's live handle
+    if "drone_in_handle" in z:  # feasible_base_set.py: drone poses already in the handle frame
+        bases = z["drone_in_handle"][z["feasible"]]
+        handle_grasp, plan_err = z["grasp_in_handle"], np.zeros(len(trajs))
+    else:  # plan_so101_grasp.py: offsets from a nominal arm base, in the demo's world frame
+        bases = []
+        for o in z["offset"][z["success"]]:
+            delta = np.eye(4)
+            delta[:3, :3], delta[:3, 3] = R.from_euler("xyz", np.radians(o[3:])).as_matrix(), o[:3]
+            bases.append(np.linalg.inv(z["handle"]) @ z["armbase0"] @ delta @ np.linalg.inv(T_DRONE_ARMBASE))
+        handle_grasp, plan_err = z["handle_grasp"], z["pos_err_mm"]
     env = make_env("AerialTransportTrack", cfg, headless=True)
     env.reset()
     N, dev, dt = env.num_envs, env.device, float(env.dt)
@@ -75,10 +84,7 @@ try:
         ids = [min(c0 + e, len(trajs) - 1) for e in range(N)]  # last chunk repeats its final plan
         pos, quat = np.zeros((N, 3)), np.zeros((N, 4))
         for e, i in enumerate(ids):
-            delta = np.eye(4)
-            delta[:3, :3] = R.from_euler("xyz", np.radians(offs[i, 3:])).as_matrix()
-            delta[:3, 3] = offs[i, :3]
-            m = handle[e] @ plan_to_live @ z["armbase0"] @ delta @ np.linalg.inv(T_DRONE_ARMBASE)
+            m = handle[e] @ bases[i]
             pos[e], quat[e] = m[:3, 3], np.roll(R.from_matrix(m[:3, :3]).as_quat(), 1)
         pos = torch.as_tensor(pos, device=dev, dtype=torch.float32).unsqueeze(1)
         quat = torch.as_tensor(quat, device=dev, dtype=torch.float32).unsqueeze(1)
@@ -112,11 +118,11 @@ try:
         for e, i in enumerate(ids[:len(trajs) - c0]):
             g = T(lt[e, :3], np.roll(lt[e, 3:], 1)) @ T(GRASP_LOCAL, (1, 0, 0, 0))
             rel = np.linalg.inv(handle[e]) @ g  # grasp frame in the handle frame (bar along y)
-            want = z["handle_grasp"]
+            want = handle_grasp
             bar_want, bar_got = want[:3, :3].T @ [0, 1, 0], rel[:3, :3].T @ [0, 1, 0]
             rows.append([np.hypot(rel[0, 3], rel[2, 3]) * 1000, abs(rel[1, 3]) * 1000,
                          np.degrees(np.arccos(np.clip(bar_want @ bar_got, -1, 1))),
-                         np.degrees(qf[e]), np.degrees(lag[e]), z["pos_err_mm"][i]])
+                         np.degrees(qf[e]), np.degrees(lag[e]), plan_err[i]])
         print(f"[exec] {min(c0 + N, len(trajs))}/{len(trajs)} plans replayed", flush=True)
     r = np.array(rows)
     for name, col, unit in (("grasp point to bar axis", 0, "mm"), ("slide along the bar", 1, "mm"),
