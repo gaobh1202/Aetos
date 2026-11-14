@@ -115,6 +115,11 @@ SO_ARM100 = register_manipulator(
         # overlaps the drone body's. That contact's friction held shoulder_pan
         # still against any drive torque (long misread as a PhysX drive defect).
         no_collide_with_drone=("shoulder",),
+        # The asset's damping (3.4-6.8 N*m*s/rad on links of ~1e-4 kg*m^2) makes
+        # shoulder_lift/elbow_flex ring at ~3.3 Hz for ~2 s after every command
+        # change and sag 1.6 deg under a 5 deg step; with these scales a step
+        # settles in 0.2 s with no ringing (measured, 5 deg steps in hover).
+        drive_gain_scale=(4.0, 0.25),
         note=(
             f"Real SO-ARM100 MJCF source at {MJCF_SOURCE_PATH} (full "
             "original size, so_arm100_scale=1.0) -- but the spawnable USD "

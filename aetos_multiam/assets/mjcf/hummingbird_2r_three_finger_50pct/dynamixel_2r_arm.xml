@@ -62,7 +62,7 @@
         <geom type="mesh" class="visual" pos="0 3.669605e-18 0.2726" quat="0.707107 -0.707107 -0 5.49814e-32" mesh="base_mx106" material="base_mx106_material" />
         <site group="0" name="base" pos="8.6632e-36 4.68675e-36 0.3" quat="3.06162e-17 1 -5.39977e-17 -5.65924e-17" />
         <body name="first_segment" pos="3.56276e-17 0.012985 0.2726" quat="0.707107 0.707107 0 6.86915e-17">
-          <joint name="R1" type="hinge" range="-1.9198621771937625 1.9198621771937625" />
+          <joint name="R1" type="hinge" axis="0 0 1" range="-1.9198621771937625 1.9198621771937625" />
           <inertial pos="2.7753e-09 -0.0641795 0.0130577" mass="0.035922625" fullinertia="2.7029125e-05 3.96271875e-06 2.5022625e-05 7.07159375e-13 4.005625e-13 2.0908e-08" />
           <geom type="mesh" class="visual" pos="-0.0055 5.5511e-17 -0.0025" quat="0.707107 -0 -0.707107 -0" mesh="m2_5x6" material="m2_5x6_material" />
           <geom type="mesh" class="visual" pos="-0.003889085 -0.003889085 -0.0025" quat="0.707107 -0 -0.707107 -0" mesh="m2_5x6" material="m2_5x6_material" />
@@ -107,7 +107,7 @@
           <geom type="mesh" class="visual" pos="0.00865 -0.081 0.02322" quat="0.707107 8.32667e-17 0.707107 -2.22045e-16" mesh="m2_5x8" material="m2_5x8_material" />
           <geom type="mesh" class="visual" pos="-1.508845e-17 -0.09 0.011735" quat="0 1 0 0" mesh="hn05_i101" material="hn05_i101_material" />
           <body name="second_segment" pos="-5.56115e-17 -0.09 0.00125" quat="1 0 1.49672e-32 -1.73472e-17">
-            <joint name="R2" type="hinge" range="-2.6179938779914944 2.6179938779914944" />
+            <joint name="R2" type="hinge" axis="0 0 1" range="-2.6179938779914944 2.6179938779914944" />
             <inertial pos="-8.5301097137e-13 -0.057669396332 0.0117596813562" mass="0.0163925" fullinertia="2.64257484757e-05 1.00960554656e-05 3.39456790616e-05 -4.62445337106e-16 5.12896871431e-11 9.02070562359e-09" />
             <geom type="mesh" class="visual" pos="0 0.09 0.010485" quat="6.07998e-31 0 0 -1" mesh="sw_mx64_segment" material="sw_mx64_segment_material" />
             <geom type="mesh" class="visual" pos="0.0055 5.5511e-17 -0.0025" quat="0.707107 0 -0.707107 0" mesh="m2_5x6" material="m2_5x6_material" />

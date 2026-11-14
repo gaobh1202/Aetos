@@ -45,25 +45,39 @@ def pose_error(target_pos, target_quat, pos, quat) -> Tuple[torch.Tensor, torch.
 
 class CartesianController:
     def __init__(self, kp: float = 4.0, kr: float = 4.0, rot_weight: float = 0.1, damping: float = 0.05,
-                 max_joint_speed: float = 1.5, max_lead: float = 0.25):
+                 max_joint_speed: float = 1.5, max_lead: float = 0.25, position_first: bool = False):
         """``kp``/``kr``: 1/s on position / orientation error. ``rot_weight`` (m/rad): how much a
         radian of orientation error counts against a metre of position error when the arm cannot
         satisfy both. ``max_lead`` (rad): the command may lead the measured joint by at most this
-        much, so it does not wind up while a drive lags."""
+        much, so it does not wind up while a drive lags. ``position_first``: strict priority --
+        position is tracked exactly and orientation only with the joints' leftover freedom
+        (``rot_weight`` is then unused); for arms with fewer than six joints following a full pose."""
         self.kp, self.kr, self.rot_weight, self.damping = kp, kr, rot_weight, damping
+        self.position_first = position_first
         self.max_joint_speed, self.max_lead = max_joint_speed, max_lead
 
     def step(self, jacobian: torch.Tensor, pos_err: torch.Tensor, rot_err: Optional[torch.Tensor],
              q: torch.Tensor, q_cmd: torch.Tensor, q_lo: torch.Tensor, q_hi: torch.Tensor, dt: float) -> torch.Tensor:
         """New joint targets (N, n). ``jacobian``: (N, 6, n) at the controlled point, linear rows
         first. ``rot_err=None`` controls position only. ``q_cmd``: the previous targets."""
+        def solve(J, e):  # damped least squares
+            A = J @ J.transpose(1, 2) + self.damping ** 2 * torch.eye(J.shape[1], device=J.device, dtype=J.dtype)
+            return (J.transpose(1, 2) @ torch.linalg.solve(A, e.unsqueeze(-1))).squeeze(-1)
+
+        Jp, Jr = jacobian[:, :3], jacobian[:, 3:]
         if rot_err is None:
-            J, e = jacobian[:, :3], self.kp * pos_err
+            qd = solve(Jp, self.kp * pos_err)
+        elif self.position_first:
+            qd = solve(Jp, self.kp * pos_err)
+            # Joint motions that leave the position alone: I - pinv(Jp) Jp.
+            N = torch.eye(Jp.shape[2], device=Jp.device, dtype=Jp.dtype) - torch.linalg.pinv(Jp) @ Jp
+            q2 = (N @ solve(Jr @ N, self.kr * rot_err - (Jr @ qd.unsqueeze(-1)).squeeze(-1)).unsqueeze(-1)).squeeze(-1)
+            # Scaled as a whole: clamping it joint by joint would bend it out of that null space.
+            top = q2.abs().amax(-1, keepdim=True).clamp_min(1e-9)
+            qd = qd + q2 * (0.5 * self.max_joint_speed / top).clamp(max=1.0)
         else:
-            J = torch.cat([jacobian[:, :3], self.rot_weight * jacobian[:, 3:]], 1)
-            e = torch.cat([self.kp * pos_err, self.rot_weight * self.kr * rot_err], -1)
-        A = J @ J.transpose(1, 2) + self.damping ** 2 * torch.eye(J.shape[1], device=J.device, dtype=J.dtype)
-        qd = (J.transpose(1, 2) @ torch.linalg.solve(A, e.unsqueeze(-1))).squeeze(-1)
+            qd = solve(torch.cat([Jp, self.rot_weight * Jr], 1),
+                       torch.cat([self.kp * pos_err, self.rot_weight * self.kr * rot_err], -1))
         qd = qd.clamp(-self.max_joint_speed, self.max_joint_speed)
         lead = self.max_lead
         return torch.minimum(torch.maximum(q_cmd + qd * dt, q - lead), q + lead).clamp(q_lo, q_hi)
@@ -131,4 +145,14 @@ if __name__ == "__main__":  # self-check on a planar 3R arm (analytic kinematics
     for _ in range(600):
         q = ctl.step(jac(q), far - fk(q)[0], None, q, q, -lim, lim, 0.016)
     assert torch.isfinite(q).all() and (fk(q)[0][:, 0] - L.sum()).abs().max() < 2e-2, fk(q)[0]
+    # position_first: a reachable position with an orientation the arm cannot also reach.
+    pf = CartesianController(max_lead=10.0, position_first=True)
+    q = torch.tensor([[0.3, 0.6, -0.4]], dtype=torch.float64)
+    goal_p = torch.tensor([[0.6, 0.0, 0.0]], dtype=torch.float64)  # far out along x
+    goal_q = yaw_quat(torch.tensor([1.5], dtype=torch.float64))  # ... pointing along y
+    for _ in range(1500):
+        p, a = fk(q)
+        e_p, e_r = pose_error(goal_p, goal_q, p, yaw_quat(a))
+        q = pf.step(jac(q), e_p, e_r, q, q, -lim, lim, 0.016)
+    assert (fk(q)[0] - goal_p).norm() < 2e-3, fk(q)[0]
     print("cartesian_controller self-check OK")

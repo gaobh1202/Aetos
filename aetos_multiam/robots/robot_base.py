@@ -216,6 +216,21 @@ class AerialManipulatorBase:
                 UsdPhysics.FilteredPairsAPI.Apply(prim).CreateFilteredPairsRel().AddTarget(
                     f"{drone_prim_path}/base_link")
 
+        if self.manipulator_spec is not None and tuple(self.manipulator_spec.drive_gain_scale) != (1.0, 1.0):
+            from omni.isaac.core.utils.stage import get_current_stage
+            from pxr import Usd, UsdPhysics
+
+            ks, ds = self.manipulator_spec.drive_gain_scale
+            todo = set(self.manipulator_spec.arm_joint_names)
+            for prim in Usd.PrimRange(get_current_stage().GetPrimAtPath(drone_prim_path)):
+                drive = UsdPhysics.DriveAPI(prim, "angular")
+                if prim.GetName() in todo and drive.GetStiffnessAttr():
+                    drive.GetStiffnessAttr().Set(drive.GetStiffnessAttr().Get() * ks)
+                    drive.GetDampingAttr().Set(drive.GetDampingAttr().Get() * ds)
+                    todo.discard(prim.GetName())
+            if todo:
+                raise RuntimeError(f"drive_gain_scale: no angular drive found on {sorted(todo)}")
+
         if self.cfg.enable_self_collisions is not None:
             kit_utils.set_articulation_properties(
                 self._articulation_prim_path(drone_prim_path),

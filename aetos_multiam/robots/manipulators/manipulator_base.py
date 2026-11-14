@@ -49,6 +49,8 @@ class ManipulatorSpec:
     """Arm bodies whose collisions against the drone's ``base_link`` are filtered
     out: links that sit inside the airframe's collider once mounted. Left
     colliding, the overlap's friction clamps the joint that moves them."""
+    drive_gain_scale: Sequence[float] = (1.0, 1.0)
+    """(stiffness, damping) multipliers on the arm joints' authored drive gains."""
     note: str = ""
 
     def check_asset(self) -> None:

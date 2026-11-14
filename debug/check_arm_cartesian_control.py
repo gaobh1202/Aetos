@@ -23,6 +23,7 @@ p.add_argument("--q0", type=float, nargs="*", default=None, help="start posture,
 p.add_argument("--link", default=None, help="end-effector link (default: the manipulator spec's eef body)")
 p.add_argument("--position-only", action="store_true", help="do not hold the orientation")
 p.add_argument("--residual", type=float, default=None, help="arm dynamics residual (default: the preset's)")
+p.add_argument("--video", default=None, help="film the moves to this mp4 (2x speed; a red ball marks the target)")
 args = p.parse_args()
 
 from aetos_multiam import init_simulation_app  # noqa: E402
@@ -103,7 +104,16 @@ try:
     # written directly: the controller's output is the same, only how it reaches the joints differs.
     write = view.set_joint_positions if am.cfg.arm_write == "teleport" else view.set_joint_position_targets
 
+    frames_dir, n_step, n_frame = None, 0, 0
+
     def step():
+        global n_step, n_frame
+        n_step += 1
+        if frames_dir is not None and n_step % 4 == 0:  # 25 Hz of simulated time
+            sim.render()
+            capture_viewport_to_file(vp, str(frames_dir / f"{n_frame:05d}.png"))
+            sim.render()
+            n_frame += 1
         if len(hold_idx):
             write(hold_q.reshape(view.count, 1, -1), joint_indices=hold_idx)
         state = drone.get_state()[..., :13].squeeze(0)
@@ -129,6 +139,29 @@ try:
           f"[cart]   drive stiffness {[round(float(v), 1) for v in kps.reshape(-1)[arm_idx]]}, damping "
           f"{[round(float(v), 2) for v in kds.reshape(-1)[arm_idx]]}", flush=True)
 
+    if args.video:
+        import shutil
+        from pathlib import Path
+
+        from omni.isaac.core.objects import VisualSphere
+        from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
+        from omni.kit.viewport.utility.camera_state import ViewportCameraState
+        from pxr import Gf, UsdLux
+
+        UsdLux.DomeLight.Define(sim.stage, "/World/dome").CreateIntensityAttr(1500.0)
+        ball = VisualSphere("/World/target", radius=0.012, color=torch.tensor([1.0, 0.1, 0.1]))
+        c = ee.pose()[0][0]
+        reach = max(0.4, 1.8 * float((c - pos0[0]).norm()))  # frame small arms closer
+        vp = get_active_viewport()
+        cs = ViewportCameraState("/OmniverseKit_Persp", vp)
+        cs.set_position_world(Gf.Vec3d(float(c[0]) + reach, float(c[1]) - reach, float(c[2]) + 0.4 * reach), True)
+        cs.set_target_world(Gf.Vec3d(*[float(v) for v in (c + pos0[0]) / 2]), True)
+        for _ in range(20):
+            sim.render()
+        frames_dir = Path(args.video).with_suffix("")
+        shutil.rmtree(frames_dir, ignore_errors=True)
+        frames_dir.mkdir(parents=True)
+
     LEVER = 0.2  # m: weighs a radian of rotation against a metre of translation when asking what the arm can do
     ok, worst = True, 0.0
     for axis in range(3):
@@ -148,6 +181,8 @@ try:
             miss = float((want - U @ (U.T @ want)).norm())
             can = miss < 0.3
             target = p0 + d * args.step_cm / 100
+            if args.video:
+                ball.set_world_pose(position=target[0])
             errs, trace = [], []
             for k in range(300):
                 pos, quat = ee.pose()
@@ -176,6 +211,16 @@ try:
                       f"command leads joint by {deg(q_cmd - q_now())}", flush=True)
     print(f"[cart] {args.preset}: worst error on moves the arm can make {worst * 1000:.1f} mm", flush=True)
     print("RESULT:", "OK" if ok else "FAIL", flush=True)
+    if args.video:
+        import subprocess
+
+        import imageio_ffmpeg  # its bundled ffmpeg; a system build may lack the png decoder
+
+        subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-framerate", "50",
+                        "-i", str(frames_dir / "%05d.png"), "-pix_fmt", "yuv420p",
+                        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", args.video], check=True)
+        shutil.rmtree(frames_dir, ignore_errors=True)
+        print(f"[cart] video: {args.video}", flush=True)
     print("BUILD done")
 except Exception:
     traceback.print_exc()
