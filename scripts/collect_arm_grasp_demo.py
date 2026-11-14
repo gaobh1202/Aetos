@@ -10,6 +10,12 @@ contacts are on; an episode counts (and is saved) only if the bar is still in th
     export ISAACSIM_PATH=/home/benhua/isaacsim; conda activate omnidrone
     python scripts/collect_arm_grasp_demo.py --episodes 20 --out outputs/arm_grasp_demos
 
+Closed-loop test of a trained policy in the same scene, on base poses the training set never used
+(start the server first, in the lerobot environment: scripts/serve_lerobot_policy.py):
+
+    python scripts/collect_arm_grasp_demo.py --policy localhost:6000 --episodes 50 --seed 100 \\
+        --exclude-bases-from outputs/arm_grasp_demos
+
 One npz per episode, 25 Hz: images (wrist, base cameras), joint state, the expert's clean joint
 targets (``action``) and the noisy ones actually sent (``action_executed``), phase labels, base /
 box / gripper-centre poses, success.
@@ -33,8 +39,15 @@ p.add_argument("--action-noise", type=float, default=0.003,
                help="std of the noise added to the arm targets sent, rad; redrawn at the recording rate "
                     "(0.01 redrawn every physics step shook the arm off the bar: 3/14 grasps)")
 p.add_argument("--seed", type=int, default=0)
+p.add_argument("--policy", default=None, metavar="HOST:PORT",
+               help="evaluate a trained policy (scripts/serve_lerobot_policy.py) instead of the scripted expert")
+p.add_argument("--exclude-bases-from", default=None, metavar="DIR",
+               help="skip the base poses used by the episodes under DIR (the training set), to test on unseen ones")
+p.add_argument("--video", default=None, metavar="DIR", help="save every episode's camera views (side by side) as an mp4, failures too")
 p.add_argument("--gui", action="store_true")
 args = p.parse_args()
+if args.policy:
+    args.action_noise = 0.0  # the policy's commands go out as they are
 
 from aetos_multiam import init_simulation_app  # noqa: E402
 
@@ -152,6 +165,16 @@ try:
     bases, grasps = z["drone_in_handle"][z["feasible"]], z["grasp_in_handle_each"][z["feasible"]]
     q_default = torch.tensor(z["q_default"], dtype=torch.float32)
     rng = np.random.default_rng(args.seed)
+    if args.exclude_bases_from:
+        seen = {int(np.load(f)["base_index"]) for f in Path(args.exclude_bases_from).rglob("ep*.npz")}
+        keep = np.array([j for j in range(len(bases)) if j not in seen])
+        print(f"[collect] {len(seen)} base poses used under {args.exclude_bases_from} left out, {len(keep)} remain", flush=True)
+        bases, grasps = bases[keep], grasps[keep]
+    conn = None
+    if args.policy:
+        from multiprocessing.connection import Client
+        host, port = args.policy.split(":")
+        conn = Client((host, int(port)))
 
     def joints():
         return view.get_joint_positions().reshape(-1, view.num_dof)[0, all_idx]
@@ -206,7 +229,7 @@ try:
             sent = clean.clone()
             sent[:5] += noise
             view.set_joint_position_targets(sent.reshape(1, 1, 6), joint_indices=all_idx)
-            if args.out and phase >= 0 and k % RECORD_EVERY == 0:
+            if (args.out or args.video) and phase >= 0 and k % RECORD_EVERY == 0:
                 for n, c in cams.items():
                     rec[f"image_{n}"].append(c.get_rgba()[:, :, :3].copy())
                 bpos, bquat = box_view.get_world_poses()
@@ -214,7 +237,7 @@ try:
                                ("phase", phase), ("base_pose", m), ("box_pose", T(bpos[0].numpy(), bquat[0].numpy())),
                                ("ee_pose", ee_pose()), ("ee_target", target if target is not None else ee_pose())):
                     rec[key].append(np.asarray(v, dtype=np.float32 if key != "phase" else np.int64))
-            sim.step(render=bool(cams) and bool(args.out) and (k + 1) % RECORD_EVERY == 0 or args.gui)
+            sim.step(render=bool(cams) and bool(args.out or conn or args.video) and (k + 1) % RECORD_EVERY == 0 or args.gui)
 
         for k in range(50):  # settle in the default posture
             step(None, -1, k)
@@ -223,7 +246,16 @@ try:
         pre = grasp @ T((0.0, 0.0, RETREAT))
         start = ee_pose()
         k, left = 0, []
-        for phase, (name, seconds) in enumerate(PHASES):
+        if conn:  # the policy drives arm and jaw at the recording rate, for the expert's time plus 1 s
+            conn.send("reset")
+            for k in range(int((sum(s for _, s in PHASES) + 1.0) / DT)):
+                if k % RECORD_EVERY == 0:
+                    conn.send({"state": joints().tolist(), "shape": (args.image_size[1], args.image_size[0]),
+                               **{n: c.get_rgba()[:, :, :3].tobytes() for n, c in cams.items()}})
+                    a = conn.recv()
+                    q_cmd, jaw_cmd = torch.tensor(a[:5], dtype=torch.float32).reshape(1, 5), float(a[5])
+                step(None, 0, k)
+        for phase, (name, seconds) in enumerate(() if conn else PHASES):
             n = int(seconds / DT)
             if name == "lift":
                 lift_from = ee_pose()
@@ -257,17 +289,27 @@ try:
         ok = float(joints()[5]) > 0.05 and off_axis < 0.03 and slide < 0.10 and lifted > 0.5 * LIFT
         print(f"[collect] ep {ep:3d} base {i:3d}: {'OK  ' if ok else 'FAIL'} bar {off_axis * 1000:5.1f} mm off the gripper centre, "
               f"slid {slide * 1000:4.0f} mm, handle lifted {lifted * 1000:5.1f} mm, jaw at {float(joints()[5]):.2f} rad", flush=True)
-        if not ok:
+        if not ok and not conn:
             print(f"[collect]        off the target after each phase: {', '.join(left)}; joints (deg) "
                   f"{np.round(np.degrees(joints().numpy()), 0)}", flush=True)
+        if args.video and cams:
+            import subprocess
+
+            import imageio_ffmpeg  # its bundled ffmpeg
+            frames = [np.hstack([rec[f"image_{n}"][j] for n in cams]) for j in range(len(rec["q"]))]
+            subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                            "-s", f"{frames[0].shape[1]}x{frames[0].shape[0]}", "-r", str(round(1 / (DT * RECORD_EVERY))), "-i", "-",
+                            "-pix_fmt", "yuv420p", str(Path(args.video) / f"ep{ep:04d}_{'ok' if ok else 'fail'}.mp4")],
+                           input=b"".join(np.ascontiguousarray(x).tobytes() for x in frames), check=True)
         if args.out and ok:  # failed attempts are not demonstrations
             np.savez_compressed(Path(args.out) / f"ep{ep:04d}.npz", **{k_: np.stack(v) for k_, v in rec.items() if v},
                                 success=ok, base_index=i, phase_names=np.array([n for n, _ in PHASES]),
                                 fps=1.0 / (DT * RECORD_EVERY), joint_names=np.array([dof_names[int(j)] for j in all_idx]))
         return ok
 
-    if args.out:
-        Path(args.out).mkdir(parents=True, exist_ok=True)
+    for d in (args.out, args.video):
+        if d:
+            Path(d).mkdir(parents=True, exist_ok=True)
     oks = []
     for ep in range(args.episodes):
         oks.append(run_episode(ep))

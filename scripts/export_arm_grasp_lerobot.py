@@ -5,6 +5,15 @@
 
 State = the six joint angles (five arm joints + jaw), action = the expert's clean joint targets,
 two camera streams stored as video.
+
+Then train ACT on it (about 1 h 45 min for 40k steps on a 16 GB GPU; pyav because torchcodec may not load):
+
+    lerobot-train --dataset.repo_id=aetos/so101_handle_grasp --dataset.root=outputs/lerobot/so101_handle_grasp \\
+        --dataset.video_backend=pyav --policy.type=act --policy.device=cuda --policy.push_to_hub=false \\
+        --policy.chunk_size=50 --policy.n_action_steps=25 --steps=40000 --batch_size=16 --num_workers=6 \\
+        --save_freq=10000 --eval_freq=0 --wandb.enable=false --output_dir=outputs/train/act_so101_handle_grasp
+
+and test it in the simulator: scripts/serve_lerobot_policy.py + scripts/collect_arm_grasp_demo.py --policy.
 """
 import argparse
 import glob
