@@ -1,0 +1,16 @@
+# Lee position controller parameters for AM-Bench's FA-Hexa (hexa_scorpion).
+#
+# Same construction as lee_controller_ambench_600.yaml: attitude_gain and
+# angular_rate_gain are divided by the yaml inertia inside the controller, so
+# these were set to reproduce the stock hummingbird tune's effective bandwidth
+#   attitude/I = (100, 100, 2.92),  rate/I = (14.3, 14.3, 2.08)
+# against ambench_750's inertia (0.198, 0.198, 0.46).
+#
+# Note this platform's thrust/weight is only 1.83 (its rotors are canted, so
+# only 19.9 N of each 23 N reaches the vertical), against 2.13 for the quad --
+# less headroom for aggressive position gains than the shared value suggests.
+# Starting point, not a tuned optimum.
+position_gain: [4.0, 4.0, 4.0]
+velocity_gain: [2.2, 2.2, 2.2]
+attitude_gain: [19.8, 19.8, 1.3432]
+angular_rate_gain: [2.8294, 2.8294, 0.9568]

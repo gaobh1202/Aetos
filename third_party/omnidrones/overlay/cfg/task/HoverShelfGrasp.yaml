@@ -1,0 +1,40 @@
+# HoverShelfGrasp: fly a trained AmovDrone hover policy into the
+# raids-am-simulator shelf_grasp scene (shelf + 4 graspable props), hold
+# hover at the scene's recorded drone position, then replay a recorded
+# arm/gripper trajectory while the policy rejects the resulting disturbance.
+#
+# See raids-am-simulator/raids_am_Scene/build_isaacsim_scene.py for the
+# shelf/prop USD paths and poses this task's _design_scene() reuses
+# (omni_drones/envs/single/hover_shelf_grasp.py), and
+# scripts/run_shelf_grasp.py for the fly-in -> replay phase logic and the
+# checkpoint/episode CLI args.
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/run_shelf_grasp.py task=HoverShelfGrasp algo=ppo headless=false \
+#     checkpoint=/home/benhua/OmniDrones/wandb/run-20260601_002626-amov_drone_dynamic_arm_hover/files/checkpoint_final.pt \
+#     episode_npz=<path to an exported episode .npz>
+name: HoverShelfGrasp
+
+defaults:
+  - HoverAmovDynaArm
+  - _self_
+
+env:
+  num_envs: 1
+
+# Arm joints are driven directly by scripts/run_shelf_grasp.py (dataset
+# playback), not the base task's built-in sinusoidal trajectory.
+arm_trajectory:
+  enabled: false
+
+# Keep arm_hold enabled so Hover._pre_sim_step drives the arm every step via
+# AmovDrone.hold_arm_joints(self._arm_hold_targets, ...). The script
+# overwrites base_env._arm_hold_targets at runtime (the dataset's frame-0
+# pose during FLY_IN, then the recorded per-frame pose during REPLAY) once
+# the actual episode npz is loaded -- these joint_positions are placeholders
+# only, used if the script is ever run without overriding them.
+arm_hold:
+  enabled: true
+  joint_positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  zero_velocity_each_step: true

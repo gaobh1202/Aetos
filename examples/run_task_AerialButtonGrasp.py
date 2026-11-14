@@ -148,7 +148,8 @@ import os
 # Must be set before omni_drones.robots.drone.amov_drone is ever imported
 # (even transitively) -- AmovDrone's usd_path/param_path class attributes
 # are resolved from this env var once, at class-definition time.
-AMOV_DRONE_ARM_USD_PATH = "/home/benhua/OmniDrones/amov_drone_arm_1.usd"
+AMOV_DRONE_ARM_USD_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                       "aetos_multiam/assets/meshes/usd/amov_drone_arm/amov_drone_arm_1.usd")
 os.environ.setdefault("OMNIDRONES_AMOV_USD_PATH", AMOV_DRONE_ARM_USD_PATH)
 
 import argparse
@@ -180,9 +181,8 @@ ROBOT_YAW_DEG = -90.0
 # real recorded episodes instead of held fixed -- matches this script's own
 # arm-control=replay default. Not vendored into aetos_multiam: it's a live
 # training artifact in a repo this project already depends on.
-DEFAULT_DRONE_POLICY_CKPT = (
-    "/home/benhua/OmniDrones/wandb/run-20260922_084532-yau99ypc/files/checkpoint_latest.pt"
-)
+DEFAULT_DRONE_POLICY_CKPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                         "aetos_multiam/data/checkpoints/amov_hover_dyna_arm_replay.pt")
 DEFAULT_DRONE_POLICY_MAX_EPISODE_LENGTH = 1500
 _EPISODES_DIR = Path(__file__).resolve().parent.parent / "aetos_multiam" / "data" / "aerial_button_grasp" / "episodes"
 DEFAULT_EPISODE_PATHS = sorted(str(p) for p in _EPISODES_DIR.glob("*.npz"))

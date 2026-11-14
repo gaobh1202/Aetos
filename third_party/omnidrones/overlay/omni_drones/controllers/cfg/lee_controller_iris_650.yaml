@@ -1,0 +1,45 @@
+# Lee position controller -- iris_650 (650mm-scaled Iris; 3.4634 kg bare,
+# 4.0954 kg with so_arm100 mounted as in the iris650_soarm100 preset).
+#
+# Earlier versions of this file were tuned against a broken asset and are not
+# a useful starting point: the drone was being spawned on its edge (PhysX
+# rooted the merged drone+arm articulation at the ARM's first body, see
+# assets/mjcf/iris_650_so_arm100_final/fix_iris650_usd.py), so NO gain value
+# could stabilise it and the search ran all the way down to 10x-too-small.
+# With the asset fixed, the rotor geometry in iris_650.yaml is verified
+# correct against the live USD and these are plain textbook gains.
+#
+# Same recipe as lee_controller_amov_drone_arm_1.yaml / _hummingbird.yaml:
+# position loop wn=2 rad/s, zeta=0.55 (position_gain=wn^2,
+# velocity_gain=2*zeta*wn); attitude loop 5x that bandwidth (wn=10 rad/s,
+# zeta=0.71) and yaw deliberately slow (wn=1.71, zeta=0.61), matching
+# Hummingbird's own proven effective ratios exactly. LeePositionController
+# divides attitude_gain/angular_rate_gain by the inertia in iris_650.yaml
+# before using them, so the raw numbers here are effective_gain * inertia:
+#   attitude     100     * [0.137128, 0.181066, -]  / 2.9167 * 0.317876 (yaw)
+#   angular_rate  14.286 * [0.137128, 0.181066, -]  / 2.0833 * 0.317876 (yaw)
+# That inertia is the BARE drone's; with the arm mounted the real inertia is
+# ~20% higher, which lands the attitude loop at wn~9 rad/s, zeta~0.64 -- well
+# inside tolerance, so no separate arm-mounted gain file.
+#
+# DO NOT raise the yaw gains to fight arm-motion disturbance. Swinging the
+# arm's two shoulder joints dumps its reaction almost entirely into yaw, which
+# is tempting to chase with bandwidth, but this airframe's yaw authority comes
+# from differential rotor DRAG (km/kf = 0.021 m), not thrust -- asking for more
+# yaw torque makes the mixer eat the thrust margin roll/pitch needs. Measured,
+# sweeping shoulder_pan alone with the arm frozen at residual 0.1, worst body
+# excursion:
+#
+#   yaw wn        1.71 (this file)   3.0
+#   yaw            52.2 deg          27.6 deg
+#   roll            8.6 deg          46.1 deg   <- authority collapse
+#   position err    0.37 m            0.90 m
+#
+# Halving the yaw excursion costs 5x the roll excursion and 2.4x the position
+# error. The arm-motion disturbance is real and large at these gains; the fix
+# is a lower freeze residual or a controller that models the arm, not more yaw
+# bandwidth.
+position_gain: [4.0, 4.0, 4.0]
+velocity_gain: [2.2, 2.2, 2.2]
+attitude_gain: [13.7128, 18.1066, 0.9271]
+angular_rate_gain: [1.9590, 2.5867, 0.6622]

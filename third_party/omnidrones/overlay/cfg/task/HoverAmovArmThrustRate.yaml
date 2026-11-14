@@ -1,0 +1,18 @@
+# HoverAmovArmThrustRate: AmovDrone + arm hover with thrust + body-rates action space.
+# Action: [roll_rate, pitch_rate, yaw_rate, thrust] (4-dim), maps directly to PX4 rate mode.
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=HoverAmovArmThrustRate algo=ppo headless=false \
+#     algo.actor_log_std_init=-1.0
+
+name: Hover
+
+defaults:
+  - HoverAmovArm
+  - _self_
+
+drone_model:
+  name: AmovDrone
+  controller: RateController
+
+action_transform: rate

@@ -1,0 +1,54 @@
+# Lee position controller — amov_drone_arm_1 (AmovDrone + baked airbot_play
+# arm, 13.332 kg combined).
+#
+# TWO REAL BUGS FOUND AND FIXED THIS SESSION (neither is a gains problem):
+#
+# 1. `drone.gravity` means "world gravity constant" (~9.81) before
+#    MultirotorBase.initialize() runs, and "this robot's own weight in
+#    Newtons" (mass * 9.81, multirotor.py:164) after it (robot.py:82 sets
+#    the first value, multirotor.py:164 clobbers it). Building the
+#    controller via `LeePositionController(drone.gravity[...], drone.params)`
+#    AFTER am.initialize() (needed for the ArticulationView, unavoidable for
+#    AerialManipulatorBase-wrapped drones) silently fed ~127N into `g`
+#    instead of 9.81 -- fix: pass the literal constant 9.81 at any call
+#    site that builds a controller after initialize().
+#
+# 2. THE REAL CAUSE of every "tumble" seen while chasing this as a gains
+#    problem: the airbot_play arm attached to this drone was never held in
+#    place in any of the test scripts used to diagnose it. Its own
+#    USD-authored joint PD drive, with no position target refreshed and no
+#    velocity damping applied every step, goes numerically unstable on its
+#    own -- confirmed directly: joint velocity on joint2 ballooned to -12
+#    rad/s by step 90 while joint POSITION barely moved at all (a
+#    resonance/instability internal to the unheld drive, nothing to do
+#    with flight dynamics) -- and the reaction torque from that transmits
+#    straight into the drone body through the shared articulation,
+#    producing exactly the same tumble independent of whatever
+#    LeePositionController gains were in this file (confirmed empirically:
+#    three completely different gain sets, from gentle to aggressive, all
+#    diverged at the SAME step count once the arm was left unheld). Once
+#    the caller holds the arm every step --
+#    drone.reset_arm_joints(env_ids, zeros) once, then
+#    drone.hold_arm_joints(zeros, zero_velocity=True) every step, same
+#    pattern ShelfBucketGrasp/run_task_ShelfButtonGrasp.py already use for
+#    exactly this reason -- hover is stable and level (quat w stays
+#    0.9998-1.0 for 300 steps, angvel stays under 0.1 rad/s throughout).
+#    Any script driving this drone's rotors via LeePositionController MUST
+#    also hold the arm every step, or the instability returns regardless
+#    of gain tuning.
+#
+# Rotor geometry (rotor_angles/arm_lengths) VERIFIED against the live USD
+# (rotor_link_1..4 world position matches this file's data to float
+# precision; directions' diagonal-pair pattern is the physically-correct
+# yaw-cancelling one).
+#
+# With the arm properly held, these gains -- computed from matching
+# Hummingbird's own proven closed-loop bandwidth ratio (wn_att_xy = 5 *
+# wn_pos, zeta_att_xy ~0.71; wn_att_z/wn_pos and zeta_att_z matched to
+# Hummingbird's own yaw-loop ratio) with THIS drone's own inertia -- track
+# a forward+ascend keyboard-style command (1.0 m/s / 0.6 m/s, held ~2s then
+# released) with realistic lean while tracking, no divergence after release.
+position_gain: [4.0, 4.0, 4.0]
+velocity_gain: [2.2, 2.2, 2.2]
+attitude_gain: [64.071, 53.604, 1.852]
+angular_rate_gain: [9.098, 7.612, 1.323]

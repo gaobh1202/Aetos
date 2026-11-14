@@ -1,0 +1,48 @@
+# TrackAmovArmRate: AmovDrone + arm (held fixed at zero position) tracking a lemniscate
+# trajectory in rate action space (roll_rate, pitch_rate, yaw_rate, thrust).
+# Arm is treated as a fixed payload; use arm_motion/arm_trajectory later for disturbance curriculum.
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=TrackAmovArmRate algo=ppo headless=false \
+#     algo.actor_log_std_init=-1.0
+
+name: Track
+
+defaults:
+  - Track
+  - _self_
+
+drone_model:
+  name: AmovDrone
+  controller: RateController
+
+action_transform: rate
+
+env:
+  num_envs: 128
+  max_episode_length: 600
+
+# Arm extends ~30cm below base_link; raise ground termination threshold accordingly.
+ground_reset_height: 0.55
+
+# Trajectory center height — must satisfy: traj_origin_z - max_z_scale > ground_reset_height.
+# traj_scale Z in [1.0, 1.5], so origin_z=3.5 gives min_z=2.0m >> 0.55m.
+traj_origin: [0., 0., 3.5]
+
+# Start lenient: AmovDrone+arm is heavier/slower than Hummingbird.
+# Tighten reset_thres as training matures.
+reset_thres: 2.0
+future_traj_steps: 4
+
+reward_effort_weight: 0.0
+reward_action_smoothness_weight: 0.0
+reward_distance_scale: 1.6
+
+time_encoding: true
+intrinsics: false
+wind: false
+
+arm_hold:
+  enabled: true
+  joint_positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

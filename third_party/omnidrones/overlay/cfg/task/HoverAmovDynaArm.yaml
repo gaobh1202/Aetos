@@ -1,0 +1,72 @@
+# HoverAmovDynaArm: AmovDrone + airbot_play arm (6-DOF + gripper)
+# 目标：在机械臂按预定义正弦轨迹运动的条件下训练无人机悬停。
+# USD: amov_drone_arm_1.usd  |  params: amov_drone_arm_1.yaml
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=HoverAmovDynaArm algo=ppo headless=false \
+#     algo.actor_log_std_init=-1.0
+name: Hover
+
+defaults:
+  - HoverAmovArm
+  - _self_
+
+env:
+  num_envs: 128
+  env_spacing: 8
+
+# 机械臂运动会使重心偏移，适当放宽终止条件。
+ground_reset_height: 0.55
+min_up_z: -0.3
+
+# 关闭固定臂关节模式。
+arm_hold:
+  enabled: false
+
+# 关闭单关节正弦模式。
+arm_motion:
+  enabled: false
+
+# 多关节正弦轨迹（airbot_play: joint1~joint6 + endleft + endright）。
+# 关节顺序与 AmovDrone 检测到的 arm_joint_indices 一致（非旋翼 DOF 按 articulation 顺序）。
+arm_trajectory:
+  enabled: true
+  stiffness: 500.0
+  damping: 50.0
+  joints:
+    # joint1 — 底座旋转（yaw），range ≈ ±2.9 rad
+    - amplitude: 0.6
+      frequency: 0.25
+      phase: 0.0
+    # joint2 — 肩部俯仰，range ≈ ±1.5 rad
+    - amplitude: 0.4
+      frequency: 0.30
+      phase: 1.047
+    # joint3 — 肘部俯仰，range ≈ ±1.5 rad
+    - amplitude: 0.35
+      frequency: 0.35
+      phase: 2.094
+    # joint4 — 前臂滚转，range ≈ ±1.5 rad
+    - amplitude: 0.25
+      frequency: 0.40
+      phase: 0.0
+    # joint5 — 腕部俯仰，range ≈ ±1.5 rad
+    - amplitude: 0.25
+      frequency: 0.45
+      phase: 1.047
+    # joint6 — 腕部滚转，range ≈ ±1.5 rad
+    - amplitude: 0.15
+      frequency: 0.50
+      phase: 2.094
+    # endleft / endright（夹爪）— 保持零位
+    - amplitude: 0.0
+      frequency: 0.0
+      phase: 0.0
+    - amplitude: 0.0
+      frequency: 0.0
+      phase: 0.0
+
+arm_log:
+  enabled: true
+  log_interval: 200

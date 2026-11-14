@@ -26,7 +26,7 @@ from .manipulator_base import ManipulatorSpec, register_manipulator
 # docstring), and the drones package pulls in omni_drones transitively.
 # Same literal path as drones/amov_drone_arm.py's USD_PATH; keep both in
 # sync if that file ever moves.
-_AMOV_DRONE_ARM_USD_PATH = "/home/benhua/OmniDrones/amov_drone_arm_1.usd"
+from aetos_multiam.robots.drones.amov_drone_arm import USD_PATH as _AMOV_DRONE_ARM_USD_PATH  # noqa: E402
 
 AMOV_ARM_BARE = register_manipulator(
     ManipulatorSpec(

@@ -1,0 +1,64 @@
+# ArmTrajectory: drone fixed in place, arm follows sinusoidal trajectories.
+# USD: amov_drone_arm_1.usd  |  params: amov_drone_arm_1.yaml
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=ArmTrajectory algo=ppo headless=false
+name: ArmTrajectory
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+  - _self_
+
+env:
+  num_envs: 1
+  env_spacing: 8
+  max_episode_length: 10000
+
+drone_model:
+  name: AmovDrone
+  controller: LeePositionController
+
+# Height at which the drone body is pinned (metres).
+fixed_height: 1.5
+
+# Per-joint sinusoidal trajectory.
+# airbot_play arm has 6 revolute joints + 2 gripper joints = 8 DOFs.
+# Joints are ordered as detected by AmovDrone (non-rotor DOFs in articulation order).
+arm_trajectory:
+  stiffness: 500.0
+  damping: 50.0
+  joints:
+    # joint1 — base rotation (yaw of arm), range ≈ ±2.9 rad
+    - amplitude: 0.8
+      frequency: 0.25
+      phase: 0.0
+    # joint2 — shoulder pitch, range ≈ ±1.5 rad
+    - amplitude: 0.5
+      frequency: 0.30
+      phase: 1.047   # π/3
+    # joint3 — elbow pitch, range ≈ ±1.5 rad
+    - amplitude: 0.4
+      frequency: 0.35
+      phase: 2.094   # 2π/3
+    # joint4 — forearm roll, range ≈ ±1.5 rad
+    - amplitude: 0.3
+      frequency: 0.40
+      phase: 0.0
+    # joint5 — wrist pitch, range ≈ ±1.5 rad
+    - amplitude: 0.3
+      frequency: 0.45
+      phase: 1.047
+    # joint6 — wrist roll, range ≈ ±1.5 rad
+    - amplitude: 0.2
+      frequency: 0.50
+      phase: 2.094
+    # gripper left (endleft) — keep near zero
+    - amplitude: 0.0
+      frequency: 0.0
+      phase: 0.0
+    # gripper right (endright) — keep near zero
+    - amplitude: 0.0
+      frequency: 0.0
+      phase: 0.0

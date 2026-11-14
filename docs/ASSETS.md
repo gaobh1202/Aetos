@@ -41,6 +41,9 @@ aetos_multiam/assets/
       so101_follower/                  so101_follower.usd
       three_finger_fin_ray_rigid/      finger_1_rigid.usd + finger_1_bend_demo_isaacsim.mp4
       combined/                        amov_airbot_combined.usd + others (see scripts/export_robot_usd.py)
+      amov_drone_arm/                  amov_drone_arm_1.usd (drone + airbot arm + gripper; copied from the OmniDrones fork)
+      ambench/                         quad_scorpion.usd, hexa_scorpion.usd + configuration/ + props/ (copied from
+                                       AM-Bench, Apache-2.0, LICENSE alongside)
     mjcf/
       ambench_fa_hexa_750_final/assets/
       ambench_quad_600_top_arm_final/assets/
@@ -58,6 +61,16 @@ aetos_multiam/assets/
 ```
 
 ## Task-object assets (`objects/assets/`)
+
+Distributed as a second archive, `aetos_multiam_object_assets_<date>.tar.gz` (top level: one
+folder per object), extracted the same way:
+
+```bash
+mkdir -p aetos_multiam/objects/assets
+tar -xzf aetos_multiam_object_assets_<date>.tar.gz -C aetos_multiam/objects/assets/
+```
+
+`button/push_button.usd` in it is AM-Bench's (Apache-2.0), used by `objects/button.py`.
 
 `aetos_multiam/objects/assets/{shelf_chrome,gearwheel,button,power_drill,
 tote_box}/` holds the USD/mesh/texture binaries for the `AerialButtonGrasp`

@@ -1,0 +1,56 @@
+# HoverAmovDynaArmReplay: continues training HoverAmovDynaArm's checkpoint
+# with the fixes identified from the button_grasp shelf-scene failure
+# (see experiments_results/joint_forces_button_grasp_figure.png and the
+# session analysis): the trained policy never flew continuously for more
+# than max_episode_length=500 steps, and only ever saw procedural sinusoidal
+# arm disturbances -- never a real, non-periodic manipulation trajectory.
+#
+# Three changes vs. HoverAmovDynaArm:
+#   1. arm_replay: drives the arm from real recorded button_grasp episodes
+#      (raids-am-simulator/.../replay/out/episodes_npz/train_button_grasp/)
+#      instead of a sinusoid -- each of the 128 parallel envs independently
+#      samples which episode and where to start every reset, then loops it.
+#   2. env.max_episode_length raised 500 -> 1500 so the policy actually
+#      experiences long-horizon flight (and the cumulative drift/integrator
+#      effects that only show up over hundreds of steps) during training.
+#   3. reward_longhorizon_weight > 0: adds a bonus for keeping an EMA of
+#      position error low over a ~100-step horizon, not just instantaneously,
+#      to push the policy toward rejecting disturbances quickly rather than
+#      merely surviving them step by step.
+#
+# Run (continuing from the previous checkpoint):
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=HoverAmovDynaArmReplay algo=ppo headless=true \
+#     algo.checkpoint_path=/home/benhua/OmniDrones/wandb/run-20260601_002626-amov_drone_dynamic_arm_hover/files/checkpoint_final.pt \
+#     algo.actor_log_std_init=-1.0
+name: Hover
+
+defaults:
+  - HoverAmovDynaArm
+  - _self_
+
+env:
+  num_envs: 128
+  env_spacing: 8
+  max_episode_length: 1500
+
+# Real recorded-episode arm replay instead of the procedural sinusoid.
+arm_trajectory:
+  enabled: false
+
+arm_replay:
+  enabled: true
+  dataset_fps: 30.0
+  stiffness: 500.0
+  damping: 50.0
+  episode_npz:
+    - /home/benhua/raids-am-simulator/raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ep000.npz
+    - /home/benhua/raids-am-simulator/raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ep001.npz
+    - /home/benhua/raids-am-simulator/raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ep002.npz
+    - /home/benhua/raids-am-simulator/raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ep003.npz
+    - /home/benhua/raids-am-simulator/raids_am_Scene/replay/out/episodes_npz/train_button_grasp/ep004.npz
+
+# Long-horizon stability bonus (see hover.py's _compute_reward_and_done).
+reward_longhorizon_weight: 0.4
+reward_longhorizon_scale: 1.0
+longhorizon_alpha: 0.99   # ~100-step effective horizon at this sim's control rate

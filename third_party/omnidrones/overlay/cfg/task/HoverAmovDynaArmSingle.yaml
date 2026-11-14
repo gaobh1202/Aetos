@@ -1,0 +1,12 @@
+# Single-env variant of HoverAmovDynaArm for scripted single-drone rollouts
+# (e.g. scripts/run_circle_track.py's moving-target circle tracking) where a
+# fixed pose is driven directly by the script instead of randomizing across
+# a batch of parallel envs.
+name: Hover
+
+defaults:
+  - HoverAmovDynaArm
+  - _self_
+
+env:
+  num_envs: 1

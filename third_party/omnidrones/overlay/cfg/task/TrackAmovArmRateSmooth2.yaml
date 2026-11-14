@@ -1,0 +1,34 @@
+# TrackAmovArmRateSmooth2 — STAGE 2 of 2: smoothness fine-tuning.
+#
+# Warm-start from a stage-1 checkpoint that already tracks, then add the quadratic
+# penalties. Learning smoothness on top of a working policy is a local refinement; trying
+# to learn both at once fails, because the penalties drive log_std to ~0.02 within a few
+# hundred iterations and the policy freezes before it can hover (run uiqo8rm0).
+#
+# The log-std floor is what makes these penalties safe to use at all — keep it set.
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=TrackAmovArmRateSmooth2 algo=ppo headless=true \
+#     algo.checkpoint_path=/path/to/stage1/checkpoint_final.pt \
+#     algo.actor_log_std_min=-1.6 algo.entropy_coef=0.005 \
+#     total_frames=15000000
+
+name: Track
+
+defaults:
+  - TrackAmovArmRateSmooth
+  - _self_
+
+# Weights chosen so each term contributes ~0.02-0.10 against a per-step reward of ~2.3,
+# i.e. shaping, not domination. Note ω ≈ target_rate ≈ max_body_rate * action, so the
+# body-rate penalties also see the action noise; the log-std floor absorbs that.
+penalty_spin_weight: 0.4          # 0.10 at the 0.5 rad/s yaw cap
+penalty_body_rate_weight: 0.10    # 0.03 at 0.4 rad/s combined roll+pitch
+penalty_tilt_weight: 0.5          # 0.03 at 20 deg, 0.15 at 45 deg
+penalty_action_weight: 0.02       # was 0.1 in the failed run
+penalty_action_rate_weight: 0.02  # was 0.4 in the failed run — the main log_std sink
+
+# Tracking already works at this point, so the tighter bounds are affordable.
+reset_thres: 1.5
+max_tilt_deg: 45.

@@ -1,0 +1,104 @@
+# TrackAmovArmRateSmooth — STAGE 1 of 2.
+#
+# Goal: learn to track at all, while making violent flight *physically impossible*
+# rather than merely expensive. Everything here is either a task change or a hard
+# action limit; there are deliberately NO quadratic penalties on the action, because
+# those collapse the policy's log-std long before the task is learned (see
+# TrackAmovArmRateSmooth2.yaml and the note in PPOConfig.actor_log_std_min).
+#
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=TrackAmovArmRateSmooth algo=ppo headless=true \
+#     algo.actor_log_std_init=-1.0 algo.actor_log_std_min=-1.6 algo.actor_log_std_max=-0.8
+#
+# entropy_coef is left at its 0.001 default (what the working baseline used). The log-std
+# bounds are pure safety rails: the floor is never active without action penalties, and
+# the ceiling stops sigma drifting to ~0.9 late in training the way the baseline did —
+# at that point the sampled action is mostly noise, which is itself a source of jitter.
+#
+# Expected shape of a healthy run (measured on the working baseline, per iteration):
+#   iter  500 -> episode_len ~70,  tracking_error_ema ~1.7
+#   iter 1000 -> episode_len ~100
+#   iter 2000 -> episode_len ~170
+#   iter 4000 -> episode_len ~540, tracking_error_ema drops below 1.0
+# A long flat plateau up to ~iter 1000 is NORMAL for this task. The real failure
+# signature is different: sigma decaying below ~0.1 while episode_len never moves.
+# Watch train/hover_ratio too — it must stay near 1.0, not drift down to 0.8.
+
+name: Track
+
+defaults:
+  - Track
+  - _self_
+
+drone_model:
+  name: AmovDrone
+  controller: RateController
+
+action_transform: rate
+
+# --- hard action limits (enforced in RateController, not shaped by reward) ---
+# The reference needs <= 0.35 rad/s of tilt rate and no yaw rate at all, so 1.5 rad/s on
+# roll/pitch leaves ~4x margin while making 180 deg/s flips uncommandable. Yaw is capped
+# at 0.5 rad/s (29 deg/s): nothing in this task requires yawing, and an unconstrained yaw
+# channel is what produced the violent spinning in the first place.
+max_body_rate: [1.5, 1.5, 0.5]   # rad/s, per axis, action [-1,1] -> [-max, +max]
+# AmovDrone: 4 x 126.6 N = 506.4 N max thrust, 13.332 kg -> hover at 0.258 of max.
+# This band is centred so that action=0 -> 0.29 (1.12x hover): the actor's mean layer is
+# zero-initialised, so the policy starts out very nearly hovering instead of having to
+# discover hover thrust. The failed first attempt sat at hover_ratio 0.80 and fell.
+thrust_range: [0.03, 0.55]       # -> max T/W = 2.13, min = 0.12
+
+env:
+  num_envs: 128
+  # A lap is now 560-790 control steps, so give the episode room for >1 full lap.
+  max_episode_length: 1000
+
+# Arm extends ~30cm below base_link; raise ground termination threshold accordingly.
+ground_reset_height: 0.55
+traj_origin: [0., 0., 3.0]
+
+# --- slower, smaller reference: "allow more time to complete" ---
+# traj_w 0.5-0.7 (was 0.8-1.1) -> lap 9.0-12.6 s (was 5.7-7.9 s)
+# traj_scale xy 1.5-2.6 (was 1.8-3.2)
+# Together: v_max 1.9 m/s (was 3.7), feed-forward tilt <= 21 deg (was 52 deg).
+traj_w: [0.5, 0.7]
+traj_scale: [[1.5, 1.5, 0.8], [2.6, 2.6, 1.2]]
+traj_c: [-0.5, 0.5]
+
+# Spawn near the reference heading (units of pi) so the fixed heading target is reachable.
+init_rpy: [[-0.1, -0.1, -0.15], [0.1, 0.1, 0.15]]
+
+# Same as the working baseline — do not tighten before tracking works.
+reset_thres: 2.0
+future_traj_steps: 4
+
+reward_effort_weight: 0.0
+reward_action_smoothness_weight: 0.0
+reward_distance_scale: 1.6
+
+# --- shaping: bonuses only, no quadratic action terms ---
+# reward_heading is linear in the heading vector, so unlike a squared-action penalty it
+# exerts no downward pressure on log_std.
+reward_heading_weight: 0.3
+heading_mode: fixed
+heading_ref: [1., 0.]
+
+penalty_spin_weight: 0.0
+penalty_body_rate_weight: 0.0
+penalty_tilt_weight: 0.0
+penalty_action_weight: 0.0
+penalty_action_rate_weight: 0.0
+
+# Safety net only, not a shaping tool: the reference never needs more than 21 deg, but
+# terminating at 45 deg cost too many episodes early in training. 60 deg only catches
+# genuine loss of control.
+max_tilt_deg: 60.
+
+time_encoding: true
+intrinsics: false
+wind: false
+
+arm_hold:
+  enabled: true
+  joint_positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

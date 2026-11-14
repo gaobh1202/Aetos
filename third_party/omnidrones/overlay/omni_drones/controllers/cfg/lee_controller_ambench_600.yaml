@@ -1,0 +1,15 @@
+# Lee position controller parameters for AM-Bench's UAQuad (quad_scorpion).
+#
+# LeePositionController divides attitude_gain/angular_rate_gain by the yaml
+# inertia, so these are NOT directly comparable across airframes -- what is
+# comparable is the quotient. These were set to give the same effective
+# closed-loop attitude bandwidth as the stock hummingbird tune:
+#   hummingbird  attitude/I = (100, 100, 2.92),  rate/I = (14.3, 14.3, 2.08)
+# scaled by ambench_600's own inertia (0.055657, 0.065261, 0.117682).
+# Position/velocity gains are mass-normalized already, so they carry over
+# unchanged. Starting point, not a tuned optimum -- verified to hover and to
+# fly the keyboard's forward/ascend/yaw sequence, nothing finer.
+position_gain: [4.0, 4.0, 4.0]
+velocity_gain: [2.2, 2.2, 2.2]
+attitude_gain: [5.5657, 6.5261, 0.3432]
+angular_rate_gain: [0.7951, 0.9323, 0.2452]

@@ -115,11 +115,14 @@ cd IsaacLab && ./isaaclab.sh --install
 ### 4. OmniDrones, then this repo
 
 `aetos_multiam` imports `omni_drones` directly (rotor actuators, the Lee
-controller, `IsaacEnv`), so
-[OmniDrones](https://github.com/btx0424/OmniDrones) goes in first:
+controller, `IsaacEnv`), so OmniDrones goes in first -- not upstream, but the
+fork plus the changes kept in `third_party/omnidrones/` (see its README):
 
 ```bash
-pip install -e /path/to/OmniDrones
+git clone https://github.com/gaobh1202/amov_omni.git OmniDrones
+cd OmniDrones && git checkout "$(cat /path/to/Aetos_MultiAM/third_party/omnidrones/BASE_COMMIT)"
+bash /path/to/Aetos_MultiAM/third_party/omnidrones/apply.sh .
+pip install -e .
 pip install -e /path/to/Aetos_MultiAM
 ```
 

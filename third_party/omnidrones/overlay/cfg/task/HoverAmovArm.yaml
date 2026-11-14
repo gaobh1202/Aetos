@@ -1,0 +1,55 @@
+# HoverAmovArm: AmovDrone + airbot_play arm (6-DOF + gripper), arm held fixed as payload.
+# USD: amov_drone_arm_1.usd  |  params: amov_drone_arm_1.yaml
+# Run:
+#   OMNIDRONES_AMOV_USD_PATH=/home/benhua/OmniDrones/amov_drone_arm_1.usd \
+#   python scripts/train.py task=HoverAmovArm algo=ppo headless=false algo.actor_log_std_init=-1.0
+name: Hover
+
+defaults:
+  - HoverAmov
+  - _self_
+
+env:
+  num_envs: 128
+  env_spacing: 8
+
+drone_model:
+  name: AmovDrone
+  controller: LeePositionController
+
+time_encoding: true
+
+reward_effort_weight: 0.0
+reward_action_smoothness_weight: 0.0
+reward_distance_scale: 1.2
+reward_up_weight: 0.5
+
+# Arm adds ~30cm below base_link; raise reset height slightly.
+ground_reset_height: 0.55
+min_up_z: -0.2
+
+init_rpy_range:
+  low: [-0.03, -0.03, 0.0]
+  high: [0.03, 0.03, 2.0]
+
+init_pos_range:
+  low: [-1.5, -1.5, 1.4]
+  high: [1.5, 1.5, 2.5]
+
+hover_target:
+  use_drone_visual: false
+  usd_path: null
+
+arm_motion:
+  enabled: false
+
+# Hold all arm joints at USD default pose (all zeros = initial position).
+arm_hold:
+  enabled: true
+  joint_positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  zero_velocity_each_step: true
+
+# Log arm joint positions in stats every N steps.
+arm_log:
+  enabled: true
+  log_interval: 200

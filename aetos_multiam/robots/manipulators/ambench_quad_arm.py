@@ -28,7 +28,7 @@ from aetos_multiam.assets import ASSET_PATH
 from .manipulator_base import ManipulatorSpec, register_manipulator
 
 MJCF_SOURCE_PATH = osp.join(ASSET_PATH, "mjcf", "ambench_quad_600_top_arm_final", "robot.xml")
-USD_PATH = "/home/benhua/ambench/source/ambench/ambench/assets/robots/quad_scorpion.usd"  # == ambench_600's own USD
+from aetos_multiam.robots.drones.ambench_600 import AMBENCH_600_USD_PATH as USD_PATH  # noqa: E402 -- ambench_600's own USD
 
 AMBENCH_QUAD_ARM = register_manipulator(
     ManipulatorSpec(

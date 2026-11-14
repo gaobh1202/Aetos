@@ -1,0 +1,46 @@
+name: amov_drone_arm_1
+# amov_drone + airbot_play arm (6-DOF + gripper), arm held fixed as payload.
+# Total mass: drone 10.331 kg + arm 3.001 kg = 13.332 kg
+# max_rotation_velocities scaled by sqrt(13.332/10.331) ≈ 1.135 to maintain T/W ≈ 3.0
+inertia:
+  xx: 0.640710
+  xy: 0.011322
+  xz: 0.006655
+  yy: 0.536040
+  yz: -0.009561
+  zz: 0.634752
+mass: 13.3320
+l: 0.475
+drag_coef: 0.3
+rotor_configuration:
+  arm_lengths:
+    - 0.477753
+    - 0.459035
+    - 0.472779
+    - 0.490881
+  directions:
+    - -1.0
+    - 1.0
+    - -1.0
+    - 1.0
+  force_constants:
+    - 5.155573e-04
+    - 5.155573e-04
+    - 5.155573e-04
+    - 5.155573e-04
+  max_rotation_velocities:
+    - 495.52
+    - 495.52
+    - 495.52
+    - 495.52
+  moment_constants:
+    - 7.733359e-06
+    - 7.733359e-06
+    - 7.733359e-06
+    - 7.733359e-06
+  num_rotors: 4
+  rotor_angles:
+    - 2.389456
+    - 0.790759
+    - -0.81933
+    - -2.36116

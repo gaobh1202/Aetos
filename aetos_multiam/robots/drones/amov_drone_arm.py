@@ -34,12 +34,12 @@ and ``joint6`` first -- see ``manipulators/amov_arm_bare.py``.
 import os.path as osp
 
 from omni_drones.robots.drone.amov_drone import AmovDrone as _OmniDronesAmovDrone
-from omni_drones.robots.robot import ASSET_PATH as _OMNI_DRONES_ASSET_PATH
+from aetos_multiam.assets import ASSET_PATH as _AETOS_ASSET_PATH, USD_PATH as _AETOS_USD_PATH
 
 from .drone_base import DroneSpec, register_drone
 
-USD_PATH = "/home/benhua/OmniDrones/amov_drone_arm_1.usd"
-PARAM_PATH = osp.join(_OMNI_DRONES_ASSET_PATH, "usd", "amov_drone_arm_1.yaml")
+USD_PATH = osp.join(_AETOS_USD_PATH, "amov_drone_arm", "amov_drone_arm_1.usd")  # copied from the OmniDrones fork
+PARAM_PATH = osp.join(_AETOS_ASSET_PATH, "usd", "amov_drone_arm_1.yaml")  # copied from the OmniDrones fork
 
 
 class AmovDroneArm(_OmniDronesAmovDrone):

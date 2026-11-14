@@ -1,0 +1,927 @@
+diff --git a/omni_drones/envs/__init__.py b/omni_drones/envs/__init__.py
+index 618a194..419e86f 100644
+--- a/omni_drones/envs/__init__.py
++++ b/omni_drones/envs/__init__.py
+@@ -21,7 +21,7 @@
+ # SOFTWARE.
+ 
+ 
+-from .single import Hover, Track, FlyThrough, ArmTrajectory
++from .single import Hover, HoverShelfGrasp, Track, FlyThrough, ArmTrajectory
+ from .payload import PayloadHover, PayloadTrack, PayloadFlyThrough
+ from .inv_pendulum import InvPendulumHover, InvPendulumTrack, InvPendulumFlyThrough
+ from .dragon import DragonHover
+diff --git a/omni_drones/envs/single/__init__.py b/omni_drones/envs/single/__init__.py
+index 32208f6..2868295 100644
+--- a/omni_drones/envs/single/__init__.py
++++ b/omni_drones/envs/single/__init__.py
+@@ -22,6 +22,7 @@
+ 
+ 
+ from .hover import Hover
++from .hover_shelf_grasp import HoverShelfGrasp
+ from .track import Track
+ from .fly_through import FlyThrough
+ from .forest import Forest
+diff --git a/omni_drones/envs/single/hover.py b/omni_drones/envs/single/hover.py
+index d7afbaf..2025a6a 100644
+--- a/omni_drones/envs/single/hover.py
++++ b/omni_drones/envs/single/hover.py
+@@ -118,6 +118,13 @@ class Hover(IsaacEnv):
+         self.reward_action_smoothness_weight = cfg.task.reward_action_smoothness_weight
+         self.reward_distance_scale = cfg.task.reward_distance_scale
+         self.reward_up_weight = float(cfg.task.get("reward_up_weight", 0.5))
++        # Long-horizon stability bonus: rewards a *sustained* low position
++        # error (tracked via an EMA over ~1/(1-alpha) steps) rather than only
++        # the instantaneous error reward_pose already covers. Default weight
++        # 0.0 keeps every existing task's behavior unchanged unless opted in.
++        self.reward_longhorizon_weight = float(cfg.task.get("reward_longhorizon_weight", 0.0))
++        self.reward_longhorizon_scale = float(cfg.task.get("reward_longhorizon_scale", 1.0))
++        self.longhorizon_alpha = float(cfg.task.get("longhorizon_alpha", 0.98))
+         self.time_encoding = cfg.task.time_encoding
+         self.randomization = cfg.task.get("randomization", {})
+         self.has_payload = "payload" in self.randomization.keys()
+@@ -148,6 +155,10 @@ class Hover(IsaacEnv):
+ 
+         self.drone.initialize()
+ 
++        # EMA of position error over a long horizon (~1/(1-longhorizon_alpha)
++        # steps), used by the optional long-horizon stability reward below.
++        self._pos_error_ema = torch.zeros(self.num_envs, 1, device=self.device)
++
+         # Arm control setup (for robots with extra arm joints, e.g. AmovDrone).
+         self._arm_motion_enabled = False
+         self._arm_hold_enabled = False
+@@ -245,6 +256,79 @@ class Hover(IsaacEnv):
+                 n, amplitudes.tolist(), frequencies.tolist(), stiffness_val, damping_val,
+             )
+ 
++        # Real recorded-episode arm replay (arm_replay). Drives the arm with
++        # actual IK-generated joint trajectories (e.g. a recorded grasp
++        # episode) instead of a procedural sinusoid, so training sees the
++        # non-periodic, task-directed motion real manipulation produces.
++        # Each env independently samples one episode + a random start frame
++        # at every reset, then loops that episode for the rest of the episode.
++        # Takes priority over arm_trajectory/arm_motion but is overridden by
++        # arm_hold.
++        self._arm_replay_enabled = False
++        self._arm_replay_targets: torch.Tensor = None   # (n_episodes, max_len, num_arm_joints)
++        self._arm_replay_lengths: torch.Tensor = None   # (n_episodes,)
++        self._arm_replay_episode_idx: torch.Tensor = None  # (num_envs,)
++        self._arm_replay_start_frame: torch.Tensor = None  # (num_envs,)
++        self._arm_replay_dataset_fps = 30.0
++
++        _arm_replay_cfg = cfg.task.get("arm_replay", None)
++        _arm_replay_requested = (
++            _arm_replay_cfg is not None
++            and _arm_replay_cfg.get("enabled", False)
++            and _arm_replay_cfg.get("episode_npz", None)
++        )
++        if _arm_replay_requested and self._arm_hold_enabled:
++            logging.info("arm_replay is ignored because arm_hold is enabled.")
++        elif _arm_replay_requested and _has_arm_joints:
++            self._arm_replay_enabled = True
++            self._arm_trajectory_enabled = False
++            self._arm_motion_enabled = False
++            n = self.drone.num_arm_joints
++
++            import numpy as np
++            episode_paths = list(_arm_replay_cfg.get("episode_npz", []))
++            episodes = []
++            for p in episode_paths:
++                _d = np.load(p)
++                _joint_rad = _d["joint_rad"]              # (T, 6)
++                _gripper = _d["gripper_m"]                 # (T,)
++                _targets = np.concatenate(
++                    [_joint_rad, _gripper[:, None], -_gripper[:, None]], axis=1
++                )                                          # (T, 8)
++                episodes.append(_targets[:, :n])
++            max_len = max(e.shape[0] for e in episodes)
++            n_ep = len(episodes)
++            padded = np.zeros((n_ep, max_len, n), dtype=np.float32)
++            lengths = np.zeros((n_ep,), dtype=np.int64)
++            for i, e in enumerate(episodes):
++                padded[i, : e.shape[0]] = e
++                if e.shape[0] < max_len:
++                    padded[i, e.shape[0]:] = e[-1]
++                lengths[i] = e.shape[0]
++
++            self._arm_replay_targets = torch.as_tensor(padded, device=self.device)
++            self._arm_replay_lengths = torch.as_tensor(lengths, device=self.device)
++            self._arm_replay_dataset_fps = float(_arm_replay_cfg.get("dataset_fps", 30.0))
++            self._arm_replay_episode_idx = torch.zeros(
++                self.num_envs, dtype=torch.long, device=self.device
++            )
++            self._arm_replay_start_frame = torch.zeros(
++                self.num_envs, dtype=torch.long, device=self.device
++            )
++
++            stiffness_val = float(_arm_replay_cfg.get("stiffness", 500.0))
++            damping_val = float(_arm_replay_cfg.get("damping", 50.0))
++            stiffness = torch.full((self.drone._view.count, n), stiffness_val, device=self.device)
++            damping = torch.full((self.drone._view.count, n), damping_val, device=self.device)
++            self.drone._view.set_gains(stiffness, damping, joint_indices=self.drone.arm_joint_indices)
++
++            logging.info(
++                "arm_replay enabled: %d episodes loaded (lengths=%s, max_len=%d, fps=%.1f)"
++                " | stiffness=%.1f | damping=%.1f",
++                n_ep, lengths.tolist(), max_len, self._arm_replay_dataset_fps,
++                stiffness_val, damping_val,
++            )
++
+         if "drone" in self.randomization:
+             self.drone.setup_randomization(self.randomization["drone"])
+         if "payload" in self.randomization:
+@@ -398,6 +482,10 @@ class Hover(IsaacEnv):
+             "agents": CompositeSpec({
+                 "observation": UnboundedContinuousTensorSpec((1, observation_dim), device=self.device),
+                 "intrinsics": self.drone.intrinsics_spec.unsqueeze(0).to(self.device)
++            }),
++            # Full drone state, consumed by RateController/AttitudeController action transforms.
++            "info": CompositeSpec({
++                "drone_state": UnboundedContinuousTensorSpec((1, drone_state_dim), device=self.device),
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.action_spec = CompositeSpec({
+@@ -440,6 +528,27 @@ class Hover(IsaacEnv):
+             self.drone.reset_arm_joints(env_ids)
+         elif self._arm_trajectory_enabled:
+             self.drone.reset_arm_joints(env_ids)
++        elif self._arm_replay_enabled:
++            # Each env independently samples which recorded episode to play
++            # and where in it to start, so a batch of envs sees many
++            # different phases of the (few) recorded demonstrations at once.
++            n = len(env_ids)
++            n_ep = self._arm_replay_targets.shape[0]
++            ep_idx = torch.randint(0, n_ep, (n,), device=self.device)
++            self._arm_replay_episode_idx[env_ids] = ep_idx
++            ep_len = self._arm_replay_lengths[ep_idx]
++            start_frame = (torch.rand(n, device=self.device) * ep_len.float()).long()
++            self._arm_replay_start_frame[env_ids] = start_frame
++            targets0 = self._arm_replay_targets[ep_idx, start_frame]  # (n, num_arm_joints)
++            self.drone._view.set_joint_positions(
++                targets0, env_indices=env_ids, joint_indices=self.drone.arm_joint_indices
++            )
++            self.drone._view.set_joint_velocities(
++                torch.zeros_like(targets0), env_indices=env_ids, joint_indices=self.drone.arm_joint_indices
++            )
++            self.drone._view.set_joint_position_targets(
++                targets0, env_indices=env_ids, joint_indices=self.drone.arm_joint_indices
++            )
+ 
+         pos = self.init_pos_dist.sample((*env_ids.shape, 1))
+         rpy = self.init_rpy_dist.sample((*env_ids.shape, 1))
+@@ -469,6 +578,7 @@ class Hover(IsaacEnv):
+         self.target_heading[env_ids] = quat_axis(target_rot.squeeze(1), 0).unsqueeze(1)
+         self.target_vis.set_world_poses(orientations=target_rot, env_indices=env_ids)
+ 
++        self._pos_error_ema[env_ids] = 0.
+         self.stats[env_ids] = 0.
+ 
+     def _pre_sim_step(self, tensordict: TensorDictBase):
+@@ -489,24 +599,29 @@ class Hover(IsaacEnv):
+         # For Firefly: hover_cmd ≈ -0.183, only ~18% clamped → trains OK without fix.
+         # With scaling by (1 - |offset|), actions in [-1,1] map exactly to [-1, 0.032]
+         # with zero clamping → symmetric exploration around hover.
+-        if not hasattr(self, "_hover_cmd_offset"):
+-            with torch.no_grad():
+-                _g = self.drone.gravity.mean()
+-                _kf = self.drone.KF.sum(-1).mean().clamp_min(1e-9)
+-                _hover_frac = (_g / _kf).clamp(0.0, 1.0)
+-                self._hover_cmd_offset = float((2.0 * _hover_frac - 1.0).item())
+-                # Symmetric scale: ±1 action maps to ±scale around hover_cmd, no clamp
+-                self._hover_cmd_scale = float(1.0 - abs(self._hover_cmd_offset))
+-            logging.info(
+-                "Hover action normalization: hover_frac=%.4f  hover_cmd=%.4f  scale=%.4f"
+-                "  (action=0 → hover, action=±1 → cmd=%.3f/%.3f)",
+-                float(_hover_frac.item()),
+-                self._hover_cmd_offset,
+-                self._hover_cmd_scale,
+-                self._hover_cmd_offset - self._hover_cmd_scale,
+-                self._hover_cmd_offset + self._hover_cmd_scale,
+-            )
+-        actions = (actions * self._hover_cmd_scale + self._hover_cmd_offset).clamp(-1.0, 1.0)
++        #
++        # Skip when a controller transform (rate/attitude) is active: the Transform
++        # already converts policy output to rotor cmds, so re-scaling here would corrupt them.
++        _use_ctrl_transform = self.cfg.task.get("action_transform", None) in ("rate", "attitude")
++        if not _use_ctrl_transform:
++            if not hasattr(self, "_hover_cmd_offset"):
++                with torch.no_grad():
++                    _g = self.drone.gravity.mean()
++                    _kf = self.drone.KF.sum(-1).mean().clamp_min(1e-9)
++                    _hover_frac = (_g / _kf).clamp(0.0, 1.0)
++                    self._hover_cmd_offset = float((2.0 * _hover_frac - 1.0).item())
++                    # Symmetric scale: ±1 action maps to ±scale around hover_cmd, no clamp
++                    self._hover_cmd_scale = float(1.0 - abs(self._hover_cmd_offset))
++                logging.info(
++                    "Hover action normalization: hover_frac=%.4f  hover_cmd=%.4f  scale=%.4f"
++                    "  (action=0 → hover, action=±1 → cmd=%.3f/%.3f)",
++                    float(_hover_frac.item()),
++                    self._hover_cmd_offset,
++                    self._hover_cmd_scale,
++                    self._hover_cmd_offset - self._hover_cmd_scale,
++                    self._hover_cmd_offset + self._hover_cmd_scale,
++                )
++            actions = (actions * self._hover_cmd_scale + self._hover_cmd_offset).clamp(-1.0, 1.0)
+ 
+         self.effort = self.drone.apply_action(actions)
+         if self._arm_hold_enabled:
+@@ -524,6 +639,8 @@ class Hover(IsaacEnv):
+             )
+         elif self._arm_trajectory_enabled:
+             self._apply_arm_trajectory()
++        elif self._arm_replay_enabled:
++            self._apply_arm_replay()
+ 
+     def _apply_arm_trajectory(self):
+         """Drive all arm joints with independent sinusoidal trajectories."""
+@@ -541,6 +658,23 @@ class Hover(IsaacEnv):
+             pos, joint_indices=self.drone.arm_joint_indices
+         )
+ 
++    def _apply_arm_replay(self):
++        """Drive all arm joints from a recorded episode's real joint
++        trajectory, looping each env's chosen episode from its own randomly
++        sampled start frame."""
++        if self.drone.arm_joint_indices is None or self.drone.num_arm_joints == 0:
++            return
++        ep_idx = self._arm_replay_episode_idx                     # (num_envs,)
++        ep_len = self._arm_replay_lengths[ep_idx]                  # (num_envs,)
++        elapsed_frames = (
++            self.progress_buf.float() * (self.dt * self.substeps) * self._arm_replay_dataset_fps
++        ).long()
++        frame = (self._arm_replay_start_frame + elapsed_frames) % ep_len  # (num_envs,), looped
++        pos = self._arm_replay_targets[ep_idx, frame]              # (num_envs, num_arm_joints)
++        self.drone._view.set_joint_position_targets(
++            pos, joint_indices=self.drone.arm_joint_indices
++        )
++
+     def _compute_state_and_obs(self):
+         self.drone_state = self.drone.get_state()
+         self._has_invalid_state = ~torch.isfinite(self.drone_state).all(-1)
+@@ -564,6 +698,9 @@ class Hover(IsaacEnv):
+                     "observation": obs,
+                     "intrinsics": self.drone.intrinsics,
+                 },
++                "info": {
++                    "drone_state": safe_drone_state,
++                },
+                 "stats": self.stats.clone(),
+             },
+             self.batch_size,
+@@ -616,6 +753,22 @@ class Hover(IsaacEnv):
+         # keep the drone right-side-up from the first episode.
+         reward_up_standalone = self.reward_up_weight * ((safe_up[..., 2] + 1.0) / 2.0)
+ 
++        # Long-horizon stability bonus: an EMA of pos_error over ~1/(1-alpha)
++        # steps, rewarded the same way reward_pose rewards the instantaneous
++        # error. Unlike reward_pose, this stays low (and keeps penalizing)
++        # even after the drone re-converges following a disturbance, until
++        # the *sustained* error has actually come back down -- pushing the
++        # policy to reject disturbances quickly rather than merely survive
++        # them one step at a time. Weight defaults to 0.0 (no-op) unless a
++        # task config opts in.
++        self._pos_error_ema = (
++            self.longhorizon_alpha * self._pos_error_ema
++            + (1 - self.longhorizon_alpha) * torch.nan_to_num(pos_error, nan=0.0)
++        )
++        reward_longhorizon = self.reward_longhorizon_weight * torch.exp(
++            -self.reward_longhorizon_scale * self._pos_error_ema
++        )
++
+         assert reward_pose.shape == reward_up.shape == reward_spin.shape
+         reward = (
+             reward_pose
+@@ -624,6 +777,7 @@ class Hover(IsaacEnv):
+             + reward_action_smoothness
+             + reward_alive
+             + reward_up_standalone
++            + reward_longhorizon
+         )
+         reward = torch.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
+ 
+diff --git a/omni_drones/envs/single/track.py b/omni_drones/envs/single/track.py
+index d554896..c494266 100644
+--- a/omni_drones/envs/single/track.py
++++ b/omni_drones/envs/single/track.py
+@@ -21,6 +21,7 @@
+ # SOFTWARE.
+ 
+ 
++import logging
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
+ import omni.isaac.core.utils.prims as prim_utils
+@@ -83,6 +84,25 @@ class Track(IsaacEnv):
+     | `future_traj_steps`     | int   | 4             | Number of future trajectory steps the drone needs to predict.                                                                                                                                                                           |
+     | `reward_distance_scale` | float | 1.2           | Scales the reward based on the distance between the drone and its target.                                                                                                                                                               |
+     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
++
++    ### Trajectory shaping (optional)
++
++    | `traj_w` | [low, high] | [0.8, 1.1] | Angular rate along the lemniscate. One lap takes about `2*pi/(w*dt)` control steps, so lowering `w` slows the demanded flight speed proportionally. |
++    | `traj_scale` | [[x,y,z], [x,y,z]] | [[1.8,1.8,1.0],[3.2,3.2,1.5]] | Size of the figure-eight; smaller means gentler curvature and lower lateral acceleration. |
++    | `traj_c` | [low, high] | [-0.6, 0.6] | Vertical amplitude coefficient. |
++    | `init_rpy` | [[r,p,y],[r,p,y]] | [[-.2,-.2,0],[.2,.2,2]] | Spawn attitude range, in units of pi. |
++
++    ### Smoothness / attitude shaping (optional, all default to 0 = original behaviour)
++
++    | `penalty_spin_weight` | float | 0. | Penalty on squared body yaw rate. Unlike the saturating `reward_spin` bonus this keeps growing, so it actually suppresses fast spinning. |
++    | `penalty_body_rate_weight` | float | 0. | Penalty on squared body roll/pitch rate. |
++    | `penalty_tilt_weight` | float | 0. | Penalty on `1 - up_z` (roughly half the squared tilt angle). |
++    | `penalty_action_weight` | float | 0. | Penalty on the squared commanded body rates of the *policy* action. Requires `action_transform: rate`. |
++    | `penalty_action_rate_weight` | float | 0. | Penalty on the squared step-to-step change of the policy action. Requires `action_transform: rate`. |
++    | `reward_heading_weight` | float | 0. | Bonus (scaled by `reward_pose`) for pointing along the heading reference. |
++    | `heading_mode` | str | "none" | "fixed" tracks the constant world heading `heading_ref`; "tangent" tracks the trajectory direction. |
++    | `heading_ref` | [x, y] | [1., 0.] | World-frame xy heading reference for `heading_mode: fixed`. |
++    | `max_tilt_deg` | float | None | Terminate the episode once the drone tips past this angle. |
+     """
+     def __init__(self, cfg, headless):
+         self.reset_thres = cfg.task.reset_thres
+@@ -94,6 +114,33 @@ class Track(IsaacEnv):
+         assert self.future_traj_steps > 0
+         self.intrinsics = cfg.task.intrinsics
+         self.wind = cfg.task.wind
++        self.ground_reset_height = float(cfg.task.get("ground_reset_height", 0.1))
++        self._arm_hold_enabled = False
++        self._arm_hold_targets = None
++
++        # --- smoothness / attitude shaping (all default to 0 -> original behaviour) ---
++        # Explicit penalties, subtracted from the reward. Unlike the saturating
++        # `reward_spin` bonus, these keep pushing down as the motion gets more violent.
++        self.penalty_spin_weight = float(cfg.task.get("penalty_spin_weight", 0.))
++        self.penalty_body_rate_weight = float(cfg.task.get("penalty_body_rate_weight", 0.))
++        self.penalty_tilt_weight = float(cfg.task.get("penalty_tilt_weight", 0.))
++        self.penalty_action_weight = float(cfg.task.get("penalty_action_weight", 0.))
++        self.penalty_action_rate_weight = float(cfg.task.get("penalty_action_rate_weight", 0.))
++        self.reward_heading_weight = float(cfg.task.get("reward_heading_weight", 0.))
++        self.heading_mode = str(cfg.task.get("heading_mode", "none")).lower()
++        if self.heading_mode not in ("none", "fixed", "tangent"):
++            raise ValueError(f"unknown heading_mode: {self.heading_mode}")
++        # World-frame xy heading reference for heading_mode="fixed". A *constant*
++        # reference keeps the task fully observable: the drone's own heading is part
++        # of the observation, so it can tell how far off it is. Anchoring to a random
++        # per-episode yaw instead would make the target unobservable.
++        self._heading_ref_cfg = list(cfg.task.get("heading_ref", [1., 0.]))
++        # Terminate when the drone tips past this angle (degrees); None disables it.
++        _max_tilt = cfg.task.get("max_tilt_deg", None)
++        self.max_tilt_cos = (
++            None if _max_tilt is None
++            else float(torch.cos(torch.tensor(float(_max_tilt) * torch.pi / 180.)))
++        )
+ 
+         super().__init__(cfg, headless)
+ 
+@@ -103,6 +150,34 @@ class Track(IsaacEnv):
+             if "drone" in self.cfg.task.randomization:
+                 self.drone.setup_randomization(self.cfg.task.randomization["drone"])
+ 
++        _has_arm_joints = (
++            hasattr(self.drone, "arm_joint_indices")
++            and self.drone.arm_joint_indices is not None
++        )
++        _arm_hold_cfg = cfg.task.get("arm_hold", None)
++        _arm_hold_requested = (
++            _arm_hold_cfg is not None and _arm_hold_cfg.get("enabled", False)
++        )
++        if _arm_hold_requested and not _has_arm_joints:
++            logging.warning("arm_hold is enabled but this drone has no arm joints.")
++        elif _arm_hold_requested:
++            raw_targets = _arm_hold_cfg.get("joint_positions", [])
++            hold_targets = torch.as_tensor(
++                raw_targets, dtype=torch.float32, device=self.device
++            ).flatten()
++            if hold_targets.numel() < self.drone.num_arm_joints:
++                padded = torch.zeros(self.drone.num_arm_joints, device=self.device)
++                padded[: hold_targets.numel()] = hold_targets
++                hold_targets = padded
++            elif hold_targets.numel() > self.drone.num_arm_joints:
++                hold_targets = hold_targets[: self.drone.num_arm_joints]
++            self._arm_hold_enabled = True
++            self._arm_hold_targets = hold_targets
++            logging.info(
++                "Arm hold enabled with targets=%s",
++                hold_targets.detach().cpu().tolist(),
++            )
++
+         if self.wind:
+             if randomization is not None:
+                 if "wind" in self.cfg.task.randomization:
+@@ -117,27 +192,43 @@ class Track(IsaacEnv):
+             self.wind_w = torch.zeros(self.num_envs, 3, 8, device=self.device)
+             self.wind_i = torch.zeros(self.num_envs, 1, device=self.device)
+ 
++        def _cfg_pair(key, default_low, default_high):
++            """Read a [low, high] range from the task config, falling back to defaults."""
++            rng = cfg.task.get(key, None)
++            if rng is None:
++                return default_low, default_high
++            low, high = list(rng)
++            return low, high
++
++        # `init_rpy` is in units of pi; yaw spans a full turn by default.
++        _rpy_low, _rpy_high = _cfg_pair("init_rpy", [-.2, -.2, 0.], [0.2, 0.2, 2.])
+         self.init_rpy_dist = D.Uniform(
+-            torch.tensor([-.2, -.2, 0.], device=self.device) * torch.pi,
+-            torch.tensor([0.2, 0.2, 2.], device=self.device) * torch.pi
++            torch.tensor(_rpy_low, dtype=torch.float32, device=self.device) * torch.pi,
++            torch.tensor(_rpy_high, dtype=torch.float32, device=self.device) * torch.pi
+         )
+         self.traj_rpy_dist = D.Uniform(
+             torch.tensor([0., 0., 0.], device=self.device) * torch.pi,
+             torch.tensor([0., 0., 2.], device=self.device) * torch.pi
+         )
++        _c_low, _c_high = _cfg_pair("traj_c", -0.6, 0.6)
+         self.traj_c_dist = D.Uniform(
+-            torch.tensor(-0.6, device=self.device),
+-            torch.tensor(0.6, device=self.device)
++            torch.tensor(float(_c_low), device=self.device),
++            torch.tensor(float(_c_high), device=self.device)
+         )
++        _scale_low, _scale_high = _cfg_pair("traj_scale", [1.8, 1.8, 1.], [3.2, 3.2, 1.5])
+         self.traj_scale_dist = D.Uniform(
+-            torch.tensor([1.8, 1.8, 1.], device=self.device),
+-            torch.tensor([3.2, 3.2, 1.5], device=self.device)
++            torch.tensor(_scale_low, dtype=torch.float32, device=self.device),
++            torch.tensor(_scale_high, dtype=torch.float32, device=self.device)
+         )
++        # Angular rate along the lemniscate: one lap takes ~2*pi/(w*dt) control steps,
++        # so halving `traj_w` halves the demanded flight speed.
++        _w_low, _w_high = _cfg_pair("traj_w", 0.8, 1.1)
+         self.traj_w_dist = D.Uniform(
+-            torch.tensor(0.8, device=self.device),
+-            torch.tensor(1.1, device=self.device)
++            torch.tensor(float(_w_low), device=self.device),
++            torch.tensor(float(_w_high), device=self.device)
+         )
+-        self.origin = torch.tensor([0., 0., 2.], device=self.device)
++        _origin = list(cfg.task.get("traj_origin", [0., 0., 2.]))
++        self.origin = torch.tensor(_origin, dtype=torch.float32, device=self.device)
+ 
+         self.traj_t0 = torch.pi / 2
+         self.traj_c = torch.zeros(self.num_envs, device=self.device)
+@@ -147,6 +238,14 @@ class Track(IsaacEnv):
+ 
+         self.target_pos = torch.zeros(self.num_envs, self.future_traj_steps, 3, device=self.device)
+ 
++        # Previous *policy* action (pre-controller-transform), for the action-rate penalty.
++        self.prev_action = torch.zeros(self.num_envs, 1, 4, device=self.device)
++        self.policy_action = torch.zeros(self.num_envs, 1, 4, device=self.device)
++        self._has_policy_action = False
++        self._action_captured = False
++        ref = torch.tensor(self._heading_ref_cfg, dtype=torch.float32, device=self.device)
++        self.ref_heading = torch.nn.functional.normalize(ref, dim=-1).expand(self.num_envs, 2)
++
+         self.alpha = 0.8
+ 
+         self.draw = _debug_draw.acquire_debug_draw_interface()
+@@ -178,7 +277,10 @@ class Track(IsaacEnv):
+         self.observation_spec = CompositeSpec({
+             "agents": {
+                 "observation": UnboundedContinuousTensorSpec((1, obs_dim))
+-            }
++            },
++            "info": CompositeSpec({
++                "drone_state": UnboundedContinuousTensorSpec((1, drone_state_dim), device=self.device),
++            }),
+         }).expand(self.num_envs).to(self.device)
+         self.action_spec = CompositeSpec({
+             "agents": {
+@@ -202,12 +304,18 @@ class Track(IsaacEnv):
+             "tracking_error": UnboundedContinuousTensorSpec(1),
+             "tracking_error_ema": UnboundedContinuousTensorSpec(1),
+             "action_smoothness": UnboundedContinuousTensorSpec(1),
++            "body_rate_ema": UnboundedContinuousTensorSpec(1),
++            "yaw_rate_ema": UnboundedContinuousTensorSpec(1),
++            "tilt_deg_ema": UnboundedContinuousTensorSpec(1),
++            "action_rate_ema": UnboundedContinuousTensorSpec(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+ 
+     def _reset_idx(self, env_ids: torch.Tensor):
+-        self.drone._reset_idx(env_ids)
++        self.drone._reset_idx(env_ids, self.training)
++        if self._arm_hold_enabled:
++            self.drone.reset_arm_joints(env_ids, self._arm_hold_targets)
+         self.traj_c[env_ids] = self.traj_c_dist.sample(env_ids.shape)
+         self.traj_rot[env_ids] = euler_to_quaternion(self.traj_rpy_dist.sample(env_ids.shape))
+         self.traj_scale[env_ids] = self.traj_scale_dist.sample(env_ids.shape)
+@@ -223,6 +331,9 @@ class Track(IsaacEnv):
+         )
+         self.drone.set_velocities(vel, env_ids)
+ 
++        self.prev_action[env_ids] = 0.
++        self.policy_action[env_ids] = 0.
++
+         self.stats[env_ids] = 0.
+ 
+         if self._should_render(0) and (env_ids == self.central_env_idx).any() :
+@@ -243,8 +354,21 @@ class Track(IsaacEnv):
+ 
+     def _pre_sim_step(self, tensordict: TensorDictBase):
+         actions = tensordict[("agents", "action")]
++        # The RateController transform stashes the pre-transform policy action here;
++        # that (not the rotor command) is what we want to keep small and smooth.
++        # _pre_sim_step runs once per substep while the action only changes once per
++        # control step, so capture it on the first substep only.
++        raw_action = tensordict.get(("agents", "policy_action"), None)
++        if raw_action is not None and not self._action_captured:
++            self.prev_action[:] = self.policy_action
++            self.policy_action[:] = raw_action
++            self._has_policy_action = True
++            self._action_captured = True
+         self.effort = self.drone.apply_action(actions)
+ 
++    def _post_sim_step(self, tensordict: TensorDictBase):
++        self._action_captured = False
++
+         if self.wind:
+             t = (self.progress_buf * self.dt).reshape(-1, 1, 1)
+             self.wind_force = self.wind_i * torch.sin(t * self.wind_w).sum(-1)
+@@ -277,6 +401,9 @@ class Track(IsaacEnv):
+                 "agents": {
+                     "observation": obs,
+                 },
++                "info": {
++                    "drone_state": self.drone_state,
++                },
+                 "stats": self.stats.clone(),
+             },
+             self.batch_size,
+@@ -302,17 +429,65 @@ class Track(IsaacEnv):
+         spin = torch.square(self.drone.vel[..., -1])
+         reward_spin = 0.5 / (1.0 + torch.square(spin))
+ 
++        # --- explicit smoothness / attitude penalties (body frame) ---
++        body_rate = self.drone.vel[..., 3:]
++        rate_xy_sq = torch.square(body_rate[..., :2]).sum(-1)
++        yaw_rate_sq = torch.square(body_rate[..., 2])
++        tilt_cos = self.drone.up[..., 2]
++
++        penalty = (
++            self.penalty_spin_weight * yaw_rate_sq
++            + self.penalty_body_rate_weight * rate_xy_sq
++            + self.penalty_tilt_weight * (1.0 - tilt_cos)  # ~ tilt_angle^2 / 2
++        )
++        if self._has_policy_action:
++            action_sq = torch.square(self.policy_action[..., :3]).sum(-1)
++            action_rate_sq = torch.square(
++                self.policy_action - self.prev_action
++            ).sum(-1)
++            penalty = penalty + (
++                self.penalty_action_weight * action_sq
++                + self.penalty_action_rate_weight * action_rate_sq
++            )
++        else:
++            action_rate_sq = torch.zeros_like(yaw_rate_sq)
++
++        # heading reward: hold a fixed world heading, or face along the trajectory tangent
++        if self.heading_mode == "none" or self.reward_heading_weight == 0.:
++            reward_heading = torch.zeros_like(reward_pose)
++        else:
++            if self.heading_mode == "fixed":
++                ref = self.ref_heading
++            else:  # "tangent"
++                tangent = self.target_pos[:, -1, :2] - self.target_pos[:, 0, :2]
++                ref = torch.nn.functional.normalize(tangent, dim=-1, eps=1e-6)
++            heading_xy = torch.nn.functional.normalize(
++                self.drone.heading[..., :2], dim=-1, eps=1e-6
++            )
++            alignment = (heading_xy * ref.unsqueeze(1)).sum(-1)
++            reward_heading = self.reward_heading_weight * (alignment + 1.0) / 2.0
++
++        self.stats["body_rate_ema"].lerp_(rate_xy_sq.sqrt(), (1 - self.alpha))
++        self.stats["yaw_rate_ema"].lerp_(yaw_rate_sq.sqrt(), (1 - self.alpha))
++        self.stats["tilt_deg_ema"].lerp_(
++            torch.rad2deg(torch.acos(tilt_cos.clamp(-1.0, 1.0))), (1 - self.alpha)
++        )
++        self.stats["action_rate_ema"].lerp_(action_rate_sq.sqrt(), (1 - self.alpha))
++
+         reward = (
+             reward_pose
+-            + reward_pose * (reward_up + reward_spin)
++            + reward_pose * (reward_up + reward_spin + reward_heading)
+             + reward_effort
+             + reward_action_smoothness
++            - penalty
+         )
+ 
+         misbehave = (
+-            (self.drone.pos[..., 2] < 0.1)
++            (self.drone.pos[..., 2] < self.ground_reset_height)
+             | (distance > self.reset_thres)
+         )
++        if self.max_tilt_cos is not None:
++            misbehave = misbehave | (tilt_cos < self.max_tilt_cos)
+         hasnan = torch.isnan(self.drone_state).any(-1)
+ 
+         terminated = misbehave | hasnan
+diff --git a/omni_drones/learning/ppo/ppo.py b/omni_drones/learning/ppo/ppo.py
+index a6e43e5..b831261 100644
+--- a/omni_drones/learning/ppo/ppo.py
++++ b/omni_drones/learning/ppo/ppo.py
+@@ -60,6 +60,18 @@ class PPOConfig:
+     # causes destabilizing torques early in training (e.g. heavy quadrotors).
+     actor_log_std_init: float = 0.0
+ 
++    # Bounds on the learned log-std. The floor matters whenever the reward contains a
++    # quadratic penalty on the action: for a state-independent Gaussian,
++    # E[||a||^2] = ||mu||^2 + sum(sigma^2), so such a penalty pushes log_std down with a
++    # gradient proportional to its weight, while `entropy_coef` pushes back only with
++    # 4*entropy_coef/sigma. With the default coefficient the penalty wins by orders of
++    # magnitude and exploration collapses within a few hundred iterations, long before
++    # the task is learned. Raise the floor (e.g. -1.6 -> sigma >= 0.2) to prevent that.
++    actor_log_std_min: float = -5.0
++    actor_log_std_max: float = 2.0
++
++    entropy_coef: float = 0.001
++
+ cs = ConfigStore.instance()
+ cs.store("ppo", node=PPOConfig, group="algo")
+ cs.store("ppo_priv", node=PPOConfig(priv_actor=True, priv_critic=True), group="algo")
+@@ -76,10 +88,18 @@ def make_mlp(num_units):
+ 
+ 
+ class Actor(nn.Module):
+-    def __init__(self, action_dim: int, log_std_init: float = 0.0) -> None:
++    def __init__(
++        self,
++        action_dim: int,
++        log_std_init: float = 0.0,
++        log_std_min: float = -5.0,
++        log_std_max: float = 2.0,
++    ) -> None:
+         super().__init__()
+         self.actor_mean = nn.LazyLinear(action_dim)
+         self.actor_std = nn.Parameter(torch.full((action_dim,), log_std_init))
++        self.log_std_min = log_std_min
++        self.log_std_max = log_std_max
+         self._mean_zero_init_done = False
+ 
+     def forward(self, features: torch.Tensor):
+@@ -95,7 +115,9 @@ class Actor(nn.Module):
+                 nn.init.zeros_(self.actor_mean.bias)
+             self._mean_zero_init_done = True
+         loc = self.actor_mean(features)
+-        scale = torch.exp(self.actor_std.clamp(-5.0, 2.0)).expand_as(loc)
++        scale = torch.exp(
++            self.actor_std.clamp(self.log_std_min, self.log_std_max)
++        ).expand_as(loc)
+         return loc, scale
+ 
+ 
+@@ -132,7 +154,7 @@ class PPOPolicy(TensorDictModuleBase):
+         self.cfg = cfg
+         self.device = device
+ 
+-        self.entropy_coef = 0.001
++        self.entropy_coef = cfg.entropy_coef
+         self.clip_param = 0.1
+         self.critic_loss_fn = nn.HuberLoss(delta=10)
+         self.n_agents, self.action_dim = action_spec.shape[-2:]
+@@ -150,13 +172,15 @@ class PPOPolicy(TensorDictModuleBase):
+                 ),
+                 CatTensors(["feature", "context"], "feature"),
+                 TensorDictModule(
+-                    nn.Sequential(make_mlp([256, 256]), Actor(self.action_dim, cfg.actor_log_std_init)),
++                    nn.Sequential(make_mlp([256, 256]), Actor(self.action_dim, cfg.actor_log_std_init,
++                                          cfg.actor_log_std_min, cfg.actor_log_std_max)),
+                     ["feature"], ["loc", "scale"]
+                 )
+             )
+         else:
+             actor_module=TensorDictModule(
+-                nn.Sequential(make_mlp([256, 256, 256]), Actor(self.action_dim, cfg.actor_log_std_init)),
++                nn.Sequential(make_mlp([256, 256, 256]), Actor(self.action_dim, cfg.actor_log_std_init,
++                                          cfg.actor_log_std_min, cfg.actor_log_std_max)),
+                 [("agents", "observation")], ["loc", "scale"]
+             )
+         self.actor: ProbabilisticActor = ProbabilisticActor(
+diff --git a/omni_drones/robots/drone/amov_drone.py b/omni_drones/robots/drone/amov_drone.py
+index 666362e..717672a 100644
+--- a/omni_drones/robots/drone/amov_drone.py
++++ b/omni_drones/robots/drone/amov_drone.py
+@@ -36,6 +36,7 @@ from omni_drones.actuators.rotor_group import RotorGroup
+ from omni_drones.robots.drone.multirotor import MultirotorBase
+ from omni_drones.robots.robot import ASSET_PATH
+ from omni_drones.utils.torch import quat_axis, quat_rotate
++from omni.isaac.core.simulation_context import SimulationContext
+ from omni_drones.views import RigidPrimView
+ 
+ 
+@@ -178,7 +179,7 @@ class AmovDrone(MultirotorBase):
+             name="rotors",
+             shape=(*self.shape, self.num_rotors),
+         )
+-        self.rotors_view.initialize()
++        self.rotors_view.initialize(SimulationContext.instance().physics_sim_view)
+ 
+         if self._env_flag("OMNIDRONES_AMOV_DISABLE_ROTOR_COLLISIONS"):
+             disabled_cnt = 0
+diff --git a/omni_drones/robots/drone/multirotor.py b/omni_drones/robots/drone/multirotor.py
+index 5902c12..173ed10 100644
+--- a/omni_drones/robots/drone/multirotor.py
++++ b/omni_drones/robots/drone/multirotor.py
+@@ -32,6 +32,9 @@ from tensordict.nn import make_functional
+ from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+ from tensordict import TensorDict
+ 
++import omni.isaac.core.utils.prims as prim_utils
++from omni.isaac.core.simulation_context import SimulationContext
++
+ from omni_drones.views import RigidPrimView
+ from omni_drones.actuators.rotor_group import RotorGroup
+ from omni_drones.controllers import ControllerBase
+@@ -97,7 +100,7 @@ class MultirotorBase(RobotBase):
+                 track_contact_forces=track_contact_forces,
+                 shape=self.shape,
+             )
+-            self.base_link.initialize()
++            self.base_link.initialize(SimulationContext.instance().physics_sim_view)
+             print(self._view.dof_names)
+             print(self._view._dof_indices)
+             rotor_joint_indices = [
+@@ -116,14 +119,34 @@ class MultirotorBase(RobotBase):
+             self.base_link = self._view
+             self.prim_paths_expr = prim_paths_expr
+ 
+-        self.rotors_view = RigidPrimView(
+-            # prim_paths_expr=f"{self.prim_paths_expr}/rotor_[0-{self.num_rotors-1}]",
+-            prim_paths_expr=f"{self.prim_paths_expr}/rotor_*",
+-            name="rotors",
+-            shape=(*self.shape, self.num_rotors)
+-        )
+-        self.rotors_view.initialize()
++        # Some assets model their rotors as visuals only, with no rotor rigid
++        # bodies to view (AM-Bench's quad_scorpion/hexa_scorpion). Such a drone
++        # has no per-rotor poses to read, so it must build its rotor wrench from
++        # static body-frame geometry and apply it to base_link itself -- see
++        # aetos_multiam's RotorlessMultirotor, which overrides apply_action.
++        if prim_utils.find_matching_prim_paths(f"{self.prim_paths_expr}/rotor_*"):
++            self.rotors_view = RigidPrimView(
++                # prim_paths_expr=f"{self.prim_paths_expr}/rotor_[0-{self.num_rotors-1}]",
++                prim_paths_expr=f"{self.prim_paths_expr}/rotor_*",
++                name="rotors",
++                shape=(*self.shape, self.num_rotors)
++            )
++            self.rotors_view.initialize(SimulationContext.instance().physics_sim_view)
++        else:
++            self.rotors_view = None
+ 
++        self._setup_rotor_model_and_buffers()
++
++
++    def _setup_rotor_model_and_buffers(self):
++        """Rotor actuator model, state buffers, and the mass/inertia/thrust
++        reference values -- everything after the stage handles exist.
++
++        Split out of ``initialize`` so a drone whose handles have to be
++        created differently (an asset with no rotor rigid bodies, or whose
++        articulation root is not the spawn prim) can reuse this verbatim
++        instead of copying it -- see aetos_multiam's RotorlessMultirotor.
++        """
+         rotor_config = self.params["rotor_configuration"]
+         self.rotors = RotorGroup(rotor_config, dt=self.dt).to(self.device)
+ 
+diff --git a/omni_drones/robots/robot.py b/omni_drones/robots/robot.py
+index 695a590..3b29a47 100644
+--- a/omni_drones/robots/robot.py
++++ b/omni_drones/robots/robot.py
+@@ -173,6 +173,15 @@ class RobotBase(abc.ABC):
+             prim_paths_expr = f"/World/envs/.*/{self.name}_.*"
+         self.prim_paths_expr = prim_paths_expr
+ 
++        # Reuse the SimulationContext's own physics simulation view instead of
++        # letting each view create its own. ``ArticulationView.initialize(None)``
++        # calls ``create_simulation_view`` + ``set_subspace_roots("/")``, and a
++        # second robot doing that invalidates the first robot's backend buffers:
++        # with six robots in one scene the first write raised "Failed to get DOF
++        # position targets from backend", and a read segfaulted. Passing the
++        # shared view is also what Isaac's own scene.add() path does.
++        physics_sim_view = SimulationContext.instance().physics_sim_view
++
+         # create handles
+         # -- robot articulation
+         if self.is_articulation:
+@@ -192,7 +201,7 @@ class RobotBase(abc.ABC):
+             self.articulation = None
+             self.articulation_indices = None
+ 
+-        self._view.initialize()
++        self._view.initialize(physics_sim_view)
+         # set the default state
+         self._view.post_reset()
+         self.shape = torch.arange(self._view.count).reshape(-1, self.n).shape
+diff --git a/omni_drones/utils/torchrl/transforms.py b/omni_drones/utils/torchrl/transforms.py
+index 793b960..564f687 100644
+--- a/omni_drones/utils/torchrl/transforms.py
++++ b/omni_drones/utils/torchrl/transforms.py
+@@ -209,16 +209,55 @@ def ravel_composite(
+ 
+ 
+ class RateController(Transform):
++    """Maps a 4-dim policy action [roll_rate, pitch_rate, yaw_rate, thrust] in [-1, 1]
++    to rotor commands via the body-rate controller.
++
++    ``max_rate`` sets the per-axis body-rate authority in rad/s (scalar or 3-sequence,
++    defaults to pi for backward compatibility). ``thrust_range`` restricts the
++    collective thrust to a fraction band of the maximum thrust. Both act as *hard*
++    limits: the policy physically cannot command anything outside them, which is
++    what keeps a learned policy deployable on real hardware.
++
++    The pre-transform action is forwarded under ``raw_action_key`` so the env can
++    penalize action magnitude / rate. IsaacEnv._step builds a fresh output
++    tensordict, so this extra key never leaks into the ``"next"`` entry.
++    """
++
+     def __init__(
+         self,
+         controller,
+         action_key: str = ("agents", "action"),
++        max_rate=None,
++        thrust_range=None,
++        raw_action_key: str = ("agents", "policy_action"),
+     ):
+         super().__init__([], in_keys_inv=[("info", "drone_state")])
+         self.controller = controller
+         self.action_key = action_key
++        self.raw_action_key = raw_action_key
+         self.max_thrust = self.controller.max_thrusts.sum(-1)
+ 
++        # `max_thrust` is 0-dim so it broadcasts against a cuda tensor even while it
++        # still lives on the CPU; `max_rate` is a 3-vector and does not, so it has to
++        # be moved to the action's device on first use (the transform's own tensors
++        # are not carried along when TransformedEnv moves its submodules).
++        device = self.max_thrust.device
++        if max_rate is None:
++            max_rate = [torch.pi] * 3
++        elif isinstance(max_rate, (int, float)):
++            max_rate = [float(max_rate)] * 3
++        else:
++            max_rate = [float(v) for v in max_rate]
++            if len(max_rate) != 3:
++                raise ValueError(f"max_rate must be a scalar or 3 values, got {max_rate}")
++        self.max_rate = torch.tensor(max_rate, dtype=torch.float32, device=device)
++
++        if thrust_range is None:
++            thrust_range = (0., 1.)
++        self.thrust_low, self.thrust_high = float(thrust_range[0]), float(thrust_range[1])
++        if not 0. <= self.thrust_low < self.thrust_high <= 1.:
++            raise ValueError(f"invalid thrust_range: {thrust_range}")
++
+     def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
+         action_spec = input_spec[("full_action_spec", *self.action_key)]
+         spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
+@@ -228,12 +267,16 @@ class RateController(Transform):
+     def _inv_call(self, tensordict: TensorDictBase) -> TensorDictBase:
+         drone_state = tensordict[("info", "drone_state")][..., :13]
+         action = tensordict[self.action_key]
++        tensordict.set(self.raw_action_key, action.clone())
++        if self.max_rate.device != action.device:
++            self.max_rate = self.max_rate.to(action.device)
+         target_rate, target_thrust = action.split([3, 1], -1)
+-        target_thrust = ((target_thrust + 1) / 2).clip(0.) * self.max_thrust
++        thrust_ratio = ((target_thrust + 1) / 2).clip(0., 1.)
++        thrust_ratio = self.thrust_low + (self.thrust_high - self.thrust_low) * thrust_ratio
+         cmds = self.controller(
+             drone_state,
+-            target_rate=target_rate * torch.pi,
+-            target_thrust=target_thrust
++            target_rate=target_rate.clip(-1., 1.) * self.max_rate,
++            target_thrust=thrust_ratio * self.max_thrust
+         )
+         torch.nan_to_num_(cmds, 0.)
+         tensordict.set(self.action_key, cmds)
+diff --git a/scripts/train.py b/scripts/train.py
+index 1541ed8..6c10c2f 100644
+--- a/scripts/train.py
++++ b/scripts/train.py
+@@ -199,6 +199,26 @@ def main(cfg):
+             nbins = int(action_transform.split(":")[1])
+             transform = FromDiscreteAction(nbins=nbins)
+             transforms.append(transform)
++        elif action_transform == "rate":
++            max_rate = cfg.task.get("max_body_rate", None)
++            thrust_range = cfg.task.get("thrust_range", None)
++            transform = RateController(
++                base_env.controller,
++                max_rate=(
++                    max_rate if max_rate is None or isinstance(max_rate, (int, float))
++                    else list(max_rate)
++                ),
++                thrust_range=list(thrust_range) if thrust_range is not None else None,
++            )
++            logging.info(
++                "RateController: max_rate=%s rad/s, thrust_range=%s",
++                transform.max_rate.tolist(),
++                (transform.thrust_low, transform.thrust_high),
++            )
++            transforms.append(transform)
++        elif action_transform == "attitude":
++            transform = AttitudeController(base_env.controller)
++            transforms.append(transform)
+         else:
+             raise NotImplementedError(f"Unknown action transform: {action_transform}")
+ 

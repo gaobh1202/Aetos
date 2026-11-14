@@ -1,0 +1,43 @@
+hydra:
+  searchpath:
+    - file://${oc.env:OMNI_DRONES_HYDRA_SEARCHPATH}
+
+headless: false
+seed: 0
+
+sim: ${task.sim}
+env: ${task.env}
+
+viewer:
+  resolution: [960, 720]
+  eye: [8, 0., 6.]
+  lookat: [0., 0., 1.]
+
+# run_shelf_grasp.py-specific keys
+checkpoint: null
+episode_npz: null
+# Set to a path (e.g. joint_forces_button_grasp.npy) to log arm-base joint
+# force/torque, tracking error, speed, and the policy's raw action every
+# control step, saved once the episode ends (crash, or replay finished +
+# held for post_replay_hold_steps) or the script is interrupted.
+# null = logging off.
+joint_forces_out: null
+
+# Fly-in -> replay phase switch.
+pos_err_thresh: 0.05        # meters
+vel_thresh: 0.1              # m/s
+settle_steps_required: 15    # consecutive steps under both thresholds
+fly_in_timeout_steps: 1000   # fallback: switch to REPLAY anyway after this many steps
+dataset_fps: 30.0            # recorded episode's frame rate
+# Once the recorded episode's last frame is reached, hold there this many
+# more steps (to see post-grasp settling) then stop the rollout on its own.
+post_replay_hold_steps: 120
+# -1 = auto (fly_in_timeout_steps + steps needed to replay the whole episode
+# + margin); set a positive int to override. The task's own default (500) is
+# a training-time convenience limit, nowhere near enough for a full replay.
+max_episode_length_override: -1
+
+defaults:
+  - task: HoverShelfGrasp
+  - algo: ppo
+  - _self_

@@ -1,0 +1,45 @@
+hydra:
+  searchpath:
+    - file://${oc.env:OMNI_DRONES_HYDRA_SEARCHPATH}
+
+headless: true
+seed: 0
+
+sim: ${task.sim}
+env: ${task.env}
+
+viewer:
+  resolution: [960, 720]
+  eye: [8, 0., 6.]
+  lookat: [0., 0., 1.]
+
+# eval-specific keys
+checkpoint: null
+# test mode: "fixed" | "target" | "arm_perturb" | "arm_random" | "target_arm"
+#   fixed      : arm and target unchanged from training config (sanity check)
+#   target     : target position changes every target_change_interval steps
+#   arm_perturb: arm trajectory parameters randomized per episode (±perturb_scale)
+#   arm_random : arm trajectory fully re-sampled each episode from uniform ranges
+#   target_arm : moving target + arm_perturb combined
+test: fixed
+target_change_interval: 200   # steps between target moves
+target_pos_range: 1.5         # XY range (m) for random target
+arm_perturb_scale: 0.5        # ±fraction of original amplitude/frequency
+num_episodes: 20
+max_episode_length: -1        # -1 = use task default; set >0 to override
+num_target_changes: 5         # force-log covers this many target-change cycles
+force_log_steps: -1           # -1 = auto; >0 = explicit step count
+disable_termination: true     # disable early termination during eval
+
+# arm_random mode parameters
+arm_rand_amp_min: 0.1
+arm_rand_freq_min: 0.1
+arm_rand_freq_max: 0.8
+arm_rand_phase_random: true
+# per-joint amplitude max (joint1-6); null = use built-in defaults
+arm_rand_amp_max: null
+
+defaults:
+  - task: Hover
+  - algo: ppo
+  - _self_

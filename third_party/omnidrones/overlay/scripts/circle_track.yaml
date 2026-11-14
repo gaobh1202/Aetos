@@ -1,0 +1,52 @@
+hydra:
+  searchpath:
+    - file://${oc.env:OMNI_DRONES_HYDRA_SEARCHPATH}
+
+headless: false
+seed: 0
+
+sim: ${task.sim}
+env: ${task.env}
+
+viewer:
+  resolution: [960, 720]
+  eye: [8, 0., 6.]
+  lookat: [0., 0., 1.]
+
+# run_circle_track.py-specific keys
+checkpoint: null
+
+# Circle geometry / speed. The target point (and the drone's commanded
+# heading, tangent to the circle) advances continuously around this circle
+# once the drone has settled at the start point.
+circle_center: [0.0, 0.0, 2.0]
+circle_radius: 2.0
+circle_period_sec: 10.0   # seconds per lap -> linear speed = 2*pi*radius/period_sec
+circle_direction: 1        # +1 = counter-clockwise (viewed from above), -1 = clockwise
+num_laps: 3
+
+# SETTLE -> TRACK phase switch (drone must first fly to the circle's start
+# point and stop there before the target starts moving), same mechanism as
+# run_shelf_grasp.py's FLY_IN -> REPLAY switch.
+pos_err_thresh: 0.05
+vel_thresh: 0.1
+settle_steps_required: 15
+settle_timeout_steps: 1000
+
+# Hold at the last target point for this many steps after num_laps completes,
+# then the script exits on its own.
+post_track_hold_steps: 150
+
+# -1 = auto (settle_timeout_steps + steps needed for num_laps + margin);
+# set a positive int to override.
+max_episode_length_override: -1
+
+# Set to a path (e.g. circle_track.npy) to log the drone's actual vs desired
+# position, tracking error, speed, heading alignment, and raw policy action
+# every control step. null = logging off.
+out: null
+
+defaults:
+  - task: HoverAmovDynaArmSingle
+  - algo: ppo
+  - _self_

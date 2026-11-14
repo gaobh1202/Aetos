@@ -33,9 +33,7 @@ from .drone_base import DroneSpec, register_drone
 from .rotorless_multirotor import RotorlessMultirotor
 
 MJCF_SOURCE_PATH = osp.join(ASSET_PATH, "mjcf", "ambench_quad_600_top_arm_final", "robot.xml")
-AMBENCH_600_USD_PATH = (
-    "/home/benhua/ambench/source/ambench/ambench/assets/robots/quad_scorpion.usd"
-)
+AMBENCH_600_USD_PATH = osp.join(USD_PATH, "ambench", "quad_scorpion.usd")  # copied from AM-Bench, see docs/ASSETS.md
 AMBENCH_600_PARAM_PATH = osp.join(USD_PATH, "ambench_600.yaml")
 
 TOTAL_MASS_KG = 4.40692603122443

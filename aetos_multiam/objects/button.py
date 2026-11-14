@@ -7,11 +7,13 @@ the pressed-threshold value (``0.004`` m) come straight from AM-bench's own
 file.
 """
 
+import os.path as osp
+
 import torch
 
 from .object_base import AetosObject
 
-USD_PATH = "/home/benhua/ambench/source/ambench/ambench/assets/objects/push_button.usd"
+USD_PATH = osp.join(osp.dirname(__file__), "assets", "button", "push_button.usd")  # copied from AM-Bench
 
 
 class Button(AetosObject):
