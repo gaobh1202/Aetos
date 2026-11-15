@@ -21,14 +21,23 @@ p = argparse.ArgumentParser()
 p.add_argument("checkpoint", help=".../checkpoints/<step>/pretrained_model")
 p.add_argument("--port", type=int, default=6000)
 p.add_argument("--task", default="Grasp the handle of the box and lift it.")
+p.add_argument("--n-action-steps", type=int, default=None,
+               help="actions executed from each predicted chunk before predicting again (default: as trained)")
+p.add_argument("--temporal-ensemble", type=float, default=None, metavar="COEFF",
+               help="ACT: predict every step and average the overlapping chunks, weights exp(-COEFF * age); 0.01 in the paper")
 args = p.parse_args()
 
 cfg = PreTrainedConfig.from_pretrained(args.checkpoint)
-policy = get_policy_class(cfg.type).from_pretrained(args.checkpoint).eval()
+if args.temporal_ensemble is not None:
+    cfg.temporal_ensemble_coeff, cfg.n_action_steps = args.temporal_ensemble, 1
+elif args.n_action_steps:
+    cfg.n_action_steps = args.n_action_steps
+policy = get_policy_class(cfg.type).from_pretrained(args.checkpoint, config=cfg).eval()
 pre, post = make_pre_post_processors(cfg, pretrained_path=args.checkpoint)
 device = torch.device(cfg.device)
 with Listener(("localhost", args.port)) as listener:
-    print(f"[serve] {cfg.type} from {args.checkpoint} on localhost:{args.port}", flush=True)
+    print(f"[serve] {cfg.type} (n_action_steps {cfg.n_action_steps}, temporal ensemble "
+          f"{getattr(cfg, 'temporal_ensemble_coeff', None)}) from {args.checkpoint} on localhost:{args.port}", flush=True)
     while True:
         with listener.accept() as conn:
             try:

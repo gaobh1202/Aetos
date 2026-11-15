@@ -43,6 +43,8 @@ p.add_argument("--policy", default=None, metavar="HOST:PORT",
                help="evaluate a trained policy (scripts/serve_lerobot_policy.py) instead of the scripted expert")
 p.add_argument("--exclude-bases-from", default=None, metavar="DIR",
                help="skip the base poses used by the episodes under DIR (the training set), to test on unseen ones")
+p.add_argument("--base-state", action="store_true",
+               help="with --policy: the policy was trained on export_arm_grasp_lerobot.py --base-state")
 p.add_argument("--video", default=None, metavar="DIR", help="save every episode's camera views (side by side) as an mp4, failures too")
 p.add_argument("--gui", action="store_true")
 args = p.parse_args()
@@ -69,6 +71,8 @@ try:
     from scipy.spatial.transform import Rotation as R
 
     import omni_drones.utils.kit as kit_utils
+
+    from base_state import base_state  # scripts/base_state.py
 
     from aetos_multiam.controllers.arm import CartesianController, EndEffector, pose_error
     from aetos_multiam.objects.carry_box import CarryBox
@@ -211,11 +215,14 @@ try:
         rec = {k: [] for k in ("q", "action", "action_executed", "phase", "base_pose", "box_pose", "ee_pose",
                                "ee_target", *(f"image_{n}" for n in cams))}
 
+        mount_now = [base]  # where the mount was last sent
+
         def step(target, phase, k):
             nonlocal q_cmd, t
             t += DT
             drift = (amp * np.sin(2 * np.pi * freq * t + phase0)).sum(0)
             m = base @ T(drift[:3], np.roll(R.from_euler("z", drift[3]).as_quat(), 1))
+            mount_now[0] = m
             bp, bq = pq(m)
             mount_view._physics_view.set_kinematic_targets(torch.cat([bp, bq[:, 1:], bq[:, :1]], -1), torch.tensor([0]))
             if target is not None:
@@ -248,9 +255,14 @@ try:
         k, left = 0, []
         if conn:  # the policy drives arm and jaw at the recording rate, for the expert's time plus 1 s
             conn.send("reset")
+            m_prev = mount_now[0]
             for k in range(int((sum(s for _, s in PHASES) + 1.0) / DT)):
                 if k % RECORD_EVERY == 0:
-                    conn.send({"state": joints().tolist(), "shape": (args.image_size[1], args.image_size[0]),
+                    state = joints().tolist()
+                    if args.base_state:
+                        state += base_state(m_prev, mount_now[0], DT * RECORD_EVERY).tolist()
+                        m_prev = mount_now[0]
+                    conn.send({"state": state, "shape": (args.image_size[1], args.image_size[0]),
                                **{n: c.get_rgba()[:, :, :3].tobytes() for n, c in cams.items()}})
                     a = conn.recv()
                     q_cmd, jaw_cmd = torch.tensor(a[:5], dtype=torch.float32).reshape(1, 5), float(a[5])

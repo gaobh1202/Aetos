@@ -3,7 +3,8 @@
     conda activate lerobot
     python scripts/export_arm_grasp_lerobot.py --episodes outputs/arm_grasp_demos --out outputs/lerobot/so101_handle_grasp
 
-State = the six joint angles (five arm joints + jaw), action = the expert's clean joint targets,
+State = the six joint angles (five arm joints + jaw; with --base-state also the drone base's tilt,
+body velocity and yaw rate), action = the expert's clean joint targets,
 two camera streams stored as video.
 
 Then train ACT on it (about 1 h 45 min for 40k steps on a 16 GB GPU; pyav because torchcodec may not load):
@@ -22,22 +23,28 @@ import os.path as osp
 import numpy as np
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
+from base_state import NAMES as BASE_NAMES, base_state
+
 p = argparse.ArgumentParser()
 p.add_argument("--episodes", required=True, help="directory searched recursively for ep*.npz")
 p.add_argument("--out", required=True, help="dataset root (must not exist)")
 p.add_argument("--repo-id", default="aetos/so101_handle_grasp")
 p.add_argument("--task", default="Grasp the handle of the box and lift it.")
 p.add_argument("--limit", type=int, default=None)
+p.add_argument("--base-state", action="store_true",
+               help="append the drone base's tilt, body velocity and yaw rate (base_state.py) to the state")
 args = p.parse_args()
 
 files = sorted(glob.glob(osp.join(args.episodes, "**", "ep*.npz"), recursive=True))[:args.limit]
 assert files, f"no episodes under {args.episodes}"
 first = np.load(files[0])
 joints = [str(j) for j in first["joint_names"]]
+state_names = joints + (BASE_NAMES if args.base_state else [])
+dt = 1.0 / float(first["fps"])
 cams = sorted(k[len("image_"):] for k in first.files if k.startswith("image_"))
 h, w = first[f"image_{cams[0]}"].shape[1:3]
 features = {
-    "observation.state": {"dtype": "float32", "shape": (len(joints),), "names": joints},
+    "observation.state": {"dtype": "float32", "shape": (len(state_names),), "names": state_names},
     "action": {"dtype": "float32", "shape": (len(joints),), "names": joints},
     **{f"observation.images.{c}": {"dtype": "video", "shape": (h, w, 3), "names": ["height", "width", "channels"]}
        for c in cams},
@@ -49,6 +56,9 @@ for f in files:
     z = np.load(f)
     assert bool(z["success"]), f
     d = {k: z[k] for k in ("q", "action", *(f"image_{c}" for c in cams))}  # decompress once, not per frame
+    if args.base_state:  # velocities from the recorded base poses; the first frame has no earlier one
+        b = z["base_pose"]
+        d["q"] = np.concatenate([d["q"], [base_state(b[max(t - 1, 0)], b[t], dt) for t in range(len(b))]], 1)
     for t in range(len(d["q"])):
         ds.add_frame({"observation.state": d["q"][t], "action": d["action"][t], "task": args.task,
                       **{f"observation.images.{c}": d[f"image_{c}"][t] for c in cams}})
