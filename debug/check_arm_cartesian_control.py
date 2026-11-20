@@ -45,7 +45,7 @@ START = {
 simulation_app = init_simulation_app({"headless": True})
 try:
     import torch
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api.simulation_context import SimulationContext
 
     import omni_drones.utils.kit as kit_utils
     from omni_drones.utils.torch import quat_axis
@@ -143,7 +143,7 @@ try:
         import shutil
         from pathlib import Path
 
-        from omni.isaac.core.objects import VisualSphere
+        from isaacsim.core.api.objects import VisualSphere
         from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
         from omni.kit.viewport.utility.camera_state import ViewportCameraState
         from pxr import Gf, UsdLux

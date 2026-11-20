@@ -19,7 +19,7 @@ the long edge along world x and the two handles at +-x.
 
 from typing import Sequence, Tuple
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 from pxr import Gf, UsdGeom, UsdPhysics
 
 from .object_base import AetosObject

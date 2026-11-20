@@ -157,8 +157,8 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     from omni_drones.envs.isaac_env import IsaacEnv
-    import omni.isaac.core.utils.prims as prim_utils
-    from omni.isaac.core.prims import RigidPrim
+    import isaacsim.core.utils.prims as prim_utils
+    from isaacsim.core.prims import SingleRigidPrim as RigidPrim
     from omni_drones.utils.torch import euler_to_quaternion, quat_axis
     import build_isaacsim_scene as shelf_scene  # needs sys.path insert above + a live SimulationApp
 

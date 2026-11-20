@@ -19,7 +19,7 @@ MJCF_PATH = HERE / "iris_650_drone.xml"
 OUT_DIR = HERE.parent.parent / "meshes" / "usd"
 DEST = OUT_DIR / "iris_650.usd"
 
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 app = SimulationApp({"headless": True})
 
 import omni.kit.commands

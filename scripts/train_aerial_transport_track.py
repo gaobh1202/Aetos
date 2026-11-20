@@ -22,7 +22,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 os.environ.setdefault("OMNI_DRONES_HYDRA_SEARCHPATH", str(REPO / "cfg"))
 p = argparse.ArgumentParser()
-p.add_argument("--task", default="AerialTransportTrack", help="or AerialGraspAssist (training only; --eval is demo-tracking specific)")
+p.add_argument("--task", default="AerialTransportTrack",
+               help="or AerialWaypointTrack (training only: evaluate it with scripts/eval_aerial_waypoint_track.py)")
 p.add_argument("--num-envs", type=int, default=32)
 p.add_argument("--steps", type=int, default=20000, help="control steps (each = num_envs * 2 transitions)")
 p.add_argument("--out", type=str, default=str(REPO / "outputs/aerial_transport_track/sac"))
@@ -212,6 +213,8 @@ try:
     log = open(out_dir / "log.csv", "w")
     log.write("step,transitions,elapsed_s,episodes,return,episode_len,pos_error_m,failed_frac,ref_progress,q_loss,entropy,alpha\n")
     ep = {k: [] for k in ("return", "episode_len", "pos_error", "terminated_early", "ref_progress")}
+    if "tilt_deg" in env.stats.keys():  # AerialWaypointTrack
+        ep["tilt_deg"] = []
     t0, lq, ent = time.time(), float("nan"), float("nan")
     for step in range(1, args.steps + 1):
         obs = td[OBS]
@@ -243,7 +246,8 @@ try:
             print(f"[train] step {step} ({step * n} transitions, {step / (time.time() - t0):.1f} steps/s) "
                   f"episodes={len(ep['return'])} return={m['return']:.1f} len={m['episode_len']:.0f} "
                   f"pos_err={m['pos_error']:.3f} m failed={m['terminated_early']:.2f} "
-                  f"q_loss={lq:.3g} entropy={ent:.2f} alpha={log_alpha.exp().item():.3f}", flush=True)
+                  f"q_loss={lq:.3g} entropy={ent:.2f} alpha={log_alpha.exp().item():.3f}"
+                  + (f" tilt={m['tilt_deg']:.2f} deg" if "tilt_deg" in m else ""), flush=True)
             ep = {k: [] for k in ep}
             torch.save(actor.state_dict(), out_dir / "actor.pt")
             torch.save({"actor": actor.state_dict(), "q1": q1.state_dict(), "q2": q2.state_dict(),

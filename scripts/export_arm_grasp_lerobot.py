@@ -12,7 +12,7 @@ Then train ACT on it (about 1 h 45 min for 40k steps on a 16 GB GPU; pyav becaus
     lerobot-train --dataset.repo_id=aetos/so101_handle_grasp --dataset.root=outputs/lerobot/so101_handle_grasp \\
         --dataset.video_backend=pyav --policy.type=act --policy.device=cuda --policy.push_to_hub=false \\
         --policy.chunk_size=50 --policy.n_action_steps=25 --steps=40000 --batch_size=16 --num_workers=6 \\
-        --save_freq=10000 --eval_freq=0 --wandb.enable=false --output_dir=outputs/train/act_so101_handle_grasp
+        --save_freq=10000 --output_dir=outputs/train/act_so101_handle_grasp
 
 and test it in the simulator: scripts/serve_lerobot_policy.py + scripts/collect_arm_grasp_demo.py --policy.
 """
@@ -30,6 +30,9 @@ p.add_argument("--episodes", required=True, help="directory searched recursively
 p.add_argument("--out", required=True, help="dataset root (must not exist)")
 p.add_argument("--repo-id", default="aetos/so101_handle_grasp")
 p.add_argument("--task", default="Grasp the handle of the box and lift it.")
+p.add_argument("--drone-state", action="store_true",
+               help="append the drone's own state (displacement and heading change since the episode started, "
+                    "body-frame velocity -- no knowledge of the box) to observation.state")
 p.add_argument("--limit", type=int, default=None)
 p.add_argument("--base-state", action="store_true",
                help="append the drone base's tilt, body velocity and yaw rate (base_state.py) to the state")
@@ -39,7 +42,7 @@ files = sorted(glob.glob(osp.join(args.episodes, "**", "ep*.npz"), recursive=Tru
 assert files, f"no episodes under {args.episodes}"
 first = np.load(files[0])
 joints = [str(j) for j in first["joint_names"]]
-state_names = joints + (BASE_NAMES if args.base_state else [])
+state_names = joints + (BASE_NAMES if args.base_state else []) + ([str(n) for n in first["drone_state_names"]] if args.drone_state else [])
 dt = 1.0 / float(first["fps"])
 cams = sorted(k[len("image_"):] for k in first.files if k.startswith("image_"))
 h, w = first[f"image_{cams[0]}"].shape[1:3]
@@ -59,6 +62,8 @@ for f in files:
     if args.base_state:  # velocities from the recorded base poses; the first frame has no earlier one
         b = z["base_pose"]
         d["q"] = np.concatenate([d["q"], [base_state(b[max(t - 1, 0)], b[t], dt) for t in range(len(b))]], 1)
+    if args.drone_state:
+        d["q"] = np.concatenate([d["q"], z["drone_state"]], axis=1).astype(np.float32)
     for t in range(len(d["q"])):
         ds.add_frame({"observation.state": d["q"][t], "action": d["action"][t], "task": args.task,
                       **{f"observation.images.{c}": d[f"image_{c}"][t] for c in cams}})

@@ -16,7 +16,7 @@ anything but a flat gray image:
    drawn. Switching the capture path to Isaac Sim's own
    `omni.kit.viewport.utility.get_active_viewport()` +
    `capture_viewport_to_file()`, driven by `set_camera_view()` from
-   `omni.isaac.core.utils.viewports` (the same viewport machinery the Isaac
+   `isaacsim.core.utils.viewports` (the same viewport machinery the Isaac
    Sim GUI itself uses), produced real images immediately. The replicator
    render-product path may well be fixable with more specific setup, but
    this one is simpler and is known-correct Isaac Sim API usage.
@@ -42,17 +42,18 @@ sys.path.insert(0, HERE)
 import numpy as np
 from isaacsim import SimulationApp
 
-_app_experience = f"{os.environ['EXP_PATH']}/omni.isaac.sim.python.kit"
-simulation_app = SimulationApp({"headless": True, "anti_aliasing": 1}, experience=_app_experience)
+# Isaac Sim >= 4.5 picks its own default python experience (the 4.1-era
+# `$EXP_PATH/omni.isaac.sim.python.kit` no longer exists).
+simulation_app = SimulationApp({"headless": True, "anti_aliasing": 1})
 
 import omni.usd
 from pxr import UsdLux, Gf
-from omni.isaac.core.world import World
-from omni.isaac.core.articulations import Articulation
-from omni.isaac.core.prims import RigidPrim
-from omni.isaac.core.utils.viewports import set_camera_view
+from isaacsim.core.api.world import World
+from isaacsim.core.prims import SingleArticulation as Articulation
+from isaacsim.core.prims import SingleRigidPrim as RigidPrim
+from isaacsim.core.utils.viewports import set_camera_view
 from omni.kit.viewport.utility import get_active_viewport, capture_viewport_to_file
-from omni.isaac.dynamic_control import _dynamic_control as dc
+from isaacsim.core.prims import RigidPrim as RigidPrimView
 
 from build_finger_1_rigid import build_finger_1_rigid
 
@@ -67,8 +68,10 @@ world.reset()
 art = Articulation(prim_path=root)
 art.initialize()
 rp_tip = RigidPrim(prim_path=f"{root}/finger_1_flex_2")
-dc_iface = dc.acquire_dynamic_control_interface()
-tip_rb = dc_iface.get_rigid_body(f"{root}/finger_1_flex_2")
+# `omni.isaac.dynamic_control` was removed in Isaac Sim 5 -- the tip force goes
+# through the PhysX tensor API (a rigid-body view over the one tip link) instead.
+tip_view = RigidPrimView(prim_paths_expr=f"{root}/finger_1_flex_2", name="finger_tip_force_view")
+tip_view.initialize()
 
 # Framed close around the finger (it spans roughly z=0.09..0.19, |y|<0.1).
 set_camera_view(eye=[0.14, -0.22, 0.20], target=[0.0, -0.06, 0.15])
@@ -114,7 +117,11 @@ while t < TOTAL_T:
     for _ in range(STEPS_PER_FRAME):
         if force_mag > 0.0:
             tip_pos, _ = rp_tip.get_world_pose()
-            dc_iface.apply_body_force(tip_rb, (0.0, -force_mag, 0.0), tuple(tip_pos.tolist()), True)
+            tip_view.apply_forces_and_torques_at_pos(
+                forces=np.array([[0.0, -force_mag, 0.0]], dtype=np.float32),
+                positions=np.asarray(tip_pos, dtype=np.float32).reshape(1, 3),
+                is_global=True,
+            )
         world.step(render=True)
 
     frame_path = os.path.join(FRAMES_DIR, f"frame_{frame_idx:05d}.png")

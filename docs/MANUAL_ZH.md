@@ -47,7 +47,8 @@ USD/mesh 同理,放在 `aetos_multiam/objects/assets/`。
 | `AerialButtonGrasp` 任务 + 回放 | ✅ headless GPU PhysX 下跑完 605 帧,无 flip(回放脚本用的是旧的货架场景常量,见 §8) |
 | `AerialBucketGrasp` | ✅ 换场景后 headless 跑完 200 步随机动作 |
 | `AerialAssembly` / `AerialHandover` / `AerialTransport` | ⚠️ 场景搭好、物理能跑,奖励和抓取控制器还没写 |
-| `AerialAssemblyTriple` / `AerialCabinetGrasp` | ⚠️ 只有注册和配置,是脚手架 |
+| `AerialCabinetGrasp` | ⚠️ 场景搭好、物理能跑(双开门柜子 + 柜内按钮,两架 fahexa750 开门、一架 hummingbird340 取按钮;`scripts/check_cabinet_grasp.py` 通过),奖励里只有门的开度,抓取控制器还没写 |
+| `AerialAssemblyTriple` | ⚠️ 只有注册和配置,是脚手架 |
 | 全驱动 6-DOF wrench 分配器 | ✅ fahexa750 已用,水平飞行姿态 ≤ 0.23° |
 | 外骨骼 / Apple Vision Pro 遥操作 | ❌ 未实现,只留了接入点 |
 
@@ -92,6 +93,15 @@ residual 多小,PD 驱动都会在第一个运动阶段发散 —— 资产把�
 
 `arm_dynamics_residual=0.1`。这个几乎不需要隔离:完全耦合也只有 8.3° 横滚,
 而且对 residual 线性,0.1 → 0.72°。
+
+**推力作用点改到了 `base_link`**(`robots/drones/omnidrones_340.py`,2026-11-20)。
+OmniDrones 原版 `Hummingbird` 把每个旋翼的推力分别施加在 `rotor_*` 子连杆上;
+在 GPU 物理管线下(所有任务环境都用它)PhysX 会静默忽略对 articulation 子连杆的
+刚体力写入 —— 指令是悬停,机体却以 g 自由落体(`AerialCabinetGrasp` 里实测:
+0.4 s 掉 0.85 m)。之前没暴露是因为它只在 CPU 管线的 `show_am_action.py` 里飞过。
+现在和 `AmovDrone` / `RotorlessMultirotor` 一样把合力/合力矩汇总到 `base_link`,
+推力和反扭矩数值仍来自 OmniDrones 的 `RotorGroup`;CPU 管线下的原流程复测不变
+(臂摆动时机身倾角 0.74°)。
 
 ### `iris650_soarm100` — 四旋翼 650mm + SO-ARM100 5-DOF + 单爪
 
@@ -204,7 +214,7 @@ airframe 的 frame/桨数量对得上、且没有任何 livery 材质漏到机�
 |---|---|
 | 建场景就崩:`'NoneType' object has no attribute 'eef_body_name'` | eef 路径只写了"单独挂载的臂"那一种,而且还把它拼在 `mount_body_name/` 下面(`mount_child` 实际上挂成**兄弟**节点) |
 | `env.step` 崩:`expanded size of the tensor (4) must match the existing size (12)` | 建 arm controller 的判据是 `manipulator_spec is not None`,内置臂没有这个 spec → 没有臂控制器 → `split_action` 把 12 维动作整个塞给了 4 旋翼的无人机。判据应该是 `arm_joint_indices is not None` |
-| `scripts/run_button_grasp.py` 崩:`tuple indexing only supports integers...` | 脚本里 `env.action_spec["agents","action"]`,但单智能体时 torchrl 已经自动拆包成叶子 spec 了。兄弟脚本早就修过,这个没跟上 |
+| `scripts/run_single_smoke.py`(当时叫 `run_button_grasp.py`)崩:`tuple indexing only supports integers...` | 脚本里 `env.action_spec["agents","action"]`,但单智能体时 torchrl 已经自动拆包成叶子 spec 了。兄弟脚本早就修过,这个没跟上 |
 
 ### 多机同场景的正确初始化顺序
 
@@ -303,6 +313,11 @@ wrench 上。它的 `fully_actuated=True` 分支就是这个;`fully_actuated=Fal
 - `fully_actuated_controller.py` —— `FullyActuatedPositionController`,
   继承 `LeePositionController` 复用它的增益读取/批处理,只换输出级。
   `make_position_controller(drone, g, mode)` 按 `drone.fully_actuated` 自动选。
+- `pid_position_controller.py` —— `PIDPositionController`,包在上面任意一个
+  位置控制器外面,给位置环补上积分项(原来两个都是 PD,对恒定外力只会留下
+  恒定偏差)。积分项通过内层控制器已有的 `target_acc` 入口注入,所以 Kp/Kd、
+  姿态环、分配矩阵都原样复用;带限幅和"只在设定点附近积分"两个抗饱和措施。
+  `make_pid_position_controller(drone, dt)` 一步构造。
 
 和 AM-Bench 的一个关键区别:**矩阵的列是从本项目自己的 plant 约定推出来的**,
 不是重新推导一遍。`RotorlessMultirotor.apply_action` 每个转子施加的是
@@ -578,7 +593,7 @@ done
 950mm AmovDrone + airbot_play 飞到墙上的按钮前按下去。端到端验证过。
 
 ```bash
-python scripts/run_button_grasp.py headless=true
+python scripts/run_single_smoke.py task=ButtonGrasp headless=true
 ```
 
 ### `AerialButtonGrasp` / `AerialBucketGrasp`
@@ -612,10 +627,10 @@ tote_box,white_bucket}.py`)。`AerialButtonGrasp` 的货架顶层放齿轮、按
 不着桶了。想要只动机械臂的变体,得连 spawn 位姿一起改,不是翻个开关的事。
 
 ```bash
-python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
+python scripts/run_single_smoke.py task=AerialButtonGrasp headless=true
 
 # 换机器人,不改代码
-python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp \
+python scripts/run_single_smoke.py task=AerialButtonGrasp \
     aerial_manipulators.0.preset=amov950_airbot_dexterous_bottom headless=true
 ```
 
@@ -927,7 +942,7 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
 ## 9bis. `scripts/` 和 `debug/` 的分界
 
 - **`scripts/`** —— 和具体任务或算法强相关的:任务入口
-  (`run_button_grasp.py`、`run_collab_smoke.py`、`run_aerial_*_grasp.py`)、资产导出
+  (`run_single_smoke.py`、`run_collab_smoke.py`)、资产导出
   工具(`export_robot_usd.py`),以及**绑定到某个任务**的验证脚本 ——
   `check_gear_assembly.py` 会直接构建 `AerialAssembly` 环境、断言那个任务自己的
   要求(两个齿轮都座住且啮合),所以它和任务入口放在一起。
@@ -935,7 +950,6 @@ python scripts/export_robot_usd.py --config scripts/export_configs/iris650_soarm
   算法,benchmark 里没有任何代码 import 它们:
   `measure_gripper_range.py`(夹爪开口 vs 关节角)、
   `verify_iris650_flight.py`(iris650 改完资产后还推不推得动、悬不悬得住)、
-  `record_iris650_trajectory.py`(把一段脚本飞行录成 PNG 序列)、
   `check_drone_livery.py`(见 §3bis)。
 
 ---

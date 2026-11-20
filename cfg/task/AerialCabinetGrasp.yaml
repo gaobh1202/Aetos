@@ -5,14 +5,40 @@ defaults:
   - /base/sim_base@_here_
 
 env:
-  num_envs: 16
-  env_spacing: 8
+  # Each env is a whole 18 x 20 m warehouse bay, so they have to be spaced
+  # further apart than the usual bare-ground tasks.
+  num_envs: 1
+  env_spacing: 24
   max_episode_length: 500
 
+# Order is the role: agent 0 opens the -x door, agent 1 the +x door, agent 2
+# takes the button out. The first two start in the painted zones, the third in
+# the lane in front of the cabinet.
 aerial_manipulators:
   - preset: fahexa750_gripper
   - preset: fahexa750_gripper
-  - preset: iris650_soarm100
+  - preset: hummingbird340_2dof_gripper
+
+# Scale on the cabinet. 1.0 is the asset's own size -- 0.94 m wide, 1.32 m
+# tall, compartments 0.37 m high -- which no drone here can get an arm into.
+# At 2x: 1.88 x 2.64 m, compartments 1.41 m wide and 0.74 m high, door handles
+# a 46 mm bar centred 1.38 m up.
+cabinet_scale: 2.0
+
+# Which shelf the button stands on (0 bottom, 1 middle, 2 top) and how far in
+# from the front edge, in metres at whatever scale the cabinet is.
+button_compartment: 1
+button_depth_m: 0.15
+
+# A door counts as open past this fraction of its travel (about 90 deg).
+door_open_threshold: 0.8
+door_reward_weight: 1.0
+
+# Gripper <-> door and gripper <-> button collisions off. For scripted runs
+# that turn the door and carry the button kinematically from the gripper's pose
+# (scripts/run_cabinet_grasp_demo.py turns it on); leave it off for anything
+# that is meant to feel the contact.
+filter_grasp_contacts: false
 
 time_encoding: true
 goal_radius: 0.5

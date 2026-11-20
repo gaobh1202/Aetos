@@ -1,0 +1,63 @@
+# Learn the drone controller (PX4 CTBR action) while the arm moves, fully coupled -- plan.md stage 1.
+# See aetos_multiam/environments/single/aerial_waypoint_track.py.
+name: AerialWaypointTrack
+
+defaults:
+  - /base/env_base@_here_
+  - /base/sim_base@_here_
+
+env:
+  num_envs: 64
+  env_spacing: 8
+  max_episode_length: 625  # control steps (10 s)
+
+sim:
+  dt: 0.004                # 250 Hz physics = PX4-style rate loop
+  substeps: 4              # 62.5 Hz policy
+
+aerial_manipulators:
+  - preset: iris650_soarm100
+
+drone_action: ctbr
+visuals: false             # true = render the envs (video/GUI)
+arm_dynamics_residual: 1.0 # 1.0 = plain coupled physics; below it the arm's mass is lumped onto the airframe
+arm_obs: preview           # preview | state | none: what the policy is told about the arm
+shoulder_pan_gains: [24.0, 3.4]
+
+# Where the arm's joint targets come from, drawn per episode (probabilities).
+arm_motion:
+  bank: aetos_multiam/data/arm_motion/so101_grasp_bank.npz   # scripts/build_arm_motion_bank.py
+  dataset: 0.5             # a recorded grasp demo, played back and forth
+  random: 0.3              # a walk between random poses
+  static: 0.2              # one random pose
+  dataset_speed: [0.6, 1.6]      # playback speed relative to the recording
+  random_max_speed: 1.5          # rad/s
+  random_interval_s: [0.4, 2.0]
+
+payload_max_n: 3.0         # downward force at the gripper, switched on at a random time
+payload_prob: 0.5
+
+route:
+  hover_prob: 0.3          # episodes that hold one point
+  waypoints: 6
+  box_lo: [-1.5, -1.5, 1.0]
+  box_hi: [1.5, 1.5, 2.2]
+  max_step: [1.5, 1.5, 0.5]      # largest move between two waypoints, m
+  dwell_s: [0.5, 3.0]
+  speed: [0.3, 1.2]              # peak speed of a move, m/s
+
+reset_pos_noise_m: 0.05
+reset_rot_noise_deg: 5.0
+terminate_pos_error_m: 1.0
+terminate_tilt_deg: 60.0
+
+reward:
+  pos: 1.0
+  pos_scale: 0.1
+  vel: 0.3
+  vel_scale: 0.3
+  att: 0.3
+  att_scale: 0.2
+  body_rate: 0.01
+  action_rate: 0.02
+  fail: 10.0

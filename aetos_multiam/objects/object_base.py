@@ -6,8 +6,8 @@ cloning mechanism the robot uses); ``initialize`` then grabs an
 plunger) or a plain ``RigidPrimView`` (for rigid fixtures).
 """
 
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.simulation_context import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.simulation_context import SimulationContext
 from omni_drones.views import ArticulationView, RigidPrimView
 
 from aetos_multiam.utils import yaw_deg_to_quat

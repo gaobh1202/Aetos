@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 from typing import List, Sequence
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 
 from aetos_multiam.utils import make_kinematic, normalize_rigid_root_xform, yaw_deg_to_quat
 

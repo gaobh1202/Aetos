@@ -201,7 +201,7 @@ def wrap(a: float) -> float:
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
-from omni.isaac.core.utils.stage import get_current_stage  # noqa: E402
+from isaacsim.core.utils.stage import get_current_stage  # noqa: E402
 
 try:
     rng = np.random.default_rng(args.seed)

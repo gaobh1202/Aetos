@@ -26,7 +26,7 @@ from typing import List
 
 import torch
 from tensordict import TensorDict
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+from torchrl.data import Bounded, Composite, Unbounded
 
 from omni_drones.utils.torchrl import AgentSpec
 from omni_drones.views import RigidPrimView
@@ -188,19 +188,19 @@ class AerialBucketGrasp(AerialManipulationEnv):
         action_dim = (0 if self.weld_robot else num_rotors) + num_arm_joints
         action_dim += self.drone.num_gripper_action_dims
 
-        self.observation_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "observation": UnboundedContinuousTensorSpec((1, observation_dim), device=self.device),
+        self.observation_spec = Composite({
+            "agents": Composite({
+                "observation": Unbounded((1, observation_dim), device=self.device),
             }),
         }).expand(self.num_envs).to(self.device)
-        self.action_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "action": BoundedTensorSpec(-1, 1, (1, action_dim), device=self.device),
+        self.action_spec = Composite({
+            "agents": Composite({
+                "action": Bounded(-1, 1, (1, action_dim), device=self.device),
             }),
         }).expand(self.num_envs).to(self.device)
-        self.reward_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "reward": UnboundedContinuousTensorSpec((1, 1), device=self.device),
+        self.reward_spec = Composite({
+            "agents": Composite({
+                "reward": Unbounded((1, 1), device=self.device),
             }),
         }).expand(self.num_envs).to(self.device)
         self.agent_spec["aerial_manipulator"] = AgentSpec(

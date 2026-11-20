@@ -11,7 +11,7 @@ MJCF_PATH = HERE / "dynamixel_2r_arm.xml"
 OUT_DIR = HERE.parent.parent / "meshes" / "usd" / "dynamixel_2r"
 DEST = OUT_DIR / "dynamixel_2r_arm.usd"
 
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 app = SimulationApp({"headless": True})
 
 import omni.kit.commands

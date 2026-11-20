@@ -29,7 +29,7 @@ Idempotent -- safe to re-run.
 """
 from pathlib import Path
 
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 app = SimulationApp({"headless": True})
 
 from pxr import Gf, Usd, UsdGeom, UsdPhysics  # noqa: E402

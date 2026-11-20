@@ -27,7 +27,7 @@ handle *at the drop table*, so the placeholder at least points the right way.
 from typing import List, Sequence
 
 import numpy as np
-from omni.isaac.core.objects import FixedCuboid, VisualCuboid
+from isaacsim.core.api.objects import FixedCuboid, VisualCuboid
 
 from aetos_multiam.objects import CarryBox
 from aetos_multiam.scenes import WarehouseArena
@@ -115,7 +115,7 @@ class AerialTransport(CollaborativeAerialEnv):
         elbow ~1 rad and drags the drones off their setpoints. Grasp contact is
         then judged geometrically instead (see
         scripts/collect_aerial_transport_demo.py)."""
-        from omni.isaac.core.utils.stage import get_current_stage
+        from isaacsim.core.utils.stage import get_current_stage
         from pxr import UsdPhysics
 
         ns = self.template_env_ns

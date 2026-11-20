@@ -46,8 +46,8 @@ ARMS = {
 simulation_app = init_simulation_app({"headless": args.test})
 try:
     import torch
-    from omni.isaac.core.objects import VisualCuboid
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api.objects import VisualCuboid
+    from isaacsim.core.api.simulation_context import SimulationContext
     from pxr import Gf, UsdLux, UsdPhysics
 
     import omni_drones.utils.kit as kit_utils

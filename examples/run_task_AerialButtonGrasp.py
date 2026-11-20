@@ -229,7 +229,7 @@ class DronePolicyController(DroneController):
         self._policy = None
 
     def _build(self, drone) -> None:
-        from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+        from torchrl.data import Bounded, Composite, Unbounded
 
         from omni_drones.learning.ppo import PPOPolicy
         from omni_drones.learning.ppo.ppo import PPOConfig
@@ -247,13 +247,13 @@ class DronePolicyController(DroneController):
         # PPOPolicy in real training (torchrl's EnvBase unwraps a composite with
         # exactly one action/reward key down to that key's own leaf spec), and
         # PPOPolicy reads their .shape directly (not through a key).
-        observation_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "observation": UnboundedContinuousTensorSpec((1, 1, obs_dim), device=device),
+        observation_spec = Composite({
+            "agents": Composite({
+                "observation": Unbounded((1, 1, obs_dim), device=device),
             }),
         })
-        action_spec = BoundedTensorSpec(-1, 1, (1, 1, num_rotors), device=device)
-        reward_spec = UnboundedContinuousTensorSpec((1, 1, 1), device=device)
+        action_spec = Bounded(-1, 1, (1, 1, num_rotors), device=device)
+        reward_spec = Unbounded((1, 1, 1), device=device)
 
         cfg = PPOConfig(checkpoint_path=self.checkpoint_path, actor_log_std_init=-1.0)
         self._policy = PPOPolicy(cfg, observation_spec, action_spec, reward_spec, device=device)
@@ -444,8 +444,8 @@ simulation_app = init_simulation_app({"headless": args.headless})
 
 import traceback
 
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.simulation_context import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.simulation_context import SimulationContext
 from omni.kit.viewport.utility import get_active_viewport
 from omni.kit.viewport.utility.camera_state import ViewportCameraState
 from pxr import Gf

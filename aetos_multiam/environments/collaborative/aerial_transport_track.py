@@ -32,7 +32,7 @@ from typing import List
 import numpy as np
 import torch
 from tensordict import TensorDict
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+from torchrl.data import Bounded, Composite, Unbounded
 
 from omni_drones.utils.torch import (
     euler_to_quaternion, quat_axis, quat_mul, quat_rotate, quat_rotate_inverse, quaternion_to_euler, quaternion_to_rotation_matrix,
@@ -95,7 +95,7 @@ class AerialTransportTrack(AerialTransport):
         if not self.cfg.task.get("visuals", False):
             # Headless training: invisible prims are not loaded by the RTX renderer (RAM, build time).
             from pxr import UsdGeom
-            import omni.isaac.core.utils.prims as prim_utils
+            import isaacsim.core.utils.prims as prim_utils
             UsdGeom.Imageable(prim_utils.get_prim_at_path(self.template_env_ns)).MakeInvisible()
         return paths
 
@@ -200,23 +200,23 @@ class AerialTransportTrack(AerialTransport):
     def _setup_observables(self) -> None:
         self.obs_dim = self._obs_dim()
         n = self.num_agents
-        self.observation_spec = CompositeSpec({
-            "agents": {"observation": UnboundedContinuousTensorSpec((n, self.obs_dim))},
+        self.observation_spec = Composite({
+            "agents": {"observation": Unbounded((n, self.obs_dim))},
             "stats": {
-                "return": UnboundedContinuousTensorSpec(1),
-                "episode_len": UnboundedContinuousTensorSpec(1),
-                "pos_error": UnboundedContinuousTensorSpec(1),
-                "yaw_error_deg": UnboundedContinuousTensorSpec(1),
-                "ref_progress": UnboundedContinuousTensorSpec(1),
-                "terminated_early": UnboundedContinuousTensorSpec(1),
-                **{k: UnboundedContinuousTensorSpec(1) for k in self.EXTRA_STATS},
+                "return": Unbounded(1),
+                "episode_len": Unbounded(1),
+                "pos_error": Unbounded(1),
+                "yaw_error_deg": Unbounded(1),
+                "ref_progress": Unbounded(1),
+                "terminated_early": Unbounded(1),
+                **{k: Unbounded(1) for k in self.EXTRA_STATS},
             },
         }).expand(self.num_envs).to(self.device)
-        self.action_spec = CompositeSpec({
-            "agents": {"action": BoundedTensorSpec(-1, 1, (n, 4))},
+        self.action_spec = Composite({
+            "agents": {"action": Bounded(-1, 1, (n, 4))},
         }).expand(self.num_envs).to(self.device)
-        self.reward_spec = CompositeSpec({
-            "agents": {"reward": UnboundedContinuousTensorSpec((n, 1))},
+        self.reward_spec = Composite({
+            "agents": {"reward": Unbounded((n, 1))},
         }).expand(self.num_envs).to(self.device)
         self.agent_spec["drone"] = AgentSpec(
             "drone", n,

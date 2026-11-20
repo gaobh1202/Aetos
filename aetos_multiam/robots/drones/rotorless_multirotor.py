@@ -148,9 +148,7 @@ class RotorlessMultirotor(MultirotorBase):
     def apply_action(self, actions: torch.Tensor) -> torch.Tensor:
         rotor_cmds = actions.expand(*self.shape, self.num_rotors)
         last_throttle = self.throttle.clone()
-        thrusts, moments = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
-            rotor_cmds, self.rotor_params
-        )
+        thrusts, moments = self.rotors(rotor_cmds, self.rotor_params)
 
         # Rotate the static body-frame geometry into world frame with base_link's
         # own orientation -- the one thing MultirotorBase got from rotor poses.

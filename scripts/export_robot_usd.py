@@ -55,8 +55,8 @@ with open(args.config) as f:
 
 simulation_app = init_simulation_app({"headless": True})
 
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.simulation_context import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.simulation_context import SimulationContext
 
 from aetos_multiam.robots.presets import get_preset
 from aetos_multiam.robots.robot_base import AerialManipulatorBase

@@ -13,6 +13,7 @@ from .gripper import BinaryGripperController
 
 _LAZY_NAMES = {"ControllerBase", "LeePositionController", "AttitudeController", "RateController",
                "FullyActuatedPositionController", "make_position_controller",
+               "PIDPositionController", "make_pid_position_controller",
                "PX4RateController", "ctbr_from_lee", "normalize_ctbr", "denormalize_ctbr"}
 
 
@@ -36,6 +37,8 @@ __all__ = [
     "RateController",
     "FullyActuatedPositionController",
     "make_position_controller",
+    "PIDPositionController",
+    "make_pid_position_controller",
     "PX4RateController",
     "ctbr_from_lee",
     "normalize_ctbr",

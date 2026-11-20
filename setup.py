@@ -7,7 +7,9 @@ setup(
     packages=find_packages("."),
     install_requires=[
         "torch",
-        "torchrl==0.3.1",
+        # Isaac Sim 6 line (torch 2.11, Python 3.12) -- ported against
+        # torchrl 0.15.0 + tensordict 0.15.6; 0.3.1 has no wheel for either.
+        "torchrl>=0.15",
         "tensordict",
         "hydra-core",
         "omegaconf",

@@ -43,6 +43,10 @@ OmniDrones fork：`gaobh1202/amov_omni` main = `6532697`。
 - 导出 LeRobot 数据集：`scripts/export_arm_grasp_lerobot.py`（文件头有 ACT 训练命令）。
 - 闭环评测：`scripts/serve_lerobot_policy.py`（lerobot 环境）+
   `collect_arm_grasp_demo.py --policy`（Isaac 环境）。
+- 采集脚本的后续选项：`--drone-state`（8 维非特权无人机状态）、`--depth`（每路相机加一路深度图）、
+  `--wrist-view forward|side`（腕部相机朝向，默认前向；11-18 之前的数据集是 side）、
+  `--base-yaw-max` / `--base-height` / `--base-xy-range`（限定基座范围）、`--exclude-bases-from`（评测时排除训练基座）、
+  `--video`（保存每回合视频和逐帧数据）。服务端 `--num-inference-steps N` 设定扩散策略的去噪步数。
 
 ## 2. 只在本机、GitHub 上没有的内容
 
@@ -145,7 +149,7 @@ python scripts/collect_arm_grasp_demo.py --policy localhost:6000 --episodes 50 -
 | 2 | 可行基座集合 | 完成（下洗和相机视野两项过滤没做） |
 | 2 | 规划代价加舒适度 | 未做（只有关节限位余量过滤） |
 | 2 | 在 v0 策略控制的浮动基座上生成数据 | 未做：目前是运动学支架 + 人为漂移 |
-| 2 | 视觉运动 IL 策略 | 已训练 ACT，成功率 40%，未达验收 |
+| 2 | 视觉运动 IL 策略 | ACT 40%；扩散策略（腕部前向视角 + 深度图 + 无人机状态）68%，为当前最佳，仍未达验收 |
 | 3–6 | 联合迭代、多机协同、数据基准、多机型合并 | 未开始 |
 
 ### 阶段 2 的实验结论（未见过的基座位姿，各 50 回合）
@@ -158,11 +162,54 @@ python scripts/collect_arm_grasp_demo.py --policy localhost:6000 --episodes 50 -
 
 脚本专家同场景 42/50。推理端调参和加基座状态都没有带来提升。
 
+### 阶段 2 的后续实验：扩散策略（2026-11-16 至 11-18，Isaac Sim 6.0.1）
+基座范围收窄为：偏航 ±25°、高出把手 30–50 cm、x/y 距标称基座 ±15 cm（793 个可行基座中的 194 个）。
+评测均在训练没用过的基座上跑 50 回合，10 步 DDIM 去噪。"抓住"指结束时横杆夹在夹爪中心 3 cm 内；
+"抬起"另要求把手离桌 2 cm 以上。抓的是 0 号把手（箱子 −x 一侧，对应 AerialTransport 里的 0 号机）。
+
+| 策略（扩散策略，输入均含 8 维无人机状态） | 抓住 | 抓住并抬起 |
+|---|---|---|
+| 仅 RGB，腕部侧向视角（三次评测） | 30、22、30 | 27、20、29 |
+| RGB + 深度图，腕部侧向视角 | 33 | 28 |
+| **RGB + 深度图，腕部前向视角（当前最佳）** | **34** | **29** |
+| 脚本专家 | 45 | 45 |
+
+- 当前最佳：`outputs/train/soarm101_AerialTransport_handle_grasp/dp_range_drone_depth_fwd_x0/checkpoints/010000`
+  （预测目标 `sample`，每路相机独立 ResNet18，batch 96 × 10000 步）；数据集
+  `datasets/so101_handle_grasp_range_drone_depth_fwd`（286 回合，`--drone-state --depth`，腕部相机
+  `--wrist-view forward`）；评测视频和逐帧数据在 `outputs/soarm101_AerialTransport_handle_grasp_eval_videos/dp_range_drone_depth_fwd_x0_ddim10/`。
+- 同一模型重复评测有 ±7 个回合的波动（DDIM 采样未固定种子），所以表中 33 与 34 没有差别，
+  深度图相对仅 RGB 的提升也只是倾向，未重复确认。
+- 10 步去噪与 100 步成功率相当，推理约快 8 倍；预测 `sample` 与预测噪声无差别；在收窄范围内重采数据
+  相对全范围数据也没有提升。
+- 失败集中在基座偏近把手的一档（前后偏差 +5 ~ +15 cm）：当前最佳在这一档 9/21，其余两档合计 25/29；
+  专家在这一档 120/125。旧的侧向腕部视角在偏近时看不到把手，换成前向视角后把手全程可见，但这一档
+  没有改善，原因未查清。
+三类策略在同一份数据集（当前最佳，286 回合）上的对比，以及直接用于 1 号臂（箱子 +x 一侧的把手，
+`--handle 1`，未重训）的结果，2026-11-19，各 50 回合，格式为 抓住 / 抓住并抬起：
+
+| 策略 | 0 号臂 | 1 号臂 | 每次推理 |
+|---|---|---|---|
+| 扩散策略（ResNet18 + UNet，10 步 DDIM） | 34 / 29 | 33 / 27 | 约 410 ms |
+| ACT（chunk 50，每次执行 25 步） | 35 / 30 | 31 / 29 | 约 130 ms |
+| Flow Matching（lerobot `multi_task_dit`，CLIP + DiT，10 步积分） | 25 / 17 | 23 / 16 | 约 140 ms |
+
+- 扩散策略与 ACT 成功率相同（差别在 ±7 的波动内）；两只臂之间也没有可分辨的差别。
+- Flow Matching 明显偏低，但它与扩散策略不只差在训练目标：网络结构不同，且只训了 38 万样本
+  （扩散策略 96 万、ACT 64 万），是否训练不足未验证。
+- 检查点：`outputs/train/soarm101_AerialTransport_handle_grasp/act_range_drone_depth_fwd/checkpoints/020000`、
+  `outputs/train/soarm101_AerialTransport_handle_grasp/fm_range_drone_depth_fwd/checkpoints/024000`；评测视频在
+  `outputs/soarm101_AerialTransport_handle_grasp_eval_videos/{act,fm}_fwd_handle{0,1}/` 和 `dp_fwd_handle1/`。推理耗时是在显卡被其他任务占用时测的。
+
+- 采集脚本曾有一处基座编号错误（范围过滤后保存的是过滤集内的编号），已修复并重写了已有数据；
+  表中数字都是修复后在真正未见基座上测的。
+
 ## 6. 下一步建议
 
 1. **先做迁移验证**（第 4 节），确认新版 Isaac Sim 上第 0–4 级都过。
-2. **补完阶段 2**：把抓取策略做到 80% 左右。两条已排除（推理设置、基座状态），剩下的方向是数据：
-   采到约 1000 回合，并在采集时加大扰动让专家演示纠偏；先逐个看失败回合确认原因。
+2. **补完阶段 2**：把抓取策略做到 80% 左右（当前最佳 68%）。已排除：推理设置、基座状态、去噪步数、
+   预测目标、收窄范围重采、腕部视角。剩下的方向：查清偏近基座一档失败的原因；采到约 1000 回合，
+   并在采集时加大扰动让专家演示纠偏。
 3. **并行启动阶段 1**：航点跟踪的无人机 RL（CTBR 输出）。它只需要臂的轨迹作为扰动，
    793 条可行基座下的规划轨迹已经有了，不用等抓取策略达标。同时把舒适度指标定下来
    （AerialGraspAssist 里已有雏形）。

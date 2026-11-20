@@ -1,5 +1,5 @@
 """Generic headless smoke test for any collaborative (multi-agent) task,
-e.g. AerialTransport / AerialAssemblyTriple -- mirrors run_button_grasp.py
+e.g. AerialTransport / AerialAssemblyTriple -- mirrors run_single_smoke.py
 but handles the per-agent action-spec keys (f"agent_{i}", "action") that
 CollaborativeAerialEnv uses instead of ButtonGrasp's single "agents" key.
 

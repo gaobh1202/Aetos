@@ -1,5 +1,5 @@
 """Run AerialBucketGrasp as an actual task, not just the zero-action smoke
-test ``scripts/run_aerial_bucket_grasp.py`` already is.
+test ``scripts/run_single_smoke.py`` already is.
 
 Unlike ``run_task_AerialButtonGrasp.py``, this doesn't have a policy+replay
 pair to drive it: AerialBucketGrasp is a brand-new task with no trained

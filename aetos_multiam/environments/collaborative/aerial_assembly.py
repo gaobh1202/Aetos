@@ -38,7 +38,7 @@ The gear colliders are SDF, which needs the GPU PhysX pipeline;
 from typing import List, Sequence
 
 import numpy as np
-from omni.isaac.core.objects import FixedCuboid
+from isaacsim.core.api.objects import FixedCuboid
 
 from aetos_multiam.objects import FactoryGear, FactoryGearBase
 from aetos_multiam.objects.factory_gear import PLATE_SIZE_XY

@@ -1,32 +1,1568 @@
+diff --git a/docs/source/conf.py b/docs/source/conf.py
+index 67dabdf..2f54a49 100644
+--- a/docs/source/conf.py
++++ b/docs/source/conf.py
+@@ -72,9 +72,9 @@ autodoc_mock_imports = [
+     "pxr.PhysicsSchemaTools",
+     "omni.replicator",
+     "omni.isaac.core",
+-    "omni.isaac.core.utils.torch",
++    "isaacsim.core.utils.torch",
+     "isaacsim",
+-    "omni.isaac.cloner",
++    "isaacsim.core.cloner",
+     "gym",
+     "tqdm",
+     "toml",
+diff --git a/examples/00_play_drones.py b/examples/00_play_drones.py
+index 950f3c0..fe8022e 100644
+--- a/examples/00_play_drones.py
++++ b/examples/00_play_drones.py
+@@ -12,7 +12,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.robots.drone import MultirotorBase
+     from omni_drones.utils.torch import euler_to_quaternion
+ 
+diff --git a/examples/01_drones_with_cams.py b/examples/01_drones_with_cams.py
+index 2d792d5..fff4eba 100644
+--- a/examples/01_drones_with_cams.py
++++ b/examples/01_drones_with_cams.py
+@@ -12,7 +12,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.robots.drone import MultirotorBase
+     from omni_drones.utils.torch import euler_to_quaternion
+     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
+diff --git a/examples/demo_downwash.py b/examples/demo_downwash.py
+index 7648dd8..f971351 100644
+--- a/examples/demo_downwash.py
++++ b/examples/demo_downwash.py
+@@ -16,7 +16,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.robots.drone import MultirotorBase
+     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
+     import dataclasses
+diff --git a/examples/demo_task.py b/examples/demo_task.py
+index 3467405..d6d039d 100644
+--- a/examples/demo_task.py
++++ b/examples/demo_task.py
+@@ -9,7 +9,7 @@ from tqdm import trange
+ from omegaconf import OmegaConf
+ 
+ from omni_drones import init_simulation_app
+-from torchrl.data import CompositeSpec
++from torchrl.data import Composite
+ from torchrl.envs.utils import set_exploration_type, ExplorationType
+ from omni_drones.utils.torchrl.transforms import (
+     FromMultiDiscreteAction,
+@@ -63,7 +63,7 @@ def main(cfg):
+ 
+     transforms = [InitTracker()]
+ 
+-    # a CompositeSpec is by default processed by a entity-based encoder
++    # a Composite is by default processed by a entity-based encoder
+     # ravel it to use a MLP encoder instead
+     if artifact_cfg.task.get("ravel_obs", False):
+         transform = ravel_composite(base_env.observation_spec, ("agents", "observation"))
+@@ -74,7 +74,7 @@ def main(cfg):
+     if (
+         artifact_cfg.task.get("ravel_intrinsics", True)
+         and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
+-        and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
++        and isinstance(base_env.observation_spec[("agents", "intrinsics")], Composite)
+     ):
+         transforms.append(ravel_composite(base_env.observation_spec, ("agents", "intrinsics"), start_dim=-1))
+ 
+diff --git a/examples/demo_transport.py b/examples/demo_transport.py
+index aa9cbc1..0d85dff 100644
+--- a/examples/demo_transport.py
++++ b/examples/demo_transport.py
+@@ -15,10 +15,10 @@ def main(cfg):
+     simulation_app = init_simulation_app(cfg)
+     print(OmegaConf.to_yaml(cfg))
+ 
+-    import omni.isaac.core.objects as objects
+-    import omni.isaac.core.utils.prims as prim_utils
++    import isaacsim.core.api.objects as objects
++    import isaacsim.core.utils.prims as prim_utils
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.envs.transport.utils import TransportationGroup, TransportationCfg
+     from omni_drones.robots.drone import MultirotorBase
+ 
+@@ -89,8 +89,8 @@ if __name__ == "__main__":
+ 
+ """
+ 
+-from omni.isaac.core.articulations import ArticulationView
+-from omni.isaac.core.prims import RigidPrimView
++from isaacsim.core.prims import Articulation as ArticulationView
++from isaacsim.core.prims import RigidPrim as RigidPrimView
+ 
+ a = ArticulationView("/World/envs/env_0/TransportationGroup_0")
+ a.initialize()
+diff --git a/examples/test_att_controller.py b/examples/test_att_controller.py
+index 6793289..58b719e 100644
+--- a/examples/test_att_controller.py
++++ b/examples/test_att_controller.py
+@@ -16,7 +16,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.robots.drone import MultirotorBase
+     from omni_drones.utils.torch import euler_to_quaternion, quaternion_to_euler
+     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
+diff --git a/examples/test_dragon.py b/examples/test_dragon.py
+index 5e5d0db..bf898ca 100644
+--- a/examples/test_dragon.py
++++ b/examples/test_dragon.py
+@@ -12,7 +12,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
+     from omni_drones.robots.drone import Dragon
+ 
+diff --git a/examples/test_rate_controller.py b/examples/test_rate_controller.py
+index c797a6f..3f3bb23 100644
+--- a/examples/test_rate_controller.py
++++ b/examples/test_rate_controller.py
+@@ -16,7 +16,7 @@ def main(cfg):
+     print(OmegaConf.to_yaml(cfg))
+ 
+     import omni_drones.utils.scene as scene_utils
+-    from omni.isaac.core.simulation_context import SimulationContext
++    from isaacsim.core.api.simulation_context import SimulationContext
+     from omni_drones.robots.drone import MultirotorBase
+     from omni_drones.utils.torch import euler_to_quaternion, quaternion_to_euler
+     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
+diff --git a/omni_drones/__init__.py b/omni_drones/__init__.py
+index 363e63f..713fa49 100644
+--- a/omni_drones/__init__.py
++++ b/omni_drones/__init__.py
+@@ -33,14 +33,14 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), os.path.pardir, "cfg")
+ def init_simulation_app(cfg):
+     # launch the simulator
+     config = {"headless": cfg["headless"], "anti_aliasing": 1}
+-    # load cheaper kit config in headless
+-    # if cfg.headless:
+-    #     app_experience = f"{os.environ['EXP_PATH']}/omni.isaac.sim.python.gym.headless.kit"
+-    # else:
+-    #     app_experience = f"{os.environ['EXP_PATH']}/omni.isaac.sim.python.kit"
+-    app_experience = f"{os.environ['EXP_PATH']}/omni.isaac.sim.python.kit"
+-    simulation_app = SimulationApp(config, experience=app_experience)
+-    # simulation_app = SimulationApp(config)
++    # Isaac Sim >= 4.5 (pip or binary) picks its own default python experience
++    # (`isaacsim.exp.base.python.kit`); the 4.1-era `$EXP_PATH/omni.isaac.sim.python.kit`
++    # no longer exists. An explicit override is still possible via `cfg["experience"]`.
++    experience = cfg.get("experience", None) if hasattr(cfg, "get") else None
++    if experience:
++        simulation_app = SimulationApp(config, experience=experience)
++    else:
++        simulation_app = SimulationApp(config)
+     return simulation_app
+ 
+ 
+diff --git a/omni_drones/actuators/rotor_group.py b/omni_drones/actuators/rotor_group.py
+index 201db36..91cd8a4 100644
+--- a/omni_drones/actuators/rotor_group.py
++++ b/omni_drones/actuators/rotor_group.py
+@@ -23,6 +23,7 @@
+ 
+ import torch
+ import torch.nn as nn
++from tensordict import TensorDict
+ 
+ 
+ class RotorGroup(nn.Module):
+@@ -51,16 +52,36 @@ class RotorGroup(nn.Module):
+ 
+         self.requires_grad_(False)
+ 
+-    def forward(self, cmds: torch.Tensor):
++    def forward(self, cmds: torch.Tensor, params: TensorDict = None):
++        """Rotor lag model. All ops are elementwise, so ``cmds`` and every entry of
++        ``params`` may carry arbitrary leading batch dims (``[*batch, num_rotors]``).
++
++        ``params`` (see :func:`rotor_group_params`) replaces the module's own
++        parameters -- this is what ``tensordict.nn.make_functional`` + nested
++        ``vmap`` used to do before that API was removed from tensordict. The
++        ``throttle`` entry is updated **in place**, as before.
++        """
++        p = params if params is not None else self._own_params()
++        throttle = p["throttle"]
+         target_throttle = self.f_inv(torch.clamp((cmds + 1) / 2, 0, 1))
+ 
+-        tau = torch.where(target_throttle > self.throttle, self.tau_up, self.tau_down)
++        tau = torch.where(target_throttle > throttle, p["tau_up"], p["tau_down"])
+         tau = torch.clamp(tau, 0, 1)
+-        self.throttle.add_(tau * (target_throttle - self.throttle))
++        throttle.add_(tau * (target_throttle - throttle))
+ 
+-        noise = torch.randn_like(self.throttle) * self.noise_scale * 0.
+-        t = torch.clamp(self.f(self.throttle) + noise, 0., 1.)
+-        thrusts = t * self.KF
+-        moments = (t * self.KM) * -self.directions
++        noise = torch.randn_like(throttle) * self.noise_scale * 0.
++        t = torch.clamp(self.f(throttle) + noise, 0., 1.)
++        thrusts = t * p["KF"]
++        moments = (t * p["KM"]) * -p["directions"]
+ 
+         return thrusts, moments
++
++    def _own_params(self) -> dict:
++        return {k: v.data for k, v in self.named_parameters()}
++
++
++def rotor_group_params(rotors: RotorGroup) -> TensorDict:
++    """The rotor group's parameters as a batch-less TensorDict (KF, KM, throttle,
++    directions, tau_up, tau_down) -- ``.expand(shape).clone()`` it to get one
++    independent set per drone, then pass it as ``rotors(cmds, params)``."""
++    return TensorDict({k: v.data.clone() for k, v in rotors.named_parameters()}, [])
 diff --git a/omni_drones/envs/__init__.py b/omni_drones/envs/__init__.py
-index 618a194..419e86f 100644
+index 618a194..4e5d516 100644
 --- a/omni_drones/envs/__init__.py
 +++ b/omni_drones/envs/__init__.py
+@@ -31,10 +31,12 @@ from .formation import Formation
+ from .rearrange import Rearrange
+ from .isaac_env import IsaacEnv
+ 
++# optional envs (see single/__init__.py for what each one needs)
++try:
++    from .single import HoverShelfGrasp
++except ImportError:
++    pass
+ try:
+     from .single import Forest, Pinball
+-except ModuleNotFoundError:
+-    print(
+-        "To run the environments which use `ContactSensor` and `RayCaster`,"
+-        "please install Isaac Lab (https://github.com/isaac-sim/IsaacLab)."
+-    )
++except ImportError:
++    pass
+diff --git a/omni_drones/envs/dragon/hover.py b/omni_drones/envs/dragon/hover.py
+index c33d0e0..2a12671 100644
+--- a/omni_drones/envs/dragon/hover.py
++++ b/omni_drones/envs/dragon/hover.py
+@@ -24,7 +24,7 @@
+ import torch
+ import torch.distributions as D
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ 
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+ from omni_drones.robots.drone.dragon import Dragon, DragonCfg
+@@ -32,7 +32,7 @@ from omni_drones.views import ArticulationView, RigidPrimView
+ from omni_drones.utils.torch import euler_to_quaternion, quat_axis
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+ from hydra.core.config_store import ConfigStore
+ from dataclasses import dataclass
+@@ -141,20 +141,20 @@ class DragonHover(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim), device=self.device),
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim), device=self.device),
+                 "intrinsics": self.drone.intrinsics_spec.unsqueeze(0).to(self.device)
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -165,12 +165,12 @@ class DragonHover(IsaacEnv):
+             state_key=("agents", "intrinsics")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/formation.py b/omni_drones/envs/formation.py
+index 9ed3b86..72547b4 100644
+--- a/omni_drones/envs/formation.py
++++ b/omni_drones/envs/formation.py
+@@ -31,7 +31,7 @@ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv, List, Optional
+ from omni_drones.utils.torch import cpos, off_diag, others, make_cells, euler_to_quaternion
+ from omni_drones.robots.drone import MultirotorBase
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec, DiscreteTensorSpec
++from torchrl.data import Composite, Unbounded, Categorical
+ 
+ REGULAR_HEXAGON = [
+     [0, 0, 0],
+@@ -151,27 +151,27 @@ class Formation(IsaacEnv):
+             self.time_encoding_dim = 4
+             obs_self_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, obs_self_dim)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, obs_self_dim)),
++            "obs_others": Unbounded((self.drone.n-1, 13+1)),
+         }).to(self.device)
+-        observation_central_spec = CompositeSpec({
+-            "drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim)),
++        observation_central_spec = Composite({
++            "drones": Unbounded((self.drone.n, drone_state_dim)),
+         }).to(self.device)
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -183,12 +183,12 @@ class Formation(IsaacEnv):
+             state_key=("agents", "observation_central")
+         )
+          # additional infos & buffers
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            # "cost_laplacian": UnboundedContinuousTensorSpec((self.num_envs, 1)),
+-            "cost_hausdorff": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1)
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            # "cost_laplacian": Unbounded((self.num_envs, 1)),
++            "cost_hausdorff": Unbounded(1),
++            "pos_error": Unbounded(1)
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+@@ -205,7 +205,10 @@ class Formation(IsaacEnv):
+         self.drone.set_world_poses(pos, rot, env_ids)
+         self.drone.set_velocities(vel, env_ids)
+ 
+-        self.last_cost_h[env_ids] = vmap(cost_formation_hausdorff)(
++        # `cost_formation_hausdorff` is already `@vmap`-decorated (see its use in
++        # `_compute_reward_and_done`); wrapping it in a second vmap here strips the
++        # agent dim too and fails on `p.mean(-2)`.
++        self.last_cost_h[env_ids] = cost_formation_hausdorff(
+             pos, desired_p=self.formation
+         )
+         # self.last_cost_l[env_ids] = vmap(cost_formation_laplacian)(
+diff --git a/omni_drones/envs/inv_pendulum/inv_pendulum_fly_through.py b/omni_drones/envs/inv_pendulum/inv_pendulum_fly_through.py
+index 2948d83..a6d7f94 100644
+--- a/omni_drones/envs/inv_pendulum/inv_pendulum_fly_through.py
++++ b/omni_drones/envs/inv_pendulum/inv_pendulum_fly_through.py
+@@ -25,13 +25,13 @@ import torch
+ import torch.distributions as D
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    UnboundedContinuousTensorSpec,
+-    CompositeSpec,
+-    DiscreteTensorSpec
++    Unbounded,
++    Composite,
++    Categorical
+ )
+ 
+-import omni.isaac.core.objects as objects
+-from omni.isaac.debug_draw import _debug_draw
++import isaacsim.core.api.objects as objects
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion, normalize
+@@ -212,19 +212,19 @@ class InvPendulumFlyThrough(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim)) ,
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim)) ,
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -233,13 +233,13 @@ class InvPendulumFlyThrough(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "collision": UnboundedContinuousTensorSpec(1),
+-            "success": DiscreteTensorSpec(2, (1,), dtype=bool),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "collision": Unbounded(1),
++            "success": Categorical(2, (1,), dtype=bool),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/inv_pendulum/inv_pendulum_hover.py b/omni_drones/envs/inv_pendulum/inv_pendulum_hover.py
+index 3cdbb55..25a7864 100644
+--- a/omni_drones/envs/inv_pendulum/inv_pendulum_hover.py
++++ b/omni_drones/envs/inv_pendulum/inv_pendulum_hover.py
+@@ -24,9 +24,9 @@
+ import torch
+ import torch.distributions as D
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+-import omni.isaac.core.objects as objects
++import isaacsim.core.api.objects as objects
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion, normalize
+@@ -165,19 +165,19 @@ class InvPendulumHover(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim)) ,
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim)) ,
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -186,11 +186,11 @@ class InvPendulumHover(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/inv_pendulum/inv_pendulum_track.py b/omni_drones/envs/inv_pendulum/inv_pendulum_track.py
+index d688b16..f4945b0 100644
+--- a/omni_drones/envs/inv_pendulum/inv_pendulum_track.py
++++ b/omni_drones/envs/inv_pendulum/inv_pendulum_track.py
+@@ -25,11 +25,11 @@ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+-import omni.isaac.core.objects as objects
++import isaacsim.core.api.objects as objects
+ import omni_drones.utils.kit as kit_utils
+-from omni.isaac.debug_draw import _debug_draw
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ from omni_drones.utils.torch import euler_to_quaternion, normalize, quat_rotate
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+@@ -178,19 +178,19 @@ class InvPendulumTrack(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim)),
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim)),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -199,12 +199,12 @@ class InvPendulumTrack(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "tracking_error": UnboundedContinuousTensorSpec(1),
+-            "tracking_error_ema": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "tracking_error": Unbounded(1),
++            "tracking_error_ema": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/inv_pendulum/utils.py b/omni_drones/envs/inv_pendulum/utils.py
+index 0751f96..c1c91d6 100644
+--- a/omni_drones/envs/inv_pendulum/utils.py
++++ b/omni_drones/envs/inv_pendulum/utils.py
+@@ -23,9 +23,9 @@
+ 
+ import torch
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+-import omni.isaac.core.objects as objects
++import isaacsim.core.api.objects as objects
+ from pxr import UsdPhysics
+ 
+ def create_pendulum(
+diff --git a/omni_drones/envs/isaac_env.py b/omni_drones/envs/isaac_env.py
+index ab561f6..4ec3cfe 100644
+--- a/omni_drones/envs/isaac_env.py
++++ b/omni_drones/envs/isaac_env.py
+@@ -30,20 +30,20 @@ import torch
+ import logging
+ import carb
+ import numpy as np
+-from omni.isaac.cloner import GridCloner
+-from omni.isaac.core.simulation_context import SimulationContext
+-from omni.isaac.core.utils import prims as prim_utils, stage as stage_utils
+-from omni.isaac.core.utils.extensions import enable_extension
+-from omni.isaac.core.utils.viewports import set_camera_view
++from isaacsim.core.cloner import GridCloner
++from isaacsim.core.api.simulation_context import SimulationContext
++from isaacsim.core.utils import prims as prim_utils, stage as stage_utils
++from isaacsim.core.utils.extensions import enable_extension
++from isaacsim.core.utils.viewports import set_camera_view
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import CompositeSpec, TensorSpec, DiscreteTensorSpec
++from torchrl.data import Composite, TensorSpec, Categorical
+ from torchrl.envs import EnvBase
+ 
+ from omni_drones.robots.robot import RobotBase
+ from omni_drones.utils.torchrl import AgentSpec
+ 
+-from omni.isaac.debug_draw import _debug_draw
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ class DebugDraw:
+     def __init__(self):
+@@ -108,6 +108,11 @@ class IsaacEnv(EnvBase):
+             if "physx" in sim_params:
+                 physx_params = sim_params.pop("physx")
+                 sim_params.update(physx_params)
++        # Isaac Sim 4.1 called it `use_flatcache`; from 4.5 on PhysicsContext only
++        # reads `use_fabric`. Without it a GPU-pipeline scene still simulates, but
++        # nothing moves in the viewport (PhysX stops writing transforms back to USD).
++        if sim_params is not None and "use_flatcache" in sim_params and "use_fabric" not in sim_params:
++            sim_params["use_fabric"] = sim_params["use_flatcache"]
+         # set flags for simulator
+         self._configure_simulation_flags(sim_params)
+         self.sim = SimulationContext(
+@@ -177,10 +182,10 @@ class IsaacEnv(EnvBase):
+             self.batch_size,
+         )
+         self.progress_buf = self._tensordict["progress"]
+-        self.done_spec = CompositeSpec({
+-            "done": DiscreteTensorSpec(2, (1,), dtype=torch.bool),
+-            "terminated": DiscreteTensorSpec(2, (1,), dtype=torch.bool),
+-            "truncated": DiscreteTensorSpec(2, (1,), dtype=torch.bool),
++        self.done_spec = Composite({
++            "done": Categorical(2, (1,), dtype=torch.bool),
++            "terminated": Categorical(2, (1,), dtype=torch.bool),
++            "truncated": Categorical(2, (1,), dtype=torch.bool),
+         }).expand(self.num_envs).to(self.device)
+         self._set_specs()
+ 
+@@ -194,6 +199,38 @@ class IsaacEnv(EnvBase):
+             IsaacEnv.REGISTRY[cls.__name__] = cls
+             IsaacEnv.REGISTRY[cls.__name__.lower()] = cls
+ 
++    # -- spec access -------------------------------------------------------------
++    # torchrl <= 0.3 returned the bare leaf spec from `env.action_spec` /
++    # `env.reward_spec` whenever the env had exactly ONE action / reward key, whatever
++    # its name (e.g. ("agents", "action")). torchrl >= 0.4 only does that when the key
++    # is literally "action" / "reward" and otherwise hands back the whole Composite.
++    # Every caller here (policies doing `action_spec.shape[-2:]`, the run scripts
++    # building zero actions from `env.action_spec.shape`, AgentSpec) was written
++    # against the old contract, so keep it. `full_action_spec` / `full_reward_spec`
++    # are untouched and always the Composite.
++    @staticmethod
++    def _unwrap_single_leaf(full_spec, keys):
++        keys = list(keys)
++        if len(keys) == 1:
++            return full_spec[keys[0]]
++        return full_spec
++
++    @property
++    def action_spec(self):
++        return self._unwrap_single_leaf(self.input_spec["full_action_spec"], self.action_keys)
++
++    @action_spec.setter
++    def action_spec(self, value):
++        EnvBase.action_spec.fset(self, value)
++
++    @property
++    def reward_spec(self):
++        return self._unwrap_single_leaf(self.output_spec["full_reward_spec"], self.reward_keys)
++
++    @reward_spec.setter
++    def reward_spec(self, value):
++        EnvBase.reward_spec.fset(self, value)
++
+     @property
+     def agent_spec(self):
+         if not hasattr(self, "_agent_spec"):
+@@ -316,17 +353,19 @@ class IsaacEnv(EnvBase):
+                 enable_extension("omni.kit.window.toolbar")
+                 # extension to make RTX realtime and path-traced renderers
+                 enable_extension("omni.kit.viewport.rtx")
+-                # extension to make HydraDelegate renderers
+-                enable_extension("omni.kit.viewport.pxr")
++                # NOTE: "omni.kit.viewport.pxr" (Storm/HydraDelegate renderers) is not
++                # bundled with Isaac Sim >= 4.5 -- enabling it makes Kit download it
++                # from the online registry. RTX is all this project uses, so skip it.
+             # enable viewport extension if not running in headless mode
+             enable_extension("omni.kit.viewport.bundle")
+             # load extra render extensions if requested
+             if self.enable_viewport:
+                 # extension for window status bar
+                 enable_extension("omni.kit.window.status_bar")
+-        # enable isaac replicator extension
+-        # note: moved here since it requires to have the viewport extension to be enabled first.
+-        enable_extension("omni.replicator.isaac")
++        # NOTE: "omni.replicator.isaac" no longer exists in Isaac Sim >= 4.5 (it became
++        # the now-deprecated "isaacsim.replicator.domain_randomization") and nothing in
++        # this package uses it -- `omni.replicator.core` (used for the viewport render
++        # product / seeding) is part of the default python experience already.
+ 
+     def to(self, device) -> EnvBase:
+         if torch.device(device) != self.device:
+diff --git a/omni_drones/envs/payload/payload_fly_through.py b/omni_drones/envs/payload/payload_fly_through.py
+index ec01d8f..12a18b6 100644
+--- a/omni_drones/envs/payload/payload_fly_through.py
++++ b/omni_drones/envs/payload/payload_fly_through.py
+@@ -25,14 +25,14 @@ import torch
+ import torch.distributions as D
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    UnboundedContinuousTensorSpec,
+-    CompositeSpec,
+-    BinaryDiscreteTensorSpec,
+-    DiscreteTensorSpec
++    Unbounded,
++    Composite,
++    Binary,
++    Categorical
+ )
+ 
+-import omni.isaac.core.objects as objects
+-from omni.isaac.debug_draw import _debug_draw
++import isaacsim.core.api.objects as objects
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion
+@@ -202,19 +202,19 @@ class PayloadFlyThrough(IsaacEnv):
+         if self.time_encoding:
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim))
++                "observation": Unbounded((1, observation_dim))
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": self.drone.action_spec.unsqueeze(0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++                "reward": Unbounded((1, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -223,13 +223,13 @@ class PayloadFlyThrough(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "payload_pos_error": UnboundedContinuousTensorSpec(1),
+-            "drone_uprightness": UnboundedContinuousTensorSpec(1),
+-            "collision": UnboundedContinuousTensorSpec(1),
+-            "success": BinaryDiscreteTensorSpec(1, dtype=bool),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "payload_pos_error": Unbounded(1),
++            "drone_uprightness": Unbounded(1),
++            "collision": Unbounded(1),
++            "success": Binary(1, dtype=bool),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/payload/payload_hover.py b/omni_drones/envs/payload/payload_hover.py
+index 4a4d534..cacb9dc 100644
+--- a/omni_drones/envs/payload/payload_hover.py
++++ b/omni_drones/envs/payload/payload_hover.py
+@@ -20,8 +20,8 @@
+ # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ # SOFTWARE.
+ 
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.objects as objects
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.api.objects as objects
+ import omni_drones.utils.kit as kit_utils
+ 
+ import torch
+@@ -33,8 +33,8 @@ from omni_drones.views import RigidPrimView
+ from omni_drones.utils.torch import euler_to_quaternion
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+-from omni.isaac.debug_draw import _debug_draw
++from torchrl.data import Unbounded, Composite, Categorical
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ from .utils import attach_payload
+ 
+@@ -163,19 +163,19 @@ class PayloadHover(IsaacEnv):
+             self.time_encoding_dim = 4
+             obs_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+-                "observation": UnboundedContinuousTensorSpec((1, obs_dim))
++                "observation": Unbounded((1, obs_dim))
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": self.drone.action_spec.unsqueeze(0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++                "reward": Unbounded((1, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -184,12 +184,12 @@ class PayloadHover(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
+-            # "motion_smoothness": UnboundedContinuousTensorSpec(1)
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "action_smoothness": Unbounded(1),
++            # "motion_smoothness": Unbounded(1)
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/payload/payload_track.py b/omni_drones/envs/payload/payload_track.py
+index 31fd9d4..32f5bf1 100644
+--- a/omni_drones/envs/payload/payload_track.py
++++ b/omni_drones/envs/payload/payload_track.py
+@@ -23,7 +23,7 @@
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+@@ -33,8 +33,8 @@ from omni_drones.robots.drone import MultirotorBase
+ from omni_drones.views import RigidPrimView
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+-from omni.isaac.debug_draw import _debug_draw
++from torchrl.data import Unbounded, Composite, Categorical
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ from ..utils import lemniscate, scale_time
+ from .utils import attach_payload
+@@ -176,20 +176,20 @@ class PayloadTrack(IsaacEnv):
+         if self.time_encoding:
+             self.time_encoding_dim = 4
+             obs_dim += self.time_encoding_dim
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+-                "observation": UnboundedContinuousTensorSpec((1, obs_dim)),
++                "observation": Unbounded((1, obs_dim)),
+                 # "intrinsics": self.drone.intrinsics_spec.unsqueeze(0).to(self.device)
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": self.drone.action_spec.unsqueeze(0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++                "reward": Unbounded((1, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -199,11 +199,11 @@ class PayloadTrack(IsaacEnv):
+             reward_key=("agents", "reward"),
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "tracking_error": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "tracking_error": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/payload/utils.py b/omni_drones/envs/payload/utils.py
+index e4c6452..10b7ffc 100644
+--- a/omni_drones/envs/payload/utils.py
++++ b/omni_drones/envs/payload/utils.py
+@@ -21,10 +21,10 @@
+ # SOFTWARE.
+ 
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+ from pxr import UsdPhysics
+-import omni.isaac.core.objects as objects
++import isaacsim.core.api.objects as objects
+ 
+ import omni_drones.utils.kit as kit_utils
+ from ..utils import create_bar
+diff --git a/omni_drones/envs/platform/platform_fly_through.py b/omni_drones/envs/platform/platform_fly_through.py
+index e9c3218..34fb515 100644
+--- a/omni_drones/envs/platform/platform_fly_through.py
++++ b/omni_drones/envs/platform/platform_fly_through.py
+@@ -25,10 +25,10 @@ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+ 
+-import omni.isaac.core.utils.torch as torch_utils
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.torch as torch_utils
++import isaacsim.core.utils.prims as prim_utils
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+ import omni_drones.utils.kit as kit_utils
+ 
+@@ -53,7 +53,7 @@ class PlatformFlyThrough(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation is a `CompositeSpec` containing the following items:
++    The observation is a `Composite` containing the following items:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the frame center, and an one-hot
+@@ -205,29 +205,29 @@ class PlatformFlyThrough(IsaacEnv):
+             self.time_encoding_dim = 4
+             frame_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim + self.drone.n)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim + self.drone.n)),
++            "obs_others": Unbounded((self.drone.n-1, 13)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim + self.drone.n)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim + self.drone.n)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             },
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -238,13 +238,13 @@ class PlatformFlyThrough(IsaacEnv):
+             state_key=("agents", "observation_central")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "effort": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "effort": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/platform/platform_hover.py b/omni_drones/envs/platform/platform_hover.py
+index 0674b38..4385e65 100644
+--- a/omni_drones/envs/platform/platform_hover.py
++++ b/omni_drones/envs/platform/platform_hover.py
+@@ -25,10 +25,10 @@ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+ 
+-import omni.isaac.core.utils.torch as torch_utils
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.torch as torch_utils
++import isaacsim.core.utils.prims as prim_utils
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+ import omni_drones.utils.kit as kit_utils
+ 
+@@ -53,7 +53,7 @@ class PlatformHover(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation is a `CompositeSpec` containing the following items:
++    The observation is a `Composite` containing the following items:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the frame center, and an one-hot
+@@ -169,29 +169,29 @@ class PlatformHover(IsaacEnv):
+             self.time_encoding_dim = 4
+             frame_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim + self.drone.n)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim + self.drone.n)),
++            "obs_others": Unbounded((self.drone.n-1, 13)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim + self.drone.n)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim + self.drone.n)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             },
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -202,13 +202,13 @@ class PlatformHover(IsaacEnv):
+             state_key=("agents", "observation_central")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "effort": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "effort": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/platform/platform_track.py b/omni_drones/envs/platform/platform_track.py
+index 379271a..0f1c868 100644
+--- a/omni_drones/envs/platform/platform_track.py
++++ b/omni_drones/envs/platform/platform_track.py
+@@ -25,13 +25,13 @@ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+ 
+-import omni.isaac.core.objects as objects
+-from omni.isaac.debug_draw import _debug_draw
++import isaacsim.core.api.objects as objects
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ import omni_drones.utils.kit as kit_utils
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+ from omni_drones.views import RigidPrimView
+@@ -54,7 +54,7 @@ class PlatformTrack(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation is a `CompositeSpec` containing:
++    The observation is a `Composite` containing:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the frame center, and an one-hot
+@@ -196,29 +196,29 @@ class PlatformTrack(IsaacEnv):
+             self.time_encoding_dim = 4
+             frame_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim + self.drone.n)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim + self.drone.n)),
++            "obs_others": Unbounded((self.drone.n-1, 13)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim + self.drone.n)),
+-            "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim + self.drone.n)),
++            "state_frame": Unbounded((1, frame_state_dim)),
+         }).to(self.device)
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             },
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -229,13 +229,13 @@ class PlatformTrack(IsaacEnv):
+             state_key=("agents", "observation_central")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "effort": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "effort": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/platform/utils.py b/omni_drones/envs/platform/utils.py
+index 63b8868..ee15539 100644
+--- a/omni_drones/envs/platform/utils.py
++++ b/omni_drones/envs/platform/utils.py
+@@ -24,8 +24,8 @@
+ from typing import Sequence, Union, Optional
+ from dataclasses import dataclass
+ 
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.utils.stage as stage_utils
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.utils.stage as stage_utils
+ import omni_drones.utils.kit as kit_utils
+ import omni.physx.scripts.utils as script_utils
+ from omni.kit.commands import execute
+@@ -175,7 +175,9 @@ class OveractuatedPlatform(RobotBase):
+             ], dim=-1) * self.arm_lengths.unsqueeze(1)
+ 
+             drone_rotations = torch.tensor(
+-                Rotation.from_euler("z", -self.arm_angles)
++                # scipy >= 1.15 wants (N, 1) for N single-axis rotations; a flat (N,)
++                # array is now read as one rotation about N axes and rejected.
++                Rotation.from_euler("z", (-self.arm_angles).reshape(-1, 1).cpu().numpy())
+                 .as_quat()[:, [3, 0, 1, 2]]
+             )
+ 
+diff --git a/omni_drones/envs/rearrange.py b/omni_drones/envs/rearrange.py
+index 4136281..94ca370 100644
+--- a/omni_drones/envs/rearrange.py
++++ b/omni_drones/envs/rearrange.py
 @@ -21,7 +21,7 @@
  # SOFTWARE.
  
  
--from .single import Hover, Track, FlyThrough, ArmTrajectory
-+from .single import Hover, HoverShelfGrasp, Track, FlyThrough, ArmTrajectory
- from .payload import PayloadHover, PayloadTrack, PayloadFlyThrough
- from .inv_pendulum import InvPendulumHover, InvPendulumTrack, InvPendulumFlyThrough
- from .dragon import DragonHover
+-import omni.isaac.core.utils.torch as torch_utils
++import isaacsim.core.utils.torch as torch_utils
+ import omni_drones.utils.kit as kit_utils
+ import omni_drones.utils.scene as scene_utils
+ import torch
+@@ -32,7 +32,7 @@ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv, List, Optional
+ from omni_drones.utils.torch import cpos, off_diag, others, euler_to_quaternion
+ from omni_drones.robots.drone import MultirotorBase
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec
++from torchrl.data import Composite, Unbounded
+ 
+ def sample_from_grid(cells: torch.Tensor, n):
+     idx = torch.randperm(cells.shape[0], device=cells.device)[:n]
+@@ -49,13 +49,13 @@ class Rearrange(IsaacEnv):
+         self.init_poses = self.drone.get_world_poses(clone=True)
+ 
+         drone_state_dim = self.drone.state_spec.shape[0]
+-        observation_spec = CompositeSpec({
+-            "state_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
+-            "state_others": UnboundedContinuousTensorSpec((self.drone.n-1, drone_state_dim+1)),
++        observation_spec = Composite({
++            "state_self": Unbounded((1, drone_state_dim)),
++            "state_others": Unbounded((self.drone.n-1, drone_state_dim+1)),
+         }).to(self.device)
+ 
+-        state_spec = CompositeSpec({
+-            "drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim))
++        state_spec = Composite({
++            "drones": Unbounded((self.drone.n, drone_state_dim))
+         }).to(self.device)
+ 
+         self.agent_spec["drone"] = AgentSpec(
+@@ -63,7 +63,7 @@ class Rearrange(IsaacEnv):
+             self.drone.n,
+             observation_spec,
+             self.drone.action_spec.to(self.device),
+-            UnboundedContinuousTensorSpec(1).to(self.device),
++            Unbounded(1).to(self.device),
+             state_spec,
+         )
+ 
+@@ -76,10 +76,10 @@ class Rearrange(IsaacEnv):
+ 
+         self.alpha = 0.7
+         # additional infos & buffers
+-        stats_spec = CompositeSpec({
+-            "pos_error": UnboundedContinuousTensorSpec(self.drone.n, 1),
+-            "effort": UnboundedContinuousTensorSpec(self.drone.n, 1),
+-            # "collision": UnboundedContinuousTensorSpec(1)
++        stats_spec = Composite({
++            "pos_error": Unbounded(self.drone.n, 1),
++            "effort": Unbounded(self.drone.n, 1),
++            # "collision": Unbounded(1)
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
 diff --git a/omni_drones/envs/single/__init__.py b/omni_drones/envs/single/__init__.py
-index 32208f6..2868295 100644
+index 32208f6..f1b7669 100644
 --- a/omni_drones/envs/single/__init__.py
 +++ b/omni_drones/envs/single/__init__.py
-@@ -22,6 +22,7 @@
+@@ -21,9 +21,23 @@
+ # SOFTWARE.
  
  
++import logging as _logging
++
  from .hover import Hover
-+from .hover_shelf_grasp import HoverShelfGrasp
  from .track import Track
  from .fly_through import FlyThrough
- from .forest import Forest
+-from .forest import Forest
+-from .pinball import Pinball
+ from .arm_trajectory import ArmTrajectory
++
++# Optional envs: each needs something that is not part of a plain Isaac Sim
++# install, so a missing dependency must not take the whole package down.
++try:
++    # needs the raids-am-simulator checkout (build_isaacsim_scene.py)
++    from .hover_shelf_grasp import HoverShelfGrasp
++except ModuleNotFoundError as _e:
++    _logging.info("HoverShelfGrasp unavailable: %s", _e)
++try:
++    # need Isaac Lab (ContactSensor / RayCaster / terrains)
++    from .forest import Forest
++    from .pinball import Pinball
++except ModuleNotFoundError as _e:
++    _logging.info("Forest/Pinball unavailable (Isaac Lab not installed): %s", _e)
+diff --git a/omni_drones/envs/single/fly_through.py b/omni_drones/envs/single/fly_through.py
+index 40a2cf4..25f5857 100644
+--- a/omni_drones/envs/single/fly_through.py
++++ b/omni_drones/envs/single/fly_through.py
+@@ -25,17 +25,17 @@ import torch
+ import torch.distributions as D
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    UnboundedContinuousTensorSpec,
+-    CompositeSpec,
+-    BinaryDiscreteTensorSpec,
+-    DiscreteTensorSpec
++    Unbounded,
++    Composite,
++    Binary,
++    Categorical
+ )
+ 
+-import omni.isaac.core.utils.torch as torch_utils
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.torch as torch_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+-import omni.isaac.core.objects as objects
+-from omni.isaac.debug_draw import _debug_draw
++import isaacsim.core.api.objects as objects
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion
+@@ -190,19 +190,19 @@ class FlyThrough(IsaacEnv):
+         if self.time_encoding:
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim))
++                "observation": Unbounded((1, observation_dim))
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": self.drone.action_spec.unsqueeze(0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++                "reward": Unbounded((1, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -211,13 +211,13 @@ class FlyThrough(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "drone_uprightness": UnboundedContinuousTensorSpec(1),
+-            "collision": UnboundedContinuousTensorSpec(1),
+-            "success": BinaryDiscreteTensorSpec(1, dtype=bool),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "drone_uprightness": Unbounded(1),
++            "collision": Unbounded(1),
++            "success": Binary(1, dtype=bool),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/single/forest.py b/omni_drones/envs/single/forest.py
+index 923cbe2..57a64e2 100644
+--- a/omni_drones/envs/single/forest.py
++++ b/omni_drones/envs/single/forest.py
+@@ -30,9 +30,9 @@ from omni_drones.views import ArticulationView, RigidPrimView
+ from omni_drones.utils.torch import euler_to_quaternion, quat_axis
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+-from omni.isaac.core.utils.viewports import set_camera_view
++from isaacsim.core.utils.viewports import set_camera_view
+ 
+ 
+ class Forest(IsaacEnv):
+@@ -47,7 +47,7 @@ class Forest(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation is given by a `CompositeSpec` containing the following values:
++    The observation is given by a `Composite` containing the following values:
+ 
+     - `"state"` (16 + `num_rotors`): The basic information of the drone
+       (except its position), containing its rotation (in quaternion), velocities
+@@ -130,16 +130,16 @@ class Forest(IsaacEnv):
+ 
+         drone_prim = self.drone.spawn(translations=[(0.0, 0.0, 2.)])[0]
+ 
+-        import omni.isaac.lab.sim as sim_utils
+-        from omni.isaac.lab.assets import AssetBaseCfg
+-        from omni.isaac.lab.sensors import RayCaster, RayCasterCfg, patterns
+-        from omni.isaac.lab.terrains import (
++        import isaaclab.sim as sim_utils
++        from isaaclab.assets import AssetBaseCfg
++        from isaaclab.sensors import RayCaster, RayCasterCfg, patterns
++        from isaaclab.terrains import (
+             TerrainImporterCfg,
+             TerrainImporter,
+             TerrainGeneratorCfg,
+             HfDiscreteObstaclesTerrainCfg,
+         )
+-        # from omni.isaac.lab.utils.assets import NVIDIA_NUCLEUS_DIR
++        # from isaaclab.utils.assets import NVIDIA_NUCLEUS_DIR
+ 
+         light = AssetBaseCfg(
+             prim_path="/World/light",
+@@ -213,23 +213,23 @@ class Forest(IsaacEnv):
+         drone_state_dim = self.drone.state_spec.shape[-1]
+         observation_dim = drone_state_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": CompositeSpec({
+-                    "state": UnboundedContinuousTensorSpec((observation_dim,), device=self.device),
+-                    "lidar": UnboundedContinuousTensorSpec((1, 36, 4), device=self.device),
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Composite({
++                    "state": Unbounded((observation_dim,), device=self.device),
++                    "lidar": Unbounded((1, 36, 4), device=self.device),
+                 }),
+                 "intrinsics": self.drone.intrinsics_spec.to(self.device)
+             }).expand(self.num_envs)
+         }, shape=[self.num_envs], device=self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec,
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1,))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1,))
+             })
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -240,11 +240,11 @@ class Forest(IsaacEnv):
+             state_key=("agents", "intrinsics")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
+-            "safety": UnboundedContinuousTensorSpec(1)
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "action_smoothness": Unbounded(1),
++            "safety": Unbounded(1)
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
 diff --git a/omni_drones/envs/single/hover.py b/omni_drones/envs/single/hover.py
-index d7afbaf..2025a6a 100644
+index d7afbaf..8eedea8 100644
 --- a/omni_drones/envs/single/hover.py
 +++ b/omni_drones/envs/single/hover.py
+@@ -25,7 +25,7 @@ import math
+ import torch
+ import torch.distributions as D
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ 
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+ from omni_drones.robots.drone import MultirotorBase
+@@ -33,11 +33,11 @@ from omni_drones.views import ArticulationView, RigidPrimView
+ from omni_drones.utils.torch import euler_to_quaternion, quat_axis
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
++from torchrl.data import Unbounded, Composite, Categorical
+ 
+ 
+ def attach_payload(parent_path):
+-    from omni.isaac.core import objects
++    from isaacsim.core.api import objects
+     import omni.physx.scripts.utils as script_utils
+     from pxr import UsdPhysics
+ 
 @@ -118,6 +118,13 @@ class Hover(IsaacEnv):
          self.reward_action_smoothness_weight = cfg.task.reward_action_smoothness_weight
          self.reward_distance_scale = cfg.task.reward_distance_scale
@@ -132,17 +1668,82 @@ index d7afbaf..2025a6a 100644
          if "drone" in self.randomization:
              self.drone.setup_randomization(self.randomization["drone"])
          if "payload" in self.randomization:
-@@ -398,6 +482,10 @@ class Hover(IsaacEnv):
-             "agents": CompositeSpec({
-                 "observation": UnboundedContinuousTensorSpec((1, observation_dim), device=self.device),
+@@ -316,7 +400,7 @@ class Hover(IsaacEnv):
+ 
+     def _design_scene(self):
+         import omni_drones.utils.kit as kit_utils
+-        import omni.isaac.core.utils.prims as prim_utils
++        import isaacsim.core.utils.prims as prim_utils
+ 
+         drone_model_cfg = self.cfg.task.drone_model
+         self.drone, self.controller = MultirotorBase.make(
+@@ -357,7 +441,7 @@ class Hover(IsaacEnv):
+                 disable_gravity=True,
+             )
+         else:
+-            from omni.isaac.core.objects import DynamicCuboid
++            from isaacsim.core.api.objects import DynamicCuboid
+ 
+             DynamicCuboid(
+                 target_prim_path,
+@@ -394,20 +478,24 @@ class Hover(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim), device=self.device),
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim), device=self.device),
                  "intrinsics": self.drone.intrinsics_spec.unsqueeze(0).to(self.device)
 +            }),
 +            # Full drone state, consumed by RateController/AttitudeController action transforms.
-+            "info": CompositeSpec({
-+                "drone_state": UnboundedContinuousTensorSpec((1, drone_state_dim), device=self.device),
++            "info": Composite({
++                "drone_state": Unbounded((1, drone_state_dim), device=self.device),
              })
          }).expand(self.num_envs).to(self.device)
-         self.action_spec = CompositeSpec({
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+ 
+@@ -419,15 +507,15 @@ class Hover(IsaacEnv):
+             state_key=("agents", "intrinsics")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "uprightness": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
+-            "mean_throttle": UnboundedContinuousTensorSpec(1),
+-            "mean_thrust_n": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "uprightness": Unbounded(1),
++            "action_smoothness": Unbounded(1),
++            "mean_throttle": Unbounded(1),
++            "mean_thrust_n": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
 @@ -440,6 +528,27 @@ class Hover(IsaacEnv):
              self.drone.reset_arm_joints(env_ids)
          elif self._arm_trajectory_enabled:
@@ -301,18 +1902,113 @@ index d7afbaf..2025a6a 100644
          )
          reward = torch.nan_to_num(reward, nan=0.0, posinf=0.0, neginf=0.0)
  
+diff --git a/omni_drones/envs/single/pinball.py b/omni_drones/envs/single/pinball.py
+index 5ff23a3..8c94ea4 100644
+--- a/omni_drones/envs/single/pinball.py
++++ b/omni_drones/envs/single/pinball.py
+@@ -23,9 +23,9 @@
+ 
+ import omni_drones.utils.kit as kit_utils
+ from omni_drones.utils.torch import euler_to_quaternion, normalize
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.objects as objects
+-import omni.isaac.core.materials as materials
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.api.objects as objects
++import isaacsim.core.api.materials as materials
+ import torch
+ import torch.distributions as D
+ 
+@@ -34,13 +34,13 @@ from omni_drones.robots.drone import MultirotorBase
+ from omni_drones.views import RigidPrimView
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    UnboundedContinuousTensorSpec,
+-    CompositeSpec,
+-    DiscreteTensorSpec
++    Unbounded,
++    Composite,
++    Categorical
+ )
+ from pxr import UsdShade, PhysxSchema
+ 
+-from omni.isaac.lab.sensors import ContactSensorCfg, ContactSensor
++from isaaclab.sensors import ContactSensorCfg, ContactSensor
+ 
+ class Pinball(IsaacEnv):
+     """
+@@ -161,19 +161,19 @@ class Pinball(IsaacEnv):
+             self.time_encoding_dim = 4
+             observation_dim += self.time_encoding_dim
+ 
+-        self.observation_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "observation": UnboundedContinuousTensorSpec((1, observation_dim)),
++        self.observation_spec = Composite({
++            "agents": Composite({
++                "observation": Unbounded((1, observation_dim)),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
+-            "agents": CompositeSpec({
++        self.action_spec = Composite({
++            "agents": Composite({
+                 "action": self.drone.action_spec.unsqueeze(0),
+             })
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
+-            "agents": CompositeSpec({
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++        self.reward_spec = Composite({
++            "agents": Composite({
++                "reward": Unbounded((1, 1))
+             })
+         }).expand(self.num_envs).to(self.device)
+ 
+@@ -184,11 +184,11 @@ class Pinball(IsaacEnv):
+             reward_key="drone.reward",
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "score": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "score": Unbounded(1),
++            "action_smoothness": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
 diff --git a/omni_drones/envs/single/track.py b/omni_drones/envs/single/track.py
-index d554896..c494266 100644
+index d554896..146cec7 100644
 --- a/omni_drones/envs/single/track.py
 +++ b/omni_drones/envs/single/track.py
-@@ -21,6 +21,7 @@
+@@ -21,9 +21,10 @@
  # SOFTWARE.
  
  
 +import logging
  import omni_drones.utils.kit as kit_utils
  from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
- import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+@@ -31,8 +32,8 @@ from torch.func import vmap
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+ from omni_drones.robots.drone import MultirotorBase
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+-from omni.isaac.debug_draw import _debug_draw
++from torchrl.data import Unbounded, Composite, Categorical
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ from ..utils import lemniscate, scale_time
+ 
 @@ -83,6 +84,25 @@ class Track(IsaacEnv):
      | `future_traj_steps`     | int   | 4             | Number of future trajectory steps the drone needs to predict.                                                                                                                                                                           |
      | `reward_distance_scale` | float | 1.2           | Scales the reward based on the distance between the drone and its target.                                                                                                                                                               |
@@ -476,26 +2172,55 @@ index d554896..c494266 100644
          self.alpha = 0.8
  
          self.draw = _debug_draw.acquire_debug_draw_interface()
-@@ -178,7 +277,10 @@ class Track(IsaacEnv):
-         self.observation_spec = CompositeSpec({
+@@ -175,19 +274,22 @@ class Track(IsaacEnv):
+         if self.intrinsics:
+             obs_dim += sum(spec.shape[-1] for name, spec in self.drone.info_spec.items())
+ 
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
              "agents": {
-                 "observation": UnboundedContinuousTensorSpec((1, obs_dim))
+-                "observation": UnboundedContinuousTensorSpec((1, obs_dim))
 -            }
++                "observation": Unbounded((1, obs_dim))
 +            },
-+            "info": CompositeSpec({
-+                "drone_state": UnboundedContinuousTensorSpec((1, drone_state_dim), device=self.device),
++            "info": Composite({
++                "drone_state": Unbounded((1, drone_state_dim), device=self.device),
 +            }),
          }).expand(self.num_envs).to(self.device)
-         self.action_spec = CompositeSpec({
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
              "agents": {
-@@ -202,12 +304,18 @@ class Track(IsaacEnv):
-             "tracking_error": UnboundedContinuousTensorSpec(1),
-             "tracking_error_ema": UnboundedContinuousTensorSpec(1),
-             "action_smoothness": UnboundedContinuousTensorSpec(1),
-+            "body_rate_ema": UnboundedContinuousTensorSpec(1),
-+            "yaw_rate_ema": UnboundedContinuousTensorSpec(1),
-+            "tilt_deg_ema": UnboundedContinuousTensorSpec(1),
-+            "action_rate_ema": UnboundedContinuousTensorSpec(1),
+                 "action": self.drone.action_spec.unsqueeze(0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((1, 1))
++                "reward": Unbounded((1, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -196,18 +298,24 @@ class Track(IsaacEnv):
+             action_key=("agents", "action"),
+             reward_key=("agents", "reward"),
+         )
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "tracking_error": UnboundedContinuousTensorSpec(1),
+-            "tracking_error_ema": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "tracking_error": Unbounded(1),
++            "tracking_error_ema": Unbounded(1),
++            "action_smoothness": Unbounded(1),
++            "body_rate_ema": Unbounded(1),
++            "yaw_rate_ema": Unbounded(1),
++            "tilt_deg_ema": Unbounded(1),
++            "action_rate_ema": Unbounded(1),
          }).expand(self.num_envs).to(self.device)
          self.observation_spec["stats"] = stats_spec
          self.stats = stats_spec.zero()
@@ -618,10 +2343,876 @@ index d554896..c494266 100644
          hasnan = torch.isnan(self.drone_state).any(-1)
  
          terminated = misbehave | hasnan
+diff --git a/omni_drones/envs/single/track_devel.py b/omni_drones/envs/single/track_devel.py
+index fe926c0..65b5418 100644
+--- a/omni_drones/envs/single/track_devel.py
++++ b/omni_drones/envs/single/track_devel.py
+@@ -21,17 +21,17 @@
+ # SOFTWARE.
+ 
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ 
+ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+-from omni.isaac.debug_draw import _debug_draw
++from isaacsim.util.debug_draw import _debug_draw
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    BinaryDiscreteTensorSpec,
+-    CompositeSpec,
+-    UnboundedContinuousTensorSpec,
++    Binary,
++    Composite,
++    Unbounded,
+ )
+ 
+ import omni_drones.utils.kit as kit_utils
+@@ -46,7 +46,7 @@ from ..utils import lemniscate, scale_time
+ 
+ def attach_payload(parent_path):
+     import omni.physx.scripts.utils as script_utils
+-    from omni.isaac.core import objects
++    from isaacsim.core.api import objects
+     from pxr import UsdPhysics
+ 
+     payload_prim = objects.DynamicCuboid(
+@@ -208,21 +208,21 @@ class Track(IsaacEnv):
+         )
+ 
+         intrinsics_spec = self.drone.intrinsics_spec.to(self.device)
+-        intrinsics_spec["payload_mass"] = UnboundedContinuousTensorSpec(
++        intrinsics_spec["payload_mass"] = Unbounded(
+             1, device=self.device
+         )
+-        intrinsics_spec["payload_z"] = UnboundedContinuousTensorSpec(
++        intrinsics_spec["payload_z"] = Unbounded(
+             1, device=self.device
+         )
+         # TODO@btx0424: observe history through a Transform
+-        self.observation_spec = CompositeSpec(
++        self.observation_spec = Composite(
+             {
+-                "agents": CompositeSpec(
++                "agents": Composite(
+                     {
+-                        "observation": UnboundedContinuousTensorSpec(
++                        "observation": Unbounded(
+                             (1, drone_obs_dim), device=self.device
+                         ),
+-                        "observation_h": UnboundedContinuousTensorSpec(
++                        "observation_h": Unbounded(
+                             (1, drone_obs_dim, 32), device=self.device
+                         ),
+                         "intrinsics": intrinsics_spec.unsqueeze(0),
+@@ -231,7 +231,7 @@ class Track(IsaacEnv):
+             }
+         ).expand(self.num_envs)
+         self.action_spec = (
+-            CompositeSpec(
++            Composite(
+                 {
+                     "agents": {
+                         "action": self.drone.action_spec.unsqueeze(0),
+@@ -242,7 +242,7 @@ class Track(IsaacEnv):
+             .to(self.device)
+         )
+         self.reward_spec = (
+-            CompositeSpec({"agents": {"reward": UnboundedContinuousTensorSpec((1, 1))}})
++            Composite({"agents": {"reward": Unbounded((1, 1))}})
+             .expand(self.num_envs)
+             .to(self.device)
+         )
+@@ -255,12 +255,12 @@ class Track(IsaacEnv):
+             state_key=("agents", "intrinsics"),
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(1),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "tracking_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "success": UnboundedContinuousTensorSpec(1),
++        stats_spec = Composite({
++            "return": Unbounded(1),
++            "episode_len": Unbounded(1),
++            "tracking_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "success": Unbounded(1),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/transport/transport_fly_through.py b/omni_drones/envs/transport/transport_fly_through.py
+index 0542407..e3a9b24 100644
+--- a/omni_drones/envs/transport/transport_fly_through.py
++++ b/omni_drones/envs/transport/transport_fly_through.py
+@@ -26,14 +26,14 @@ import torch.distributions as D
+ from torch.func import vmap
+ from tensordict.tensordict import TensorDict, TensorDictBase
+ from torchrl.data import (
+-    CompositeSpec,
+-    UnboundedContinuousTensorSpec,
+-    DiscreteTensorSpec
++    Composite,
++    Unbounded,
++    Categorical
+ )
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+-from omni.isaac.core.objects import DynamicCuboid
++from isaacsim.core.api.objects import DynamicCuboid
+ 
+ import omni_drones.utils.kit as kit_utils
+ import omni_drones.utils.scene as scene_utils
+@@ -54,7 +54,7 @@ class TransportFlyThrough(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation space is specified by a :py:class:`CompositeSpec` containing the following items:
++    The observation space is specified by a :py:class:`Composite` containing the following items:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the payload. It also includes a one-hot
+@@ -171,33 +171,33 @@ class TransportFlyThrough(IsaacEnv):
+             self.time_encoding_dim = 4
+             payload_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
+-            "obs_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
+-            "obs_obstacles": UnboundedContinuousTensorSpec((2, 2)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim)),
++            "obs_others": Unbounded((self.drone.n-1, 13+1)),
++            "obs_payload": Unbounded((1, payload_state_dim)),
++            "obs_obstacles": Unbounded((2, 2)),
+         }).to(self.device)
+ 
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim)),
+-            "state_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
+-            "obstacles": UnboundedContinuousTensorSpec((2, 2)),
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim)),
++            "state_payload": Unbounded((1, payload_state_dim)),
++            "obstacles": Unbounded((2, 2)),
+         }).to(self.device)
+ 
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": self.drone.action_spec.expand(self.drone.n),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -207,13 +207,13 @@ class TransportFlyThrough(IsaacEnv):
+             reward_key=("agents", "reward"),
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "payload_pos_error": UnboundedContinuousTensorSpec(1),
+-            "collision": UnboundedContinuousTensorSpec(1),
+-            "success": DiscreteTensorSpec(2, (1,), dtype=torch.bool),
+-            "action_smoothness": UnboundedContinuousTensorSpec(self.drone.n),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "payload_pos_error": Unbounded(1),
++            "collision": Unbounded(1),
++            "success": Categorical(2, (1,), dtype=torch.bool),
++            "action_smoothness": Unbounded(self.drone.n),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/transport/transport_hover.py b/omni_drones/envs/transport/transport_hover.py
+index acd900b..32fef3d 100644
+--- a/omni_drones/envs/transport/transport_hover.py
++++ b/omni_drones/envs/transport/transport_hover.py
+@@ -24,9 +24,9 @@
+ import torch
+ import torch.distributions as D
+ from torch.func import vmap
+-from omni.isaac.core.objects import DynamicCuboid
++from isaacsim.core.api.objects import DynamicCuboid
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec, DiscreteTensorSpec
++from torchrl.data import Composite, Unbounded, Categorical
+ 
+ import omni_drones.utils.kit as kit_utils
+ import omni_drones.utils.scene as scene_utils
+@@ -47,7 +47,7 @@ class TransportHover(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation space is specified a py:class:`CompositeSpec` containing the following items:
++    The observation space is specified a py:class:`Composite` containing the following items:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the payload. It also includes a one-hot
+@@ -167,31 +167,31 @@ class TransportHover(IsaacEnv):
+             self.time_encoding_dim = 4
+             payload_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
+-            "obs_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim)),
++            "obs_others": Unbounded((self.drone.n-1, 13+1)),
++            "obs_payload": Unbounded((1, payload_state_dim)),
+         }).to(self.device)
+ 
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim)),
+-            "state_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim)),
++            "state_payload": Unbounded((1, payload_state_dim)),
+         }).to(self.device)
+ 
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -202,13 +202,13 @@ class TransportHover(IsaacEnv):
+             state_key=("agents", "state")
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "uprightness": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(self.drone.n),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            "heading_alignment": Unbounded(1),
++            "uprightness": Unbounded(1),
++            "action_smoothness": Unbounded(self.drone.n),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/transport/transport_track.py b/omni_drones/envs/transport/transport_track.py
+index d2adce6..03528ac 100644
+--- a/omni_drones/envs/transport/transport_track.py
++++ b/omni_drones/envs/transport/transport_track.py
+@@ -27,10 +27,10 @@ from torch.func import vmap
+ 
+ import omni_drones.utils.kit as kit_utils
+ import omni_drones.utils.scene as scene_utils
+-from omni.isaac.debug_draw import _debug_draw
++from isaacsim.util.debug_draw import _debug_draw
+ 
+ from tensordict.tensordict import TensorDict, TensorDictBase
+-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec, DiscreteTensorSpec
++from torchrl.data import Composite, Unbounded, Categorical
+ 
+ from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
+ from omni_drones.views import RigidPrimView
+@@ -51,7 +51,7 @@ class TransportTrack(IsaacEnv):
+ 
+     ## Observation
+ 
+-    The observation space is specified by a :py:class:`CompositeSpec` containing the following items:
++    The observation space is specified by a :py:class:`Composite` containing the following items:
+ 
+     - `obs_self` (1, \*): The state of each UAV observed by itself, containing its kinematic
+       information with the position being relative to the payload. It also includes a one-hot
+@@ -168,31 +168,31 @@ class TransportTrack(IsaacEnv):
+             self.time_encoding_dim = 4
+             payload_state_dim += self.time_encoding_dim
+ 
+-        observation_spec = CompositeSpec({
+-            "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
+-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
+-            "obs_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
++        observation_spec = Composite({
++            "obs_self": Unbounded((1, drone_state_dim)),
++            "obs_others": Unbounded((self.drone.n-1, 13+1)),
++            "obs_payload": Unbounded((1, payload_state_dim)),
+         }).to(self.device)
+ 
+-        observation_central_spec = CompositeSpec({
+-            "state_drones": UnboundedContinuousTensorSpec((self.drone.n, drone_state_dim)),
+-            "state_payload": UnboundedContinuousTensorSpec((1, payload_state_dim))
++        observation_central_spec = Composite({
++            "state_drones": Unbounded((self.drone.n, drone_state_dim)),
++            "state_payload": Unbounded((1, payload_state_dim))
+         }).to(self.device)
+ 
+-        self.observation_spec = CompositeSpec({
++        self.observation_spec = Composite({
+             "agents": {
+                 "observation": observation_spec.expand(self.drone.n),
+                 "observation_central": observation_central_spec,
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.action_spec = CompositeSpec({
++        self.action_spec = Composite({
+             "agents": {
+                 "action": torch.stack([self.drone.action_spec] * self.drone.n, dim=0),
+             }
+         }).expand(self.num_envs).to(self.device)
+-        self.reward_spec = CompositeSpec({
++        self.reward_spec = Composite({
+             "agents": {
+-                "reward": UnboundedContinuousTensorSpec((self.drone.n, 1))
++                "reward": Unbounded((self.drone.n, 1))
+             }
+         }).expand(self.num_envs).to(self.device)
+         self.agent_spec["drone"] = AgentSpec(
+@@ -202,13 +202,13 @@ class TransportTrack(IsaacEnv):
+             reward_key=("agents", "reward"),
+         )
+ 
+-        stats_spec = CompositeSpec({
+-            "return": UnboundedContinuousTensorSpec(self.drone.n),
+-            "episode_len": UnboundedContinuousTensorSpec(1),
+-            "pos_error": UnboundedContinuousTensorSpec(1),
+-            # "heading_alignment": UnboundedContinuousTensorSpec(1),
+-            "uprightness": UnboundedContinuousTensorSpec(1),
+-            "action_smoothness": UnboundedContinuousTensorSpec(self.drone.n),
++        stats_spec = Composite({
++            "return": Unbounded(self.drone.n),
++            "episode_len": Unbounded(1),
++            "pos_error": Unbounded(1),
++            # "heading_alignment": Unbounded(1),
++            "uprightness": Unbounded(1),
++            "action_smoothness": Unbounded(self.drone.n),
+         }).expand(self.num_envs).to(self.device)
+         self.observation_spec["stats"] = stats_spec
+         self.stats = stats_spec.zero()
+diff --git a/omni_drones/envs/transport/utils.py b/omni_drones/envs/transport/utils.py
+index b4e89ed..e38fd0f 100644
+--- a/omni_drones/envs/transport/utils.py
++++ b/omni_drones/envs/transport/utils.py
+@@ -23,12 +23,12 @@
+ 
+ from typing import Sequence, Union
+ 
+-import omni.isaac.core.objects as objects
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.api.objects as objects
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+ import torch
+ 
+-from omni.isaac.core.prims import RigidPrimView
++from isaacsim.core.prims import RigidPrim as RigidPrimView
+ from omni.kit.commands import execute
+ from pxr import Gf, PhysxSchema, UsdGeom, UsdPhysics
+ 
+diff --git a/omni_drones/envs/utils/__init__.py b/omni_drones/envs/utils/__init__.py
+index 1b9e6da..b1a8941 100644
+--- a/omni_drones/envs/utils/__init__.py
++++ b/omni_drones/envs/utils/__init__.py
+@@ -22,7 +22,7 @@
+ 
+ 
+ from typing import Dict, Any, Sequence, Union
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+ # import omni.kit.commands
+ import omni.usd.commands
+diff --git a/omni_drones/envs/utils/prims.py b/omni_drones/envs/utils/prims.py
+index bdade83..693ddd3 100644
+--- a/omni_drones/envs/utils/prims.py
++++ b/omni_drones/envs/utils/prims.py
+@@ -36,12 +36,11 @@ import typing
+ 
+ import omni.kit
+ import omni.usd
+-from omni.isaac.core.utils.semantics import add_update_semantics
++from isaacsim.core.utils.semantics import add_update_semantics
+ 
+ # isaacsim
+-from omni.isaac.core.utils.stage import add_reference_to_stage, get_current_stage
+-from omni.isaac.core.utils.string import find_root_prim_path_from_regex
+-from omni.isaac.dynamic_control import _dynamic_control
++from isaacsim.core.utils.stage import add_reference_to_stage, get_current_stage
++from isaacsim.core.utils.string import find_root_prim_path_from_regex
+ from omni.usd.commands import DeletePrimsCommand, MovePrimCommand
+ 
+ # omniverse
+@@ -398,7 +397,7 @@ def create_prim(
+         Usd.Prim: The created USD prim.
+     """
+     # Note: Imported here to prevent cyclic dependency in the module.
+-    from omni.isaac.core.prims import XFormPrim
++    from isaacsim.core.prims import SingleXFormPrim as XFormPrim
+ 
+     # create prim in stage
+     prim = define_prim(prim_path=prim_path, prim_type=prim_type)
+@@ -479,28 +478,22 @@ def get_prim_object_type(prim_path: str) -> typing.Union[str, None]:
+     Returns:
+         str: String corresponding to the object type.
+     """
+-    dc_interface = _dynamic_control.acquire_dynamic_control_interface()
+-    object_type = dc_interface.peek_object_type(prim_path)
+-    if object_type == _dynamic_control.OBJECT_NONE:
+-        prim = get_prim_at_path(prim_path)
+-        if prim.IsA(UsdGeom.Xformable):
+-            return "xform"
+-        else:
+-            return None
+-    elif object_type == _dynamic_control.OBJECT_RIGIDBODY:
++    # `omni.isaac.dynamic_control` (whose `peek_object_type` this used) was removed
++    # in Isaac Sim 5; classify from the prim's USD physics schemas instead.
++    from pxr import UsdPhysics
++
++    prim = get_prim_at_path(prim_path)
++    if prim is None or not prim.IsValid():
++        return None
++    if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
++        return "articulation"
++    if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+         return "rigid_body"
+-    elif object_type == _dynamic_control.OBJECT_JOINT:
++    if prim.IsA(UsdPhysics.Joint):
+         return "joint"
+-    elif object_type == _dynamic_control.OBJECT_DOF:
+-        return "dof"
+-    elif object_type == _dynamic_control.OBJECT_ARTICULATION:
+-        return "articulation"
+-    elif object_type == _dynamic_control.OBJECT_ATTRACTOR:
+-        return "attractor"
+-    elif object_type == _dynamic_control.OBJECT_D6JOINT:
+-        return "d6joint"
+-    else:
+-        raise Exception("the object type is not support here yet")
++    if prim.IsA(UsdGeom.Xformable):
++        return "xform"
++    return None
+ 
+ 
+ def is_prim_non_root_articulation_link(prim_path: str) -> bool:
+diff --git a/omni_drones/envs/utils/stage.py b/omni_drones/envs/utils/stage.py
+index 466c842..b3a0a79 100644
+--- a/omni_drones/envs/utils/stage.py
++++ b/omni_drones/envs/utils/stage.py
+@@ -39,7 +39,7 @@ import carb
+ import omni.kit.app
+ 
+ # isaacsim
+-from omni.isaac.core.utils.constants import AXES_TOKEN
++from isaacsim.core.utils.constants import AXES_TOKEN
+ from omni.usd.commands import DeletePrimsCommand
+ from pxr import Sdf, Usd, UsdGeom
+ 
+@@ -101,7 +101,7 @@ def clear_stage(
+         [type]: [description]
+     """
+     # Note: Need to import this here to prevent circular dependencies.
+-    from omni.isaac.core.utils.prims import (
++    from isaacsim.core.utils.prims import (
+         get_all_matching_child_prims,
+         get_prim_path,
+         is_prim_ancestral,
+@@ -141,7 +141,7 @@ def clear_stage(
+ def print_stage_prim_paths() -> None:
+     """Traverses the stage and prints all prim paths."""
+     # Note: Need to import this here to prevent circular dependencies.
+-    from omni.isaac.core.utils.prims import get_prim_path
++    from isaacsim.core.utils.prims import get_prim_path
+ 
+     for prim in traverse_stage():
+         prim_path = get_prim_path(prim)
+diff --git a/omni_drones/learning/__init__.py b/omni_drones/learning/__init__.py
+index 5c122a2..a3aff1e 100644
+--- a/omni_drones/learning/__init__.py
++++ b/omni_drones/learning/__init__.py
+@@ -21,25 +21,36 @@
+ # SOFTWARE.
+ 
+ 
+-from .mappo import MAPPOPolicy
++import logging as _logging
++
+ from .mappo_new import MAPPO
+ from .ppo import *
+-from .happo import HAPPOPolicy
+ from .qmix import QMIXPolicy
+ 
+ from .dqn import DQNPolicy
+ from .sac import SACPolicy
+ from .td3 import TD3Policy
+-from .matd3 import MATD3Policy
+ from .tdmpc import TDMPCPolicy
+ 
+ ALGOS = {
+-    "mappo_old": MAPPOPolicy,
+     "mappo": MAPPO,
+-    "happo": HAPPOPolicy,
+     "ppo": PPOPolicy,
+     "ppo_rnn": PPORNNPolicy,
+     "ppo_adapt": PPOAdaptivePolicy,
+     "sac": SACPolicy,
+     "td3": TD3Policy,
+ }
++
++# Legacy algorithms still written against `tensordict.nn.make_functional` (removed
++# from tensordict). They are not ported; keep the rest of the package importable.
++try:
++    from .mappo import MAPPOPolicy
++    from .happo import HAPPOPolicy  # subclasses the legacy MAPPOPolicy
++    ALGOS["mappo_old"] = MAPPOPolicy
++    ALGOS["happo"] = HAPPOPolicy
++except ImportError as _e:
++    _logging.info("mappo_old / happo unavailable: %s", _e)
++try:
++    from .matd3 import MATD3Policy
++except ImportError as _e:
++    _logging.info("matd3 unavailable: %s", _e)
+diff --git a/omni_drones/learning/common.py b/omni_drones/learning/common.py
+index 1256718..e5e3b63 100644
+--- a/omni_drones/learning/common.py
++++ b/omni_drones/learning/common.py
+@@ -81,12 +81,12 @@ def sample_sub_traj(traj, seq_len):
+     return traj[t]
+ 
+ 
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec, CompositeSpec, TensorSpec
++from torchrl.data import Bounded, Unbounded, Composite, TensorSpec
+ from .modules.networks import MLP, ENCODERS_MAP, VISION_ENCODER_MAP, MixedEncoder
+ from functools import partial
+ 
+ def make_encoder(cfg, input_spec: TensorSpec) -> nn.Module:
+-    if isinstance(input_spec, (BoundedTensorSpec, UnboundedContinuousTensorSpec)):
++    if isinstance(input_spec, (Bounded, Unbounded)):
+         input_dim = input_spec.shape[-1]
+         encoder = nn.Sequential(
+             nn.LayerNorm(input_dim),
+@@ -100,7 +100,7 @@ def make_encoder(cfg, input_spec: TensorSpec) -> nn.Module:
+             init = getattr(nn.init, cfg.init.type)
+             init = partial(init, **cfg.init.get("kwargs", {}))
+             encoder.apply(lambda m: init_linear(m, init))
+-    elif isinstance(input_spec, CompositeSpec): # FIXME: add logic for composite spec with visual input and other inputs
++    elif isinstance(input_spec, Composite): # FIXME: add logic for composite spec with visual input and other inputs
+         state_spec_dict = {}
+         vision_spec_dict = {}
+         for spec_name in input_spec.keys():
+@@ -114,7 +114,7 @@ def make_encoder(cfg, input_spec: TensorSpec) -> nn.Module:
+         # create state encoder
+         if len(state_spec_dict) > 0:
+             encoder_cls = ENCODERS_MAP[cfg.attn_encoder]
+-            state_encoder = encoder_cls(CompositeSpec(state_spec_dict))
++            state_encoder = encoder_cls(Composite(state_spec_dict))
+         else:
+             state_encoder = None
+             print("No state encoder requried.")
+diff --git a/omni_drones/learning/dqn.py b/omni_drones/learning/dqn.py
+index dbfc13c..d31f012 100644
+--- a/omni_drones/learning/dqn.py
++++ b/omni_drones/learning/dqn.py
+@@ -27,7 +27,7 @@ import torch.nn.functional as F
+ from tensordict.nn import TensorDictModule
+ 
+ from torchrl.data import (
+-    DiscreteTensorSpec,
++    Categorical,
+     TensorDictReplayBuffer
+ )
+ from torchrl.data.replay_buffers.storages import LazyTensorStorage
+@@ -113,7 +113,7 @@ class DQNPolicy:
+         self.act_name = ("action", f"{self.agent_spec.name}.action")
+         self.reward_name = f"{self.agent_spec.name}.reward"
+ 
+-        if not isinstance(agent_spec.action_spec, DiscreteTensorSpec):
++        if not isinstance(agent_spec.action_spec, Categorical):
+             raise ValueError("Only discrete action spaces are supported for DQN.")
+ 
+         self.num_actions = agent_spec.action_spec.space.n
+diff --git a/omni_drones/learning/mappo.py b/omni_drones/learning/mappo.py
+index a3f36d3..b5491ac 100644
+--- a/omni_drones/learning/mappo.py
++++ b/omni_drones/learning/mappo.py
+@@ -34,12 +34,12 @@ from tensordict.nn import make_functional, TensorDictModule, TensorDictParams
+ from torch.optim import lr_scheduler
+ 
+ from torchrl.data import (
+-    BoundedTensorSpec,
+-    CompositeSpec,
+-    MultiDiscreteTensorSpec,
+-    DiscreteTensorSpec,
++    Bounded,
++    Composite,
++    MultiCategorical,
++    Categorical,
+     TensorSpec,
+-    UnboundedContinuousTensorSpec as UnboundedTensorSpec,
++    Unbounded as UnboundedTensorSpec,
+ )
+ 
+ from omni_drones.utils.torchrl.env import AgentSpec
+@@ -349,7 +349,7 @@ class MAPPOPolicy(object):
+         train_info = {k: v.mean().item() for k, v in torch.stack(train_info).items()}
+         train_info["advantages_mean"] = advantages_mean.item()
+         train_info["advantages_std"] = advantages_std.item()
+-        if isinstance(self.agent_spec.action_spec, (BoundedTensorSpec, UnboundedTensorSpec)):
++        if isinstance(self.agent_spec.action_spec, (Bounded, UnboundedTensorSpec)):
+             train_info["action_norm"] = tensordict[self.act_name].norm(dim=-1).mean().item()
+         if hasattr(self, "value_normalizer"):
+             train_info["value_running_mean"] = self.value_normalizer.running_mean.mean().item()
+@@ -405,14 +405,14 @@ from .common import make_encoder
+ def make_ppo_actor(cfg, observation_spec: TensorSpec, action_spec: TensorSpec):
+     encoder = make_encoder(cfg, observation_spec)
+ 
+-    if isinstance(action_spec, MultiDiscreteTensorSpec):
++    if isinstance(action_spec, MultiCategorical):
+         act_dist = MultiCategoricalModule(
+             encoder.output_shape.numel(),
+             torch.as_tensor(action_spec.nvec.storage().float()).long()
+         )
+-    elif isinstance(action_spec, DiscreteTensorSpec):
++    elif isinstance(action_spec, Categorical):
+         act_dist = MultiCategoricalModule(encoder.output_shape.numel(), [action_spec.space.n])
+-    elif isinstance(action_spec, (UnboundedTensorSpec, BoundedTensorSpec)):
++    elif isinstance(action_spec, (UnboundedTensorSpec, Bounded)):
+         action_dim = action_spec.shape[-1]
+         act_dist = DiagGaussian(encoder.output_shape.numel(), action_dim, False, 0.01)
+         # act_dist = IndependentNormalModule(encoder.output_shape.numel(), action_dim, False)
+@@ -423,7 +423,7 @@ def make_ppo_actor(cfg, observation_spec: TensorSpec, action_spec: TensorSpec):
+ 
+ 
+ def make_critic(cfg, state_spec: TensorSpec, reward_spec: TensorSpec, centralized=False):
+-    assert isinstance(reward_spec, (UnboundedTensorSpec, BoundedTensorSpec))
++    assert isinstance(reward_spec, (UnboundedTensorSpec, Bounded))
+     encoder = make_encoder(cfg, state_spec)
+ 
+     if centralized:
+diff --git a/omni_drones/learning/mappo_new.py b/omni_drones/learning/mappo_new.py
+index c2a2ca4..17887ea 100644
+--- a/omni_drones/learning/mappo_new.py
++++ b/omni_drones/learning/mappo_new.py
+@@ -36,11 +36,10 @@ from tensordict.nn import (
+     TensorDictSequential,
+     TensorDictModule,
+     TensorDictModuleBase,
+-    make_functional,
+     TensorDictParams
+ )
+ from torchrl.modules import ProbabilisticActor
+-from torchrl.data import TensorSpec, CompositeSpec
++from torchrl.data import TensorSpec, Composite
+ from torchrl.envs.transforms import CatTensors
+ from einops.layers.torch import Rearrange, Reduce
+ 
+@@ -49,7 +48,7 @@ from .modules.distributions import IndependentNormal
+ from .utils.valuenorm import ValueNorm1
+ 
+ def make_transformer(
+-    obs_spec: CompositeSpec,
++    obs_spec: Composite,
+     embed_dim: int=128,
+     nhead: int=1,
+     num_layers: int=1
+@@ -106,9 +105,12 @@ class EnsembleModule(_EnsembleModule):
+         self.out_keys = module.out_keys
+         self.num_copies = num_copies
+ 
+-        params_td = make_functional(module).expand(num_copies).to_tensordict()
++        # `make_functional` is gone from tensordict; the supported equivalent (and what
++        # tensordict's own EnsembleModule does now) is `TensorDict.from_module` plus a
++        # `params.to_module(module)` context around the call.
++        params_td = TensorDict.from_module(module).expand(num_copies).to_tensordict()
+         self.module = module
+-        self.vmapped_forward = vmap(self.module, (1, 0), 1)
++        self.vmapped_forward = vmap(self._func_module_call, (1, 0), 1)
+         self.reset_parameters_recursive(params_td)
+         self.params_td = TensorDictParams(params_td)
+ 
+@@ -129,7 +131,7 @@ class MAPPO:
+     def __init__(
+         self,
+         cfg,
+-        observation_spec: CompositeSpec,
++        observation_spec: Composite,
+         action_spec: TensorSpec,
+         reward_spec: TensorSpec,
+         device
+diff --git a/omni_drones/learning/matd3.py b/omni_drones/learning/matd3.py
+index 5c50e32..6696936 100644
+--- a/omni_drones/learning/matd3.py
++++ b/omni_drones/learning/matd3.py
+@@ -30,9 +30,9 @@ from tensordict import TensorDict
+ 
+ from torchrl.data import (
+     TensorSpec,
+-    BoundedTensorSpec,
+-    UnboundedContinuousTensorSpec as UnboundedTensorSpec,
+-    CompositeSpec,
++    Bounded,
++    Unbounded as UnboundedTensorSpec,
++    Composite,
+     TensorDictReplayBuffer
+ )
+ from torchrl.data.replay_buffers.storages import LazyTensorStorage
+@@ -259,7 +259,7 @@ class Critic(nn.Module):
+         cfg,
+         num_agents: int,
+         state_spec: TensorSpec,
+-        action_spec: BoundedTensorSpec,
++        action_spec: Bounded,
+         num_critics: int = 2,
+     ) -> None:
+         super().__init__()
+@@ -274,7 +274,7 @@ class Critic(nn.Module):
+         ])
+ 
+     def _make_critic(self):
+-        if isinstance(self.state_spec, (BoundedTensorSpec, UnboundedTensorSpec)):
++        if isinstance(self.state_spec, (Bounded, UnboundedTensorSpec)):
+             action_dim = self.act_space.shape[-1]
+             state_dim = self.state_spec.shape[-1]
+             num_units = [
+@@ -282,9 +282,9 @@ class Critic(nn.Module):
+                 *self.cfg["hidden_units"]
+             ]
+             base = MLP(num_units)
+-        elif isinstance(self.state_spec, CompositeSpec):
++        elif isinstance(self.state_spec, Composite):
+             encoder_cls = ENCODERS_MAP[self.cfg.attn_encoder]
+-            base = encoder_cls(CompositeSpec(self.state_spec))
++            base = encoder_cls(Composite(self.state_spec))
+         else:
+             raise NotImplementedError
+ 
+diff --git a/omni_drones/learning/modules/networks.py b/omni_drones/learning/modules/networks.py
+index 2d6a050..4146d3e 100644
+--- a/omni_drones/learning/modules/networks.py
++++ b/omni_drones/learning/modules/networks.py
+@@ -30,7 +30,7 @@ import torch.nn.functional as F
+ from tensordict import TensorDict
+ 
+ from torch import Tensor
+-from torchrl.data import CompositeSpec, TensorSpec
++from torchrl.data import Composite, TensorSpec
+ 
+ 
+ def register(_map: Dict, name=None):
+@@ -125,13 +125,13 @@ class LFF(nn.Module):
+ class SplitEmbedding(nn.Module):
+     def __init__(
+         self,
+-        input_spec: CompositeSpec,
++        input_spec: Composite,
+         embed_dim: int = 72,
+         layer_norm=True,
+         embed_type="linear",
+     ) -> None:
+         super().__init__()
+-        if any(isinstance(spec, CompositeSpec) for spec in input_spec.values()):
++        if any(isinstance(spec, Composite) for spec in input_spec.values()):
+             raise ValueError("Nesting is not supported.")
+         self.input_spec = input_spec
+         self.embed_dim = embed_dim
+@@ -174,7 +174,7 @@ class RelationEncoder(nn.Module):
+ 
+     def __init__(
+         self,
+-        input_spec: CompositeSpec,
++        input_spec: Composite,
+         *,
+         embed_dim: int = 72,
+         embed_type: str = "linear",
+@@ -213,7 +213,7 @@ class PartialRelationEncoder(nn.Module):
+ 
+     def __init__(
+         self,
+-        input_spec: CompositeSpec,
++        input_spec: Composite,
+         *,
+         embed_dim: int = 72,
+         embed_type: str = "linear",
+@@ -249,7 +249,7 @@ class PartialRelationEncoder(nn.Module):
+ class PartialAttentionEncoder(nn.Module):
+     def __init__(
+         self,
+-        input_spec: CompositeSpec,
++        input_spec: Composite,
+         *,
+         query_index=0,
+         embed_dim: int = 128,
+diff --git a/omni_drones/learning/ppo/mappo.py b/omni_drones/learning/ppo/mappo.py
+index 96d0117..272a22b 100644
+--- a/omni_drones/learning/ppo/mappo.py
++++ b/omni_drones/learning/ppo/mappo.py
+@@ -26,7 +26,7 @@ import torch.nn as nn
+ import torch.nn.functional as F
+ import torch.distributions as D
+ 
+-from torchrl.data import CompositeSpec, TensorSpec
++from torchrl.data import Composite, TensorSpec
+ from torchrl.modules import ProbabilisticActor
+ from torchrl.envs.transforms import CatTensors
+ from tensordict import TensorDict
+@@ -79,8 +79,8 @@ class MAPPOPolicy:
+     def __init__(
+         self,
+         cfg: PPOConfig,
+-        observation_spec: CompositeSpec,
+-        action_spec: CompositeSpec,
++        observation_spec: Composite,
++        action_spec: Composite,
+         reward_spec: TensorSpec,
+         device
+     ):
 diff --git a/omni_drones/learning/ppo/ppo.py b/omni_drones/learning/ppo/ppo.py
-index a6e43e5..b831261 100644
+index a6e43e5..b9640b0 100644
 --- a/omni_drones/learning/ppo/ppo.py
 +++ b/omni_drones/learning/ppo/ppo.py
+@@ -26,7 +26,7 @@ import torch.nn as nn
+ import torch.nn.functional as F
+ import torch.distributions as D
+ 
+-from torchrl.data import CompositeSpec, TensorSpec
++from torchrl.data import Composite, TensorSpec
+ from torchrl.modules import ProbabilisticActor
+ from torchrl.envs.transforms import CatTensors
+ from tensordict import TensorDict
 @@ -60,6 +60,18 @@ class PPOConfig:
      # causes destabilizing torques early in training (e.g. heavy quadrotors).
      actor_log_std_init: float = 0.0
@@ -672,6 +3263,17 @@ index a6e43e5..b831261 100644
          return loc, scale
  
  
+@@ -123,8 +145,8 @@ class PPOPolicy(TensorDictModuleBase):
+     def __init__(
+         self,
+         cfg: PPOConfig,
+-        observation_spec: CompositeSpec,
+-        action_spec: CompositeSpec,
++        observation_spec: Composite,
++        action_spec: Composite,
+         reward_spec: TensorSpec,
+         device
+     ):
 @@ -132,7 +154,7 @@ class PPOPolicy(TensorDictModuleBase):
          self.cfg = cfg
          self.device = device
@@ -699,15 +3301,196 @@ index a6e43e5..b831261 100644
                  [("agents", "observation")], ["loc", "scale"]
              )
          self.actor: ProbabilisticActor = ProbabilisticActor(
+diff --git a/omni_drones/learning/ppo/ppo_adapt.py b/omni_drones/learning/ppo/ppo_adapt.py
+index 5436621..d5da774 100644
+--- a/omni_drones/learning/ppo/ppo_adapt.py
++++ b/omni_drones/learning/ppo/ppo_adapt.py
+@@ -26,7 +26,7 @@ import torch.nn as nn
+ import torch.nn.functional as F
+ import torch.distributions as D
+ 
+-from torchrl.data import CompositeSpec, TensorSpec
++from torchrl.data import Composite, TensorSpec
+ from torchrl.envs.transforms import CatTensors
+ from torchrl.modules import ProbabilisticActor
+ from torchrl.objectives.utils import hold_out_net
+@@ -126,8 +126,8 @@ class PPOAdaptivePolicy(TensorDictModuleBase):
+ 
+     def __init__(self,
+         cfg: PPOConfig,
+-        observation_spec: CompositeSpec,
+-        action_spec: CompositeSpec,
++        observation_spec: Composite,
++        action_spec: Composite,
+         reward_spec: TensorSpec,
+         device
+     ):
+diff --git a/omni_drones/learning/ppo/ppo_rnn.py b/omni_drones/learning/ppo/ppo_rnn.py
+index b5b86f3..8495c9a 100644
+--- a/omni_drones/learning/ppo/ppo_rnn.py
++++ b/omni_drones/learning/ppo/ppo_rnn.py
+@@ -33,7 +33,7 @@ from hydra.core.config_store import ConfigStore
+ from tensordict import TensorDict
+ from tensordict.nn import TensorDictModuleBase, TensorDictModule, TensorDictSequential
+ 
+-from torchrl.data import CompositeSpec, TensorSpec, UnboundedContinuousTensorSpec
++from torchrl.data import Composite, TensorSpec, Unbounded
+ from torchrl.envs import CatTensors, TensorDictPrimer
+ from torchrl.modules import ProbabilisticActor
+ 
+@@ -171,7 +171,7 @@ class PPORNNPolicy(TensorDictModuleBase):
+     def __init__(
+         self,
+         cfg: PPOConfig,
+-        observation_spec: CompositeSpec,
++        observation_spec: Composite,
+         action_spec: TensorSpec,
+         reward_spec: TensorSpec,
+         device,
+diff --git a/omni_drones/learning/qmix.py b/omni_drones/learning/qmix.py
+index 53744ec..53ba488 100644
+--- a/omni_drones/learning/qmix.py
++++ b/omni_drones/learning/qmix.py
+@@ -29,7 +29,7 @@ from tensordict import TensorDict
+ from tensordict.utils import expand_right
+ from tensordict.nn import TensorDictModule, TensorDictSequential
+ from torchrl.data import (
+-    DiscreteTensorSpec,
++    Categorical,
+ )
+ from .modules.rnn import GRU
+ from .modules.networks import ENCODERS_MAP, MLP
+@@ -52,7 +52,7 @@ class QMIXPolicy:
+         self.agent_name = agent_spec.name
+ 
+         n_agents = agent_spec.n
+-        if not isinstance(agent_spec.action_spec, DiscreteTensorSpec):
++        if not isinstance(agent_spec.action_spec, Categorical):
+             raise ValueError("Only discrete action spaces are supported for QMIX.")
+ 
+         num_actions = agent_spec.action_spec.space.n
+diff --git a/omni_drones/learning/sac.py b/omni_drones/learning/sac.py
+index 4718e34..5c332a5 100644
+--- a/omni_drones/learning/sac.py
++++ b/omni_drones/learning/sac.py
+@@ -29,9 +29,9 @@ import numpy as np
+ 
+ from torchrl.data import (
+     TensorSpec,
+-    BoundedTensorSpec,
+-    UnboundedContinuousTensorSpec as UnboundedTensorSpec,
+-    CompositeSpec,
++    Bounded,
++    Unbounded as UnboundedTensorSpec,
++    Composite,
+     TensorDictReplayBuffer
+ )
+ from torchrl.data.replay_buffers.storages import LazyTensorStorage
+@@ -219,7 +219,7 @@ class Actor(nn.Module):
+     def __init__(self,
+         cfg,
+         observation_spec: TensorSpec,
+-        action_spec: BoundedTensorSpec,
++        action_spec: Bounded,
+     ) -> None:
+         super().__init__()
+         self.cfg = cfg
+@@ -248,7 +248,7 @@ class Critic(nn.Module):
+         cfg,
+         num_agents: int,
+         state_spec: TensorSpec,
+-        action_spec: BoundedTensorSpec,
++        action_spec: Bounded,
+         num_critics: int = 2,
+     ) -> None:
+         super().__init__()
+@@ -263,7 +263,7 @@ class Critic(nn.Module):
+         ])
+ 
+     def _make_critic(self):
+-        if isinstance(self.state_space, (BoundedTensorSpec, UnboundedTensorSpec)):
++        if isinstance(self.state_space, (Bounded, UnboundedTensorSpec)):
+             action_dim = self.act_space.shape[-1]
+             state_dim = self.state_space.shape[-1]
+             num_units = [
+diff --git a/omni_drones/learning/td3.py b/omni_drones/learning/td3.py
+index 9dde165..36dfd80 100644
+--- a/omni_drones/learning/td3.py
++++ b/omni_drones/learning/td3.py
+@@ -29,9 +29,9 @@ import numpy as np
+ 
+ from torchrl.data import (
+     TensorSpec,
+-    BoundedTensorSpec,
+-    UnboundedContinuousTensorSpec as UnboundedTensorSpec,
+-    CompositeSpec,
++    Bounded,
++    Unbounded as UnboundedTensorSpec,
++    Composite,
+     TensorDictReplayBuffer
+ )
+ from torchrl.data.replay_buffers.storages import LazyTensorStorage
+@@ -220,7 +220,7 @@ class Critic(nn.Module):
+         cfg,
+         num_agents: int,
+         state_spec: TensorSpec,
+-        action_spec: BoundedTensorSpec,
++        action_spec: Bounded,
+         num_critics: int = 2,
+     ) -> None:
+         super().__init__()
+@@ -235,7 +235,7 @@ class Critic(nn.Module):
+         ])
+ 
+     def _make_critic(self):
+-        if isinstance(self.state_space, (BoundedTensorSpec, UnboundedTensorSpec)):
++        if isinstance(self.state_space, (Bounded, UnboundedTensorSpec)):
+             action_dim = self.act_space.shape[-1]
+             state_dim = self.state_space.shape[-1]
+             num_units = [
+diff --git a/omni_drones/robots/config.py b/omni_drones/robots/config.py
+index 66e0906..922bc2a 100644
+--- a/omni_drones/robots/config.py
++++ b/omni_drones/robots/config.py
+@@ -21,7 +21,7 @@
+ # SOFTWARE.
+ 
+ 
+-from dataclasses import dataclass
++from dataclasses import dataclass, field
+ from typing import Optional
+ 
+ 
+@@ -59,5 +59,5 @@ class ArticulationRootPropertiesCfg:
+ 
+ @dataclass
+ class RobotCfg:
+-    rigid_props: RigidBodyPropertiesCfg = RigidBodyPropertiesCfg()
+-    articulation_props: ArticulationRootPropertiesCfg = ArticulationRootPropertiesCfg()
++    rigid_props: RigidBodyPropertiesCfg = field(default_factory=RigidBodyPropertiesCfg)
++    articulation_props: ArticulationRootPropertiesCfg = field(default_factory=ArticulationRootPropertiesCfg)
+\ No newline at end of file
 diff --git a/omni_drones/robots/drone/amov_drone.py b/omni_drones/robots/drone/amov_drone.py
-index 666362e..717672a 100644
+index 666362e..321d8fe 100644
 --- a/omni_drones/robots/drone/amov_drone.py
 +++ b/omni_drones/robots/drone/amov_drone.py
-@@ -36,6 +36,7 @@ from omni_drones.actuators.rotor_group import RotorGroup
+@@ -26,16 +26,17 @@ import os
+ from pathlib import Path
+ from typing import List, Optional
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import torch
+ from pxr import UsdPhysics
+-from tensordict.nn import make_functional
++from omni_drones.actuators.rotor_group import rotor_group_params
+ from torch.func import vmap
+ 
+ from omni_drones.actuators.rotor_group import RotorGroup
  from omni_drones.robots.drone.multirotor import MultirotorBase
  from omni_drones.robots.robot import ASSET_PATH
  from omni_drones.utils.torch import quat_axis, quat_rotate
-+from omni.isaac.core.simulation_context import SimulationContext
++from isaacsim.core.api.simulation_context import SimulationContext
  from omni_drones.views import RigidPrimView
  
  
@@ -720,20 +3503,203 @@ index 666362e..717672a 100644
  
          if self._env_flag("OMNIDRONES_AMOV_DISABLE_ROTOR_COLLISIONS"):
              disabled_cnt = 0
+@@ -211,7 +212,7 @@ class AmovDrone(MultirotorBase):
+ 
+         rotor_config = self.params["rotor_configuration"]
+         self.rotors = RotorGroup(rotor_config, dt=self.dt).to(self.device)
+-        rotor_params = make_functional(self.rotors)
++        rotor_params = rotor_group_params(self.rotors)
+         self.KF_0 = rotor_params["KF"].clone()
+         self.KM_0 = rotor_params["KM"].clone()
+         self.MAX_ROT_VEL = torch.as_tensor(rotor_config["max_rotation_velocities"]).float().to(self.device)
+@@ -401,9 +402,7 @@ class AmovDrone(MultirotorBase):
+         """
+         rotor_cmds = actions.expand(*self.shape, self.num_rotors)
+         last_throttle = self.throttle.clone()
+-        thrusts, moments = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
+-            rotor_cmds, self.rotor_params
+-        )
++        thrusts, moments = self.rotors(rotor_cmds, self.rotor_params)
+ 
+         rotor_pos, rotor_rot = self.rotors_view.get_world_poses()
+         # World-frame thrust direction of each rotor (unit vec along rotor z-axis)
+diff --git a/omni_drones/robots/drone/crazyflie.py b/omni_drones/robots/drone/crazyflie.py
+index 610ba00..6c0c350 100644
+--- a/omni_drones/robots/drone/crazyflie.py
++++ b/omni_drones/robots/drone/crazyflie.py
+@@ -23,10 +23,10 @@
+ 
+ import torch
+ 
+-from omni.isaac.core.prims import RigidPrimView
+-from omni.isaac.core.utils.nucleus import get_assets_root_path
+-from tensordict.nn import make_functional
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
++from isaacsim.core.prims import RigidPrim as RigidPrimView
++from isaacsim.storage.native import get_assets_root_path
++from omni_drones.actuators.rotor_group import rotor_group_params
++from torchrl.data import Bounded, Unbounded
+ 
+ from omni_drones.actuators.rotor_group import RotorGroup
+ from omni_drones.robots import ASSET_PATH
+diff --git a/omni_drones/robots/drone/dragon.py b/omni_drones/robots/drone/dragon.py
+index efee449..9b2ed78 100644
+--- a/omni_drones/robots/drone/dragon.py
++++ b/omni_drones/robots/drone/dragon.py
+@@ -25,10 +25,10 @@ from typing import Sequence
+ import torch
+ from dataclasses import dataclass, field, MISSING, fields, asdict
+ 
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec, CompositeSpec
+-from tensordict.nn import make_functional
++from torchrl.data import Bounded, Unbounded, Composite
++from omni_drones.actuators.rotor_group import rotor_group_params
+ 
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.physx.scripts.utils as script_utils
+ from pxr import PhysxSchema, UsdPhysics
+ from omni.usd.commands import MovePrimCommand
+@@ -60,15 +60,15 @@ class RotorConfig:
+ @dataclass
+ class DragonCfg(RobotCfg):
+     num_links: int = 4
+-    articulation_props: ArticulationRootPropertiesCfg = ArticulationRootPropertiesCfg(
+-        solver_velocity_iteration_count=16, enable_self_collisions=True)
++    articulation_props: ArticulationRootPropertiesCfg = field(default_factory=lambda: ArticulationRootPropertiesCfg(
++        solver_velocity_iteration_count=16, enable_self_collisions=True))
+     force_sensor: bool = False
+-    rotor_cfg: RotorConfig = RotorConfig(
++    rotor_cfg: RotorConfig = field(default_factory=lambda: RotorConfig(
+         directions=torch.tensor([1, -1]),
+         force_constants=torch.ones(2) * 7.2e-6,
+         moment_constants=torch.ones(2) * 1.08e-7,
+         max_rotation_velocities=torch.ones(2) * 800
+-    )
++    ))
+ 
+     def __post_init__(self):
+         self.rotor_cfg = RotorConfig(**{
+@@ -89,7 +89,7 @@ class Dragon(MultirotorBase):
+ 
+         self.action_split = [self.cfg.rotor_cfg.num_rotors, self.num_links * 2, (self.num_links-1) * 2]
+         action_dim = sum(self.action_split)
+-        self._action_spec = BoundedTensorSpec(-1, 1, action_dim, device=self.device)
++        self._action_spec = Bounded(-1, 1, action_dim, device=self.device)
+         observation_dim = (
+             self.num_links * (
+                 13 + 3 + 3
+@@ -97,10 +97,10 @@ class Dragon(MultirotorBase):
+             )
+             + (self.num_links-1) * 2 # link joint pos
+         )
+-        self.state_spec = UnboundedContinuousTensorSpec(observation_dim, device=self.device)
+-        self.intrinsics_spec = CompositeSpec({
+-            "KF": UnboundedContinuousTensorSpec(self.num_rotors),
+-            "KM": UnboundedContinuousTensorSpec(self.num_rotors),
++        self.state_spec = Unbounded(observation_dim, device=self.device)
++        self.intrinsics_spec = Composite({
++            "KF": Unbounded(self.num_rotors),
++            "KM": Unbounded(self.num_rotors),
+         }).to(self.device)
+         self.randomization = defaultdict(dict)
+ 
+@@ -138,7 +138,7 @@ class Dragon(MultirotorBase):
+         self.gravity = self.body_masses.sum(-1, keepdim=True) * 9.81
+ 
+         self.rotors = RotorGroup(asdict(self.cfg.rotor_cfg), self.dt).to(self.device)
+-        rotor_params = make_functional(self.rotors)
++        rotor_params = rotor_group_params(self.rotors)
+         self.rotor_params = rotor_params.expand(self.shape).clone()
+         self.throttle = self.rotor_params["throttle"]
+         self.throttle_difference = torch.zeros_like(self.throttle)
+diff --git a/omni_drones/robots/drone/hummingbird.py b/omni_drones/robots/drone/hummingbird.py
+index 686e4f9..a4f7a6a 100644
+--- a/omni_drones/robots/drone/hummingbird.py
++++ b/omni_drones/robots/drone/hummingbird.py
+@@ -23,8 +23,8 @@
+ 
+ import torch
+ 
+-from omni.isaac.core.prims import RigidPrimView
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
++from isaacsim.core.prims import RigidPrim as RigidPrimView
++from torchrl.data import Bounded, Unbounded
+ 
+ from omni_drones.robots.drone.multirotor import MultirotorBase
+ from omni_drones.robots.robot import ASSET_PATH
+diff --git a/omni_drones/robots/drone/iris.py b/omni_drones/robots/drone/iris.py
+index a237f79..9abe923 100644
+--- a/omni_drones/robots/drone/iris.py
++++ b/omni_drones/robots/drone/iris.py
+@@ -23,8 +23,8 @@
+ 
+ import torch
+ 
+-from omni.isaac.core.prims import RigidPrimView
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
++from isaacsim.core.prims import RigidPrim as RigidPrimView
++from torchrl.data import Bounded, Unbounded
+ 
+ from omni_drones.robots.drone.multirotor import MultirotorBase
+ from omni_drones.robots.robot import ASSET_PATH
 diff --git a/omni_drones/robots/drone/multirotor.py b/omni_drones/robots/drone/multirotor.py
-index 5902c12..173ed10 100644
+index 5902c12..1181b25 100644
 --- a/omni_drones/robots/drone/multirotor.py
 +++ b/omni_drones/robots/drone/multirotor.py
-@@ -32,6 +32,9 @@ from tensordict.nn import make_functional
- from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+@@ -28,10 +28,13 @@ import torch
+ import torch.distributions as D
+ import yaml
+ from torch.func import vmap
+-from tensordict.nn import make_functional
+-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
++from omni_drones.actuators.rotor_group import rotor_group_params
++from torchrl.data import Bounded, Composite, Unbounded
  from tensordict import TensorDict
  
-+import omni.isaac.core.utils.prims as prim_utils
-+from omni.isaac.core.simulation_context import SimulationContext
++import isaacsim.core.utils.prims as prim_utils
++from isaacsim.core.api.simulation_context import SimulationContext
 +
  from omni_drones.views import RigidPrimView
  from omni_drones.actuators.rotor_group import RotorGroup
  from omni_drones.controllers import ControllerBase
+@@ -63,25 +66,25 @@ class MultirotorBase(RobotBase):
+             self.params = yaml.safe_load(f)
+         self.num_rotors = self.params["rotor_configuration"]["num_rotors"]
+ 
+-        self.intrinsics_spec = CompositeSpec({
+-            "mass": UnboundedContinuousTensorSpec(1),
+-            "inertia": UnboundedContinuousTensorSpec(3),
+-            "com": UnboundedContinuousTensorSpec(3),
+-            "KF": UnboundedContinuousTensorSpec(self.num_rotors),
+-            "KM": UnboundedContinuousTensorSpec(self.num_rotors),
+-            "tau_up": UnboundedContinuousTensorSpec(self.num_rotors),
+-            "tau_down": UnboundedContinuousTensorSpec(self.num_rotors),
+-            "drag_coef": UnboundedContinuousTensorSpec(1),
++        self.intrinsics_spec = Composite({
++            "mass": Unbounded(1),
++            "inertia": Unbounded(3),
++            "com": Unbounded(3),
++            "KF": Unbounded(self.num_rotors),
++            "KM": Unbounded(self.num_rotors),
++            "tau_up": Unbounded(self.num_rotors),
++            "tau_down": Unbounded(self.num_rotors),
++            "drag_coef": Unbounded(1),
+         }).to(self.device)
+ 
+         state_dim = 19 + self.num_rotors
+-        self.state_spec = UnboundedContinuousTensorSpec(state_dim, device=self.device)
++        self.state_spec = Unbounded(state_dim, device=self.device)
+         self.randomization = defaultdict(dict)
+ 
+     @property
+     def action_spec(self):
+         if not hasattr(self, "_action_spec"):
+-            self._action_spec = BoundedTensorSpec(-1, 1, self.num_rotors, device=self.device)
++            self._action_spec = Bounded(-1, 1, self.num_rotors, device=self.device)
+         return self._action_spec
+ 
+     def initialize(
 @@ -97,7 +100,7 @@ class MultirotorBase(RobotBase):
                  track_contact_forces=track_contact_forces,
                  shape=self.shape,
@@ -743,7 +3709,7 @@ index 5902c12..173ed10 100644
              print(self._view.dof_names)
              print(self._view._dof_indices)
              rotor_joint_indices = [
-@@ -116,14 +119,34 @@ class MultirotorBase(RobotBase):
+@@ -116,18 +119,38 @@ class MultirotorBase(RobotBase):
              self.base_link = self._view
              self.prim_paths_expr = prim_paths_expr
  
@@ -769,9 +3735,9 @@ index 5902c12..173ed10 100644
 +            self.rotors_view.initialize(SimulationContext.instance().physics_sim_view)
 +        else:
 +            self.rotors_view = None
- 
-+        self._setup_rotor_model_and_buffers()
 +
++        self._setup_rotor_model_and_buffers()
+ 
 +
 +    def _setup_rotor_model_and_buffers(self):
 +        """Rotor actuator model, state buffers, and the mass/inertia/thrust
@@ -785,10 +3751,106 @@ index 5902c12..173ed10 100644
          rotor_config = self.params["rotor_configuration"]
          self.rotors = RotorGroup(rotor_config, dt=self.dt).to(self.device)
  
+-        rotor_params = make_functional(self.rotors)
++        rotor_params = rotor_group_params(self.rotors)
+         self.KF_0 = rotor_params["KF"].clone()
+         self.KM_0 = rotor_params["KM"].clone()
+         self.MAX_ROT_VEL = (
+@@ -243,9 +266,7 @@ class MultirotorBase(RobotBase):
+     def apply_action(self, actions: torch.Tensor) -> torch.Tensor:
+         rotor_cmds = actions.expand(*self.shape, self.num_rotors)
+         last_throttle = self.throttle.clone()
+-        thrusts, moments = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
+-            rotor_cmds, self.rotor_params
+-        )
++        thrusts, moments = self.rotors(rotor_cmds, self.rotor_params)
+ 
+         rotor_pos, rotor_rot = self.rotors_view.get_world_poses()
+         torque_axis = quat_axis(rotor_rot.flatten(end_dim=-2), axis=2).unflatten(0, (*self.shape, self.num_rotors))
+diff --git a/omni_drones/robots/drone/neo11.py b/omni_drones/robots/drone/neo11.py
+index 3c98138..80b6e90 100644
+--- a/omni_drones/robots/drone/neo11.py
++++ b/omni_drones/robots/drone/neo11.py
+@@ -23,8 +23,8 @@
+ 
+ import torch
+ 
+-from omni.isaac.core.prims import RigidPrimView
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
++from isaacsim.core.prims import RigidPrim as RigidPrimView
++from torchrl.data import Bounded, Unbounded
+ 
+ from omni_drones.robots.drone.multirotor import MultirotorBase
+ from omni_drones.robots.robot import ASSET_PATH
+diff --git a/omni_drones/robots/drone/omav.py b/omni_drones/robots/drone/omav.py
+index c53a8f7..cad1a78 100644
+--- a/omni_drones/robots/drone/omav.py
++++ b/omni_drones/robots/drone/omav.py
+@@ -22,7 +22,7 @@
+ 
+ 
+ import torch
+-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
++from torchrl.data import Bounded, Unbounded
+ 
+ from omni_drones.robots.drone import MultirotorBase
+ from omni_drones.robots.robot import ASSET_PATH
+@@ -34,13 +34,13 @@ class Omav(MultirotorBase):
+ 
+     def __init__(self, name: str = "Omav", cfg=None) -> None:
+         super().__init__(name, cfg)
+-        self.action_spec = BoundedTensorSpec(-1, 1, 12 + 6, device=self.device)
++        self.action_spec = Bounded(-1, 1, 12 + 6, device=self.device)
+         self.tilt_dof_indices = torch.arange(0, 6, device=self.device)
+         self.rotor_dof_indices = torch.arange(6, 18, device=self.device)
+         self.max_tilt_velocity = 10
+ 
+-        self.action_spec = BoundedTensorSpec(-1, 1, self.num_rotors + 6, device=self.device)
+-        self.state_spec = UnboundedContinuousTensorSpec(
++        self.action_spec = Bounded(-1, 1, self.num_rotors + 6, device=self.device)
++        self.state_spec = Unbounded(
+             19 + self.num_rotors + 12, device=self.device
+         )
+ 
 diff --git a/omni_drones/robots/robot.py b/omni_drones/robots/robot.py
-index 695a590..3b29a47 100644
+index 695a590..d157aea 100644
 --- a/omni_drones/robots/robot.py
 +++ b/omni_drones/robots/robot.py
+@@ -26,13 +26,13 @@ import os.path as osp
+ from contextlib import contextmanager
+ from typing import Dict, Sequence, Type
+ 
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.utils.torch as torch_utils
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.utils.torch as torch_utils
+ 
+ import omni.timeline
+ import torch
+ from omni_drones.views import ArticulationView, RigidPrimView
+-from omni.isaac.core.simulation_context import SimulationContext
++from isaacsim.core.api.simulation_context import SimulationContext
+ from torchrl.data import TensorSpec
+ 
+ import omni_drones.utils.kit as kit_utils
+@@ -98,7 +98,7 @@ class RobotBase(abc.ABC):
+         orientations=None,
+         prim_paths: Sequence[str] = None
+     ):
+-        if SimulationContext.instance()._physics_sim_view is not None:
++        if SimulationContext.instance().physics_sim_view is not None:
+             raise RuntimeError(
+                 "Cannot spawn robots after simulation_context.reset() is called."
+             )
+@@ -164,7 +164,7 @@ class RobotBase(abc.ABC):
+         self,
+         prim_paths_expr: str = None,
+     ):
+-        if SimulationContext.instance()._physics_sim_view is None:
++        if SimulationContext.instance().physics_sim_view is None:
+             raise RuntimeError(
+                 f"Cannot initialize {self.__class__.__name__} before the simulation context resets."
+                 "Call simulation_context.reset() first."
 @@ -173,6 +173,15 @@ class RobotBase(abc.ABC):
              prim_paths_expr = f"/World/envs/.*/{self.name}_.*"
          self.prim_paths_expr = prim_paths_expr
@@ -814,11 +3876,280 @@ index 695a590..3b29a47 100644
          # set the default state
          self._view.post_reset()
          self.shape = torch.arange(self._view.count).reshape(-1, self.n).shape
+diff --git a/omni_drones/sensors/camera.py b/omni_drones/sensors/camera.py
+index acdb0db..048d6f7 100644
+--- a/omni_drones/sensors/camera.py
++++ b/omni_drones/sensors/camera.py
+@@ -23,14 +23,14 @@ import math
+ 
+ from typing import Optional, Union, Sequence
+ 
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.utils.stage as stage_utils
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.utils.stage as stage_utils
+ import omni.replicator.core as rep
+ 
+ import torch
+ import warp as wp
+-from omni.isaac.core.prims import XFormPrim
+-from omni.isaac.core.simulation_context import SimulationContext
++from isaacsim.core.prims import SingleXFormPrim as XFormPrim
++from isaacsim.core.api.simulation_context import SimulationContext
+ from pxr import Gf, Sdf, UsdGeom
+ from tensordict import TensorDict
+ 
+diff --git a/omni_drones/sensors/config.py b/omni_drones/sensors/config.py
+index 189a83e..3baf03d 100644
+--- a/omni_drones/sensors/config.py
++++ b/omni_drones/sensors/config.py
+@@ -80,7 +80,7 @@ class PinholeCameraCfg:
+     """
+     projection_type: str = "pinhole"
+     """Type of projection to use for the camera. Defaults to "pinhole"."""
+-    usd_params: UsdCameraCfg = UsdCameraCfg()
++    usd_params: UsdCameraCfg = field(default_factory=UsdCameraCfg)
+     """Parameters for setting USD camera settings."""
+ 
+ 
+@@ -114,7 +114,7 @@ class FisheyeCameraCfg(PinholeCameraCfg):
+ 
+     projection_type: str = "fisheye_polynomial"
+     """Type of projection to use for the camera. Defaults to "fisheye_polynomial"."""
+-    usd_params: UsdCameraCfg = UsdCameraCfg()
++    usd_params: UsdCameraCfg = field(default_factory=UsdCameraCfg)
+     """Parameters for setting USD camera settings."""
+ 
+ 
+diff --git a/omni_drones/utils/kit.py b/omni_drones/utils/kit.py
+index 4010a01..c82a479 100644
+--- a/omni_drones/utils/kit.py
++++ b/omni_drones/utils/kit.py
+@@ -8,12 +8,12 @@ import math
+ from typing import Optional, Sequence
+ 
+ import carb
+-import omni.isaac.core.utils.nucleus as nucleus_utils
+-import omni.isaac.core.utils.prims as prim_utils
++import isaacsim.storage.native as nucleus_utils
++import isaacsim.core.utils.prims as prim_utils
+ import omni.kit
+-from omni.isaac.core.materials import PhysicsMaterial
+-from omni.isaac.core.prims import GeometryPrim
+-from omni.isaac.version import get_version
++from isaacsim.core.api.materials import PhysicsMaterial
++from isaacsim.core.prims import SingleGeometryPrim as GeometryPrim
++from isaacsim.core.version import get_version
+ from pxr import Gf, PhysxSchema, UsdPhysics
+ 
+ 
+@@ -54,8 +54,15 @@ def create_ground_plane(
+         usd_path = kwargs["usd_path"]
+     else:
+         # get path to the nucleus server
+-        # assets_root_path = nucleus_utils.get_assets_root_path()
+-        assets_root_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1"
++        # Ask the running Isaac Sim for its own asset root (version-matched), and
++        # only fall back to the public 4.1 bucket if that lookup fails.
++        try:
++            assets_root_path = nucleus_utils.get_assets_root_path()
++        except Exception as e:  # no network / no asset server configured
++            carb.log_warn(f"get_assets_root_path() failed: {e}")
++            assets_root_path = None
++        if assets_root_path is None:
++            assets_root_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1"
+         print("Assets root path: ", assets_root_path)
+         if assets_root_path is None:
+             carb.log_error("Unable to access the Isaac Sim assets folder on Nucleus server.")
+@@ -75,7 +82,10 @@ def create_ground_plane(
+     physx_material_api = PhysxSchema.PhysxMaterialAPI.Apply(material.prim)
+     # Set patch friction property
+     improve_patch_friction = kwargs.get("improve_patch_friction", False)
+-    physx_material_api.CreateImprovePatchFrictionAttr().Set(improve_patch_friction)
++    # `improvePatchFriction` was dropped from PhysxMaterialAPI in newer PhysX schemas
++    # (patch friction is always "improved" there), so only author it where it exists.
++    if hasattr(physx_material_api, "CreateImprovePatchFrictionAttr"):
++        physx_material_api.CreateImprovePatchFrictionAttr().Set(improve_patch_friction)
+     # Set combination mode for coefficients
+     combine_mode = kwargs.get("friciton_combine_mode", "multiply")
+     physx_material_api.CreateFrictionCombineModeAttr().Set(combine_mode)
+diff --git a/omni_drones/utils/scene.py b/omni_drones/utils/scene.py
+index 8723e00..175013a 100644
+--- a/omni_drones/utils/scene.py
++++ b/omni_drones/utils/scene.py
+@@ -23,8 +23,8 @@
+ 
+ from typing import Sequence, Union, Optional
+ 
+-import omni.isaac.core.utils.prims as prim_utils
+-import omni.isaac.core.utils.stage as stage_utils
++import isaacsim.core.utils.prims as prim_utils
++import isaacsim.core.utils.stage as stage_utils
+ import omni.physx.scripts.utils as script_utils
+ import torch
+ 
+diff --git a/omni_drones/utils/torchrl/collector.py b/omni_drones/utils/torchrl/collector.py
+index afc5fd9..ca60d66 100644
+--- a/omni_drones/utils/torchrl/collector.py
++++ b/omni_drones/utils/torchrl/collector.py
+@@ -23,7 +23,10 @@
+ 
+ import torch
+ import time
+-from torchrl.collectors import SyncDataCollector as _SyncDataCollector
++try:  # torchrl >= 0.9 renamed SyncDataCollector -> Collector
++    from torchrl.collectors import Collector as _SyncDataCollector
++except ImportError:  # pragma: no cover
++    from torchrl.collectors import SyncDataCollector as _SyncDataCollector
+ from torchrl.collectors.utils import split_trajectories
+ from torchrl.envs.utils import _replace_last, step_mdp
+ from tensordict.tensordict import TensorDictBase
+@@ -56,20 +59,20 @@ class SyncDataCollector(_SyncDataCollector):
+             # if self._frames >= total_frames:
+             #     self.env.close()
+ 
+-            if self.split_trajs:
++            if getattr(self, "split_trajs", False):
+                 tensordict_out = split_trajectories(
+                     tensordict_out, prefix="collector"
+                 )
+-            if self.postproc is not None:
++            if getattr(self, "postproc", None) is not None:
+                 tensordict_out = self.postproc(tensordict_out)
+-            if self._exclude_private_keys:
++            if getattr(self, "_exclude_private_keys", False):
+                 excluded_keys = [
+                     key for key in tensordict_out.keys() if key.startswith("_")
+                 ]
+                 tensordict_out = tensordict_out.exclude(
+                     *excluded_keys, inplace=True
+                 )
+-            if self.return_same_td:
++            if getattr(self, "return_same_td", False):
+                 yield tensordict_out
+             else:
+                 # we must clone the values, as the tensordict is updated in-place.
+diff --git a/omni_drones/utils/torchrl/env.py b/omni_drones/utils/torchrl/env.py
+index c019d1d..5d45480 100644
+--- a/omni_drones/utils/torchrl/env.py
++++ b/omni_drones/utils/torchrl/env.py
+@@ -28,7 +28,7 @@ from typing import Optional, Sequence
+ 
+ from dataclasses import dataclass
+ from torchrl.envs import EnvBase
+-from torchrl.data import TensorSpec, CompositeSpec
++from torchrl.data import TensorSpec, Composite
+ from tensordict import TensorDictBase
+ 
+ 
 diff --git a/omni_drones/utils/torchrl/transforms.py b/omni_drones/utils/torchrl/transforms.py
-index 793b960..564f687 100644
+index 793b960..e85546d 100644
 --- a/omni_drones/utils/torchrl/transforms.py
 +++ b/omni_drones/utils/torchrl/transforms.py
-@@ -209,16 +209,55 @@ def ravel_composite(
+@@ -36,11 +36,11 @@ from torchrl.envs.transforms import (
+ )
+ from torchrl.data import (
+     TensorSpec,
+-    BoundedTensorSpec,
+-    UnboundedContinuousTensorSpec,
+-    DiscreteTensorSpec,
+-    MultiDiscreteTensorSpec,
+-    CompositeSpec,
++    Bounded,
++    Unbounded,
++    Categorical,
++    MultiCategorical,
++    Composite,
+ )
+ from .env import AgentSpec
+ from dataclasses import replace
+@@ -78,9 +78,9 @@ class FromDiscreteAction(Transform):
+         self.nbins = nbins
+         self.action_key = action_key
+ 
+-    def transform_input_spec(self, input_spec: CompositeSpec) -> CompositeSpec:
++    def transform_input_spec(self, input_spec: Composite) -> Composite:
+         action_spec = input_spec[("full_action_spec", *self.action_key)]
+-        if isinstance(action_spec, BoundedTensorSpec):
++        if isinstance(action_spec, Bounded):
+             if isinstance(self.nbins, int):
+                 nbins = [self.nbins] * action_spec.shape[-1]
+             elif len(self.nbins) == action_spec.shape[-1]:
+@@ -95,11 +95,11 @@ class FromDiscreteAction(Transform):
+                 *[torch.linspace(0, 1, dim_nbins) for dim_nbins in nbins]
+             ).to(action_spec.device)  # [prod(nbins), len(nbins)]
+             n = self.mapping.shape[0]
+-            spec = DiscreteTensorSpec(
++            spec = Categorical(
+                 n, shape=[*action_spec.shape[:-1], 1], device=action_spec.device
+             )
+         else:
+-            NotImplementedError("Only BoundedTensorSpec is supported.")
++            NotImplementedError("Only Bounded is supported.")
+         input_spec[("full_action_spec", *self.action_key)] = spec
+         return input_spec
+ 
+@@ -124,9 +124,9 @@ class FromMultiDiscreteAction(Transform):
+         self.nbins = nbins
+         self.action_key = action_key
+ 
+-    def transform_input_spec(self, input_spec: CompositeSpec) -> CompositeSpec:
++    def transform_input_spec(self, input_spec: Composite) -> Composite:
+         action_spec = input_spec[("full_action_spec", *self.action_key)]
+-        if isinstance(action_spec, BoundedTensorSpec):
++        if isinstance(action_spec, Bounded):
+             if isinstance(self.nbins, int):
+                 nbins = [self.nbins] * action_spec.shape[-1]
+             elif len(self.nbins) == action_spec.shape[-1]:
+@@ -135,14 +135,14 @@ class FromMultiDiscreteAction(Transform):
+                 raise ValueError(
+                     "nbins must be int or list of length equal to the last dimension of action space."
+                 )
+-            spec = MultiDiscreteTensorSpec(
++            spec = MultiCategorical(
+                 nbins, shape=action_spec.shape, device=action_spec.device
+             )
+             self.nvec = spec.nvec.to(action_spec.device)
+             self.minimum = action_spec.space.minimum
+             self.maximum = action_spec.space.maximum
+         else:
+-            NotImplementedError("Only BoundedTensorSpec is supported.")
++            NotImplementedError("Only Bounded is supported.")
+         input_spec[("full_action_spec", *self.action_key)] = spec
+         return input_spec
+ 
+@@ -178,16 +178,16 @@ class DepthImageNorm(Transform):
+ 
+ 
+ def ravel_composite(
+-    spec: CompositeSpec, key: str, start_dim: int=-2, end_dim: int=-1
++    spec: Composite, key: str, start_dim: int=-2, end_dim: int=-1
+ ):
+     r"""
+ 
+     Examples:
+-    >>> obs_spec = CompositeSpec({
+-    ...     "obs_self": UnboundedContinuousTensorSpec((1, 19)),
+-    ...     "obs_others": UnboundedContinuousTensorSpec((3, 13)),
++    >>> obs_spec = Composite({
++    ...     "obs_self": Unbounded((1, 19)),
++    ...     "obs_others": Unbounded((3, 13)),
+     ... })
+-    >>> spec = CompositeSpec({
++    >>> spec = Composite({
+             "agents": {
+                 "observation": obs_spec
+             }
+@@ -198,7 +198,7 @@ def ravel_composite(
+     composite_spec = spec[key]
+     if not isinstance(key, tuple):
+         key = (key,)
+-    if isinstance(composite_spec, CompositeSpec):
++    if isinstance(composite_spec, Composite):
+         in_keys = [k for k in spec.keys(True, True) if k[:len(key)] == key]
+         return Compose(
+             FlattenObservation(start_dim, end_dim, in_keys),
+@@ -209,31 +209,74 @@ def ravel_composite(
  
  
  class RateController(Transform):
@@ -873,8 +4204,11 @@ index 793b960..564f687 100644
 +
      def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
          action_spec = input_spec[("full_action_spec", *self.action_key)]
-         spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
-@@ -228,12 +267,16 @@ class RateController(Transform):
+-        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
++        spec = Unbounded(action_spec.shape[:-1]+(4,), device=action_spec.device)
+         input_spec[("full_action_spec", *self.action_key)] = spec
+         return input_spec
+ 
      def _inv_call(self, tensordict: TensorDictBase) -> TensorDictBase:
          drone_state = tensordict[("info", "drone_state")][..., :13]
          action = tensordict[self.action_key]
@@ -894,10 +4228,210 @@ index 793b960..564f687 100644
          )
          torch.nan_to_num_(cmds, 0.)
          tensordict.set(self.action_key, cmds)
+@@ -253,7 +296,7 @@ class AttitudeController(Transform):
+ 
+     def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
+         action_spec = input_spec[("full_action_spec", *self.action_key)]
+-        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
++        spec = Unbounded(action_spec.shape[:-1]+(4,), device=action_spec.device)
+         input_spec[("full_action_spec", *self.action_key)] = spec
+         return input_spec
+ 
+diff --git a/omni_drones/views/__init__.py b/omni_drones/views/__init__.py
+index c3ce5b5..c636edd 100644
+--- a/omni_drones/views/__init__.py
++++ b/omni_drones/views/__init__.py
+@@ -28,13 +28,14 @@ from contextlib import contextmanager
+ from typing import List, Optional, Tuple, Union
+ import numpy as np
+ import carb
+-from omni.isaac.core.utils.prims import get_prim_parent, get_prim_at_path, set_prim_property, get_prim_property
++from isaacsim.core.utils.prims import get_prim_parent, get_prim_at_path, set_prim_property, get_prim_property
+ from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema
+-from omni.isaac.core.utils.types import JointsState, ArticulationActions
+-from omni.isaac.core.articulations import ArticulationView as _ArticulationView
+-from omni.isaac.core.prims import RigidPrimView as _RigidPrimView
+-from omni.isaac.core.prims import XFormPrimView
+-from omni.isaac.core.simulation_context import SimulationContext
++from isaacsim.core.utils.types import JointsState, ArticulationActions
++from isaacsim.core.prims import Articulation as _ArticulationView
++from isaacsim.core.prims import RigidPrim as _RigidPrimView
++from isaacsim.core.prims import XFormPrim as XFormPrimView
++from isaacsim.core.api.simulation_context import SimulationContext
++from isaacsim.core.simulation_manager import SimulationManager
+ import omni
+ import functools
+ 
+@@ -43,14 +44,29 @@ def require_sim_initialized(func):
+ 
+     @functools.wraps(func)
+     def _func(*args, **kwargs):
+-        if SimulationContext.instance()._physics_sim_view is None:
++        if SimulationContext.instance().physics_sim_view is None:
+             raise RuntimeError("SimulationContext not initialzed.")
+         return func(*args, **kwargs)
+ 
+     return _func
+ 
+ 
+-class ArticulationView(_ArticulationView):
++class _SimViewMixin:
++    """Isaac Sim >= 4.5 prim views no longer keep their own ``_physics_sim_view``;
++    the one simulation view lives in ``SimulationManager``. The methods below were
++    written against the per-view attribute, so expose it as a live property
++    (``None`` until physics has been started)."""
++
++    @property
++    def _physics_sim_view(self):
++        return SimulationManager.get_physics_sim_view()
++
++    @_physics_sim_view.setter
++    def _physics_sim_view(self, value):
++        pass  # owned by SimulationManager
++
++
++class ArticulationView(_SimViewMixin, _ArticulationView):
+     def __init__(
+         self,
+         prim_paths_expr: str,
+@@ -82,45 +98,12 @@ class ArticulationView(_ArticulationView):
+         Args:
+             physics_sim_view (omni.physics.tensors.SimulationView, optional): current physics simulation view. Defaults to None.
+         """
+-        if physics_sim_view is None:
+-            physics_sim_view = omni.physics.tensors.create_simulation_view(self._backend)
+-            physics_sim_view.set_subspace_roots("/")
+-        carb.log_info("initializing view for {}".format(self._name))
+-        # TODO: add a callback to set physics view to None once stop is called
+-        self._physics_view = physics_sim_view.create_articulation_view(
+-            [x.replace(".*", "*") for x in self._regex_prim_paths]
+-        )
+-        assert self._physics_view.is_homogeneous
+-        self._physics_sim_view = physics_sim_view
+-        if not self._is_initialized:
+-            self._metadata = self._physics_view.shared_metatype
+-            self._num_dof = self._physics_view.max_dofs
+-            self._num_bodies = self._physics_view.max_links
+-            self._num_shapes = self._physics_view.max_shapes
+-            self._num_fixed_tendons = self._physics_view.max_fixed_tendons
+-            self._body_names = self._metadata.link_names
+-            self._body_indices = dict(zip(self._body_names, range(len(self._body_names))))
+-            self._dof_names = self._metadata.dof_names
+-            self._dof_indices = self._metadata.dof_indices
+-            self._dof_types = self._metadata.dof_types
+-            self._dof_paths = self._physics_view.dof_paths
+-            self._prim_paths = self._physics_view.prim_paths
+-            carb.log_info("Articulation Prim View Device: {}".format(self._device))
+-            self._is_initialized = True
+-            self._default_kps, self._default_kds = self.get_gains(clone=True)
+-            default_actions = self.get_applied_actions(clone=True)
+-            # TODO: implement effort part
+-            if self.num_dof > 0:
+-                if self._default_joints_state is None:
+-                    self._default_joints_state = JointsState(positions=None, velocities=None, efforts=None)
+-                if self._default_joints_state.positions is None:
+-                    self._default_joints_state.positions = default_actions.joint_positions
+-                if self._default_joints_state.velocities is None:
+-                    self._default_joints_state.velocities = default_actions.joint_velocities
+-                if self._default_joints_state.efforts is None:
+-                    self._default_joints_state.efforts = self._backend_utils.create_zeros_tensor(
+-                        shape=[self.count, self.num_dof], dtype="float32", device=self._device
+-                    )
++        # The base class now builds the tensor view (and all the dof/joint/link
++        # metadata newer base-class methods rely on) itself, from the single
++        # SimulationManager-owned simulation view -- usually already at construction
++        # time if physics is running. `physics_sim_view` is kept for API compatibility.
++        if not self.is_physics_handle_valid():
++            self._on_physics_ready(None)
+         return
+ 
+     def get_gains(
+@@ -195,14 +178,14 @@ class ArticulationView(_ArticulationView):
+                         kps[articulation_write_idx][dof_write_idx] = drive.GetStiffnessAttr().Get()
+                     else:
+                         kps[articulation_write_idx][dof_write_idx] = self._backend_utils.convert(
+-                            1.0 / omni.isaac.core.utils.numpy.deg2rad(float(1.0 / drive.GetStiffnessAttr().Get())),
++                            1.0 / isaacsim.core.utils.numpy.deg2rad(float(1.0 / drive.GetStiffnessAttr().Get())),
+                             device=self._device,
+                         )
+                     if drive.GetDampingAttr().Get() == 0.0 or drive_type == "linear":
+                         kds[articulation_write_idx][dof_write_idx] = drive.GetDampingAttr().Get()
+                     else:
+                         kds[articulation_write_idx][dof_write_idx] = self._backend_utils.convert(
+-                            1.0 / omni.isaac.core.utils.numpy.deg2rad(float(1.0 / drive.GetDampingAttr().Get())),
++                            1.0 / isaacsim.core.utils.numpy.deg2rad(float(1.0 / drive.GetDampingAttr().Get())),
+                             device=self._device,
+                         )
+                     dof_write_idx += 1
+@@ -223,7 +206,14 @@ class ArticulationView(_ArticulationView):
+             return None
+         if not omni.timeline.get_timeline_interface().is_stopped() and self._physics_view is not None:
+             if self.num_dof == 0:
+-                return None
++                # A dof-less articulation (e.g. a single fixed prop). The base class'
++                # `_on_physics_ready` dereferences the result unconditionally since
++                # Isaac Sim 4.5, so hand back empty targets instead of None.
++                empty = torch.zeros(self.count, 0, device=self._device)
++                return ArticulationActions(
++                    joint_positions=empty, joint_velocities=empty.clone(),
++                    joint_efforts=None, joint_indices=None,
++                )
+             self._physics_sim_view.enable_warnings(False)
+             joint_positions = self._physics_view.get_dof_position_targets()
+             if clone:
+@@ -570,7 +560,7 @@ class ArticulationView(_ArticulationView):
+         return self
+ 
+ 
+-class RigidPrimView(_RigidPrimView):
++class RigidPrimView(_SimViewMixin, _RigidPrimView):
+     def __init__(
+         self,
+         prim_paths_expr: str,
+diff --git a/scripts/play.py b/scripts/play.py
+index 4ce5834..5b22611 100644
+--- a/scripts/play.py
++++ b/scripts/play.py
+@@ -16,7 +16,7 @@ from tqdm import tqdm
+ from omegaconf import OmegaConf
+ 
+ from omni_drones import init_simulation_app
+-from torchrl.data import CompositeSpec
++from torchrl.data import Composite
+ from torchrl.envs.utils import set_exploration_type, ExplorationType
+ from omni_drones.utils.torchrl import SyncDataCollector
+ from omni_drones.utils.torchrl.transforms import (
+@@ -50,7 +50,7 @@ def main(cfg):
+ 
+     transforms = [InitTracker()]
+ 
+-    # a CompositeSpec is by deafault processed by a entity-based encoder
++    # a Composite is by deafault processed by a entity-based encoder
+     # ravel it to use a MLP encoder instead
+     if cfg.task.get("ravel_obs", False):
+         transform = ravel_composite(base_env.observation_spec, ("agents", "observation"))
 diff --git a/scripts/train.py b/scripts/train.py
-index 1541ed8..6c10c2f 100644
+index 1541ed8..5bd9734 100644
 --- a/scripts/train.py
 +++ b/scripts/train.py
+@@ -28,7 +28,7 @@ from tqdm import tqdm
+ from omegaconf import OmegaConf
+ 
+ from omni_drones import init_simulation_app
+-from torchrl.data import CompositeSpec
++from torchrl.data import Composite
+ from torchrl.envs.utils import set_exploration_type, ExplorationType
+ from omni_drones.utils.torchrl import SyncDataCollector
+ from omni_drones.utils.torchrl.transforms import (
+@@ -179,7 +179,7 @@ def main(cfg):
+ 
+     transforms = [InitTracker()]
+ 
+-    # a CompositeSpec is by default processed by a entity-based encoder
++    # a Composite is by default processed by a entity-based encoder
+     # ravel it to use a MLP encoder instead
+     if cfg.task.get("ravel_obs", False):
+         transform = ravel_composite(base_env.observation_spec, ("agents", "observation"))
 @@ -199,6 +199,26 @@ def main(cfg):
              nbins = int(action_transform.split(":")[1])
              transform = FromDiscreteAction(nbins=nbins)
@@ -925,3 +4459,70 @@ index 1541ed8..6c10c2f 100644
          else:
              raise NotImplementedError(f"Unknown action transform: {action_transform}")
  
+diff --git a/scripts/train_lidar.py b/scripts/train_lidar.py
+index aa34a08..69dc9aa 100644
+--- a/scripts/train_lidar.py
++++ b/scripts/train_lidar.py
+@@ -19,7 +19,7 @@ from tqdm import tqdm
+ from omegaconf import OmegaConf
+ 
+ from omni_drones import init_simulation_app
+-from torchrl.data import CompositeSpec, TensorSpec
++from torchrl.data import Composite, TensorSpec
+ from torchrl.envs.utils import set_exploration_type, ExplorationType
+ from omni_drones.utils.torchrl import SyncDataCollector
+ from omni_drones.utils.torchrl.transforms import (
+@@ -49,7 +49,7 @@ from torchrl.modules import ProbabilisticActor
+ 
+ class PPOPolicy(TensorDictModuleBase):
+ 
+-    def __init__(self, cfg: PPOConfig, observation_spec: CompositeSpec, action_spec: CompositeSpec, reward_spec: TensorSpec, device):
++    def __init__(self, cfg: PPOConfig, observation_spec: Composite, action_spec: Composite, reward_spec: TensorSpec, device):
+         super().__init__()
+         self.cfg = cfg
+         self.device = device
+@@ -206,7 +206,7 @@ def main(cfg):
+ 
+     transforms = [InitTracker()]
+ 
+-    # a CompositeSpec is by default processed by a entity-based encoder
++    # a Composite is by default processed by a entity-based encoder
+     # ravel it to use a MLP encoder instead
+     if cfg.task.get("ravel_obs", False):
+         transform = ravel_composite(base_env.observation_spec, ("agents", "observation"))
+@@ -217,7 +217,7 @@ def main(cfg):
+     if (
+         cfg.task.get("flatten_intrinsics", True)
+         and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
+-        and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
++        and isinstance(base_env.observation_spec[("agents", "intrinsics")], Composite)
+     ):
+         transforms.append(ravel_composite(base_env.observation_spec, ("agents", "intrinsics"), start_dim=-1))
+ 
+diff --git a/scripts_paper/train.py b/scripts_paper/train.py
+index 0ad2f17..e61dcc1 100644
+--- a/scripts_paper/train.py
++++ b/scripts_paper/train.py
+@@ -111,7 +111,7 @@ def main(cfg):
+     ]
+     transforms = [InitTracker()]
+ 
+-    # a CompositeSpec is by deafault processed by a entity-based encoder
++    # a Composite is by deafault processed by a entity-based encoder
+     # ravel it to use a MLP encoder instead
+     if cfg.task.get("ravel_obs", False):
+         transform = ravel_composite(base_env.observation_spec, ("agents", "observation"))
+diff --git a/setup.py b/setup.py
+index e87bc89..085bbe3 100644
+--- a/setup.py
++++ b/setup.py
+@@ -16,6 +16,8 @@ setup(
+         "pandas",
+         "moviepy",
+         "av",
+-        "torchrl==0.3.1", # for torch==2.2.2
++        # Isaac Sim 6 ships torch 2.11 / Python 3.12; torchrl 0.3.1 has no wheel for
++        # either. Ported against torchrl 0.15.0 + tensordict 0.15.6.
++        "torchrl>=0.15",
+     ],
+ )

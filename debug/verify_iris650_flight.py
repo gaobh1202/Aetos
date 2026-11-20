@@ -36,7 +36,7 @@ simulation_app = init_simulation_app({"headless": True})
 
 try:
     import torch
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api.simulation_context import SimulationContext
 
     import omni_drones.utils.kit as kit_utils
     from omni_drones.controllers import LeePositionController

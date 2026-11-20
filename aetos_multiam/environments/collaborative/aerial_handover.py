@@ -25,7 +25,7 @@ per-agent goal), with both goals set to the handover point.
 from typing import List, Sequence
 
 import numpy as np
-from omni.isaac.core.objects import FixedCuboid
+from isaacsim.core.api.objects import FixedCuboid
 
 from aetos_multiam.objects import Hammer, ToteBox
 from aetos_multiam.scenes import WarehouseArena

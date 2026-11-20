@@ -22,8 +22,8 @@ Sizes below are **half**-extents, matching the MJCF they came from;
 from typing import List, Sequence, Tuple
 
 import numpy as np
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.objects import FixedCuboid, VisualCuboid
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.objects import FixedCuboid, VisualCuboid
 
 from .arena_base import Arena
 

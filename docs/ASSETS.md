@@ -104,6 +104,13 @@ file here, and read that file's own body names for `root_body_name`.
 SimReady download, laid out the same way (`simready_usd/` + `.metadata/` +
 `com.nvidia.simready.packaging.json`, no `.cache/huggingface` bookkeeping).
 
+`cabinet/` is the same library's asset `D00241` (CC-BY-4.0), laid out
+identically -- see `objects/cabinet.py` (`Cabinet`, the two-door fixture in
+`AerialCabinetGrasp`). The file needs four fixes before it behaves as a
+cabinet (doors authored open, free-floating carcass, one door's collider a
+single hull, inertia that ignores scale); all four are applied at spawn time
+and described in that module, the USD itself is not edited.
+
 `aetos_multiam.assets.USD_PATH` (and everything derived from it --
 `MESHES_PATH`, every manipulator/gripper spec's `usd_path`) points into
 `assets/meshes/usd/`; each MJCF bundle's `robot.xml`/`scene.xml` resolves

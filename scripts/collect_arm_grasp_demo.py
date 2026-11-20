@@ -43,13 +43,34 @@ p.add_argument("--policy", default=None, metavar="HOST:PORT",
                help="evaluate a trained policy (scripts/serve_lerobot_policy.py) instead of the scripted expert")
 p.add_argument("--exclude-bases-from", default=None, metavar="DIR",
                help="skip the base poses used by the episodes under DIR (the training set), to test on unseen ones")
+p.add_argument("--base-yaw-max", type=float, default=None, metavar="DEG", help="only base poses whose heading is within +-DEG of the handle frame's")
+p.add_argument("--base-height", type=float, nargs=2, default=None, metavar=("LO", "HI"), help="only base poses this far above the handle, m")
+p.add_argument("--base-xy-range", type=float, default=None, metavar="M", help="only base poses within +-M of the nominal base in x and y (handle frame)")
 p.add_argument("--base-state", action="store_true",
                help="with --policy: the policy was trained on export_arm_grasp_lerobot.py --base-state")
+p.add_argument("--drone-state", action="store_true",
+               help="with --policy: append the drone's own state (DRONE_STATE_NAMES) to the joint state sent, "
+                    "for a policy trained on export_arm_grasp_lerobot.py --drone-state")
+p.add_argument("--replay", default=None, metavar="DATASET",
+               help="replay the recorded actions of a LeRobot dataset (scripts/export_arm_grasp_lerobot.py) open loop "
+                    "and report how many episodes still succeed; needs --replay-init")
+p.add_argument("--replay-init", default=None, metavar="NPZ",
+               help="per dataset episode: base_index, box_xy_yaw_deg, drift_amp, drift_freq, drift_phase "
+                    "(what the collector drew for that episode -- the dataset itself does not store it)")
+p.add_argument("--replay-interp", action="store_true",
+               help="ramp between consecutive recorded targets over the physics steps instead of holding each one")
+p.add_argument("--depth", action="store_true",
+               help="also record / send each camera's depth image as <camera>_depth: distance to the image plane, "
+                    "0..DEPTH_MAX m mapped to 0..255 (farther or no return = 255), as a three-channel image")
+p.add_argument("--wrist-view", choices=["forward", "side"], default="forward", help="where the wrist camera looks (side: the older datasets)")
+p.add_argument("--handle", type=int, choices=[0, 1], default=0,
+               help="which handle of the box to grasp: 0 (-x, where the demos were recorded) or 1 (+x, the second robot's, "
+                    "the same geometry turned half a turn about the vertical)")
 p.add_argument("--video", default=None, metavar="DIR", help="save every episode's camera views (side by side) as an mp4, failures too")
 p.add_argument("--gui", action="store_true")
 args = p.parse_args()
-if args.policy:
-    args.action_noise = 0.0  # the policy's commands go out as they are
+if args.policy or args.replay:
+    args.action_noise = 0.0  # the policy's / the recorded commands go out as they are
 
 from aetos_multiam import init_simulation_app  # noqa: E402
 
@@ -60,13 +81,18 @@ JAW_OPEN, JAW_KP, JAW_KD = 1.5, 10.0, 0.5  # the authored jaw drive (kp 0.35) ca
 RETREAT, LIFT = 0.08, 0.04  # m: pregrasp distance back along the fingers; how far the handle is lifted
 PHASES = (("reach", 2.0), ("approach", 1.5), ("close", 1.0), ("lift", 1.5), ("hold", 1.0))
 DT, RECORD_EVERY = 0.01, 4
+DEPTH_MAX = {"wrist": 0.5, "base": 1.0}  # m, the range a depth image covers (--depth): the wrist camera only needs the bar
+# What the drone knows about itself without seeing the scene (odometry + IMU), nothing about the box:
+# displacement since the episode started, in the heading frame it started with; heading change;
+# linear velocity and yaw rate in its own body frame.
+DRONE_STATE_NAMES = ("drone_dx", "drone_dy", "drone_dz", "drone_dyaw", "drone_vx", "drone_vy", "drone_vz", "drone_wz")
 
 simulation_app = init_simulation_app({"headless": not args.gui})
 try:
     import torch
-    from omni.isaac.core.objects import FixedCuboid
-    from omni.isaac.core.prims import RigidPrimView
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api.objects import FixedCuboid
+    from isaacsim.core.prims import RigidPrim as RigidPrimView
+    from isaacsim.core.api.simulation_context import SimulationContext
     from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
     from scipy.spatial.transform import Rotation as R
 
@@ -88,6 +114,9 @@ try:
     def pq(m):  # 4x4 -> (pos, quat wxyz) float32 tensors, batch of one
         return (torch.tensor(m[:3, 3], dtype=torch.float32).reshape(1, 3),
                 torch.tensor(np.roll(R.from_matrix(m[:3, :3]).as_quat(), 1), dtype=torch.float32).reshape(1, 4))
+
+    # Handle frame in the box frame; the second handle's is the first's turned half a turn about the box's vertical.
+    HANDLE_T = T(HANDLE_IN_BOX) if args.handle == 0 else T((0, 0, 0), (0, 0, 0, 1)) @ T(HANDLE_IN_BOX)
 
     def look_at(eye, target, up=(0.0, 0.0, 1.0)):  # USD camera: looks along -z, +y up
         z = np.asarray(eye, float) - target
@@ -124,19 +153,24 @@ try:
 
     cams = {}
     if not args.no_cameras:
-        from omni.isaac.sensor import Camera
+        from isaacsim.sensors.camera import Camera
 
         gripper_prim = [x for x in Usd.PrimRange(stage.GetPrimAtPath(root))
                         if x.GetName() == "gripper" and x.HasAPI(UsdPhysics.RigidBodyAPI)][0].GetPath().pathString
         # name: (parent prim, position, orientation wxyz), in the parent link's frame.
-        for name, (parent, eye, quat) in {
-            # Out beside the fixed finger, clear of the gripper body, looking at the gripper centre.
-            "wrist": (gripper_prim, (-0.10, 0.0, -0.01), look_at((-0.10, 0.0, -0.01), np.asarray(GRASP_LOCAL), (0.0, 0.0, 1.0))),
+        cam_defs = {
+            # forward: behind the fixed finger, looking along the fingers at what is ahead of them (gripper at the
+            # bottom of the image). side: beside the fixed finger looking across at the gripper centre, as the
+            # datasets recorded before this view existed.
+            "wrist": (gripper_prim, (-0.12, 0.0, 0.03), look_at((-0.12, 0.0, 0.03), np.array((0.011, 0.0, -0.10)), (-1.0, 0.0, 0.0)))
+            if args.wrist_view == "forward" else
+            (gripper_prim, (-0.10, 0.0, -0.01), look_at((-0.10, 0.0, -0.01), np.asarray(GRASP_LOCAL), (0.0, 0.0, 1.0))),
             # Under the airframe ahead of the arm, looking down and slightly forward, turned ~45 deg
             # about its axis (set by hand in the viewport; Euler xyz, deg, as the Property panel shows it).
             "base": (f"{root}/base_link", (0.17458, 0.00309, -0.05512),
                      np.roll(R.from_euler("xyz", (1.857, 9.042, 44.59), degrees=True).as_quat(), 1)),
-        }.items():
+        }
+        for name, (parent, eye, quat) in cam_defs.items():
             cam = UsdGeom.Camera.Define(stage, f"{parent}/{name}_cam")
             cam.AddTranslateOp().Set(Gf.Vec3d(*eye))
             cam.AddOrientOp().Set(Gf.Quatf(*[float(v) for v in quat]))
@@ -148,6 +182,18 @@ try:
     am.initialize()
     for c in cams.values():
         c.initialize()
+        if args.depth:
+            c.add_distance_to_image_plane_to_frame()
+
+    def images():  # what the cameras see now: name -> HxWx3 uint8 (colour, and with --depth the depth image)
+        out = {n: c.get_rgba()[:, :, :3].copy() for n, c in cams.items()}
+        if args.depth:
+            for n, c in cams.items():
+                d = np.nan_to_num(np.asarray(c.get_depth(), dtype=np.float32), nan=np.inf, posinf=np.inf)
+                d8 = (np.clip(d / DEPTH_MAX[n], 0.0, 1.0) * 255).astype(np.uint8)
+                out[f"{n}_depth"] = np.repeat(d8[:, :, None], 3, axis=2)
+        return out
+    image_names = [*cams, *(f"{n}_depth" for n in cams if args.depth)]
     view = am.drone._view
     mount_view = RigidPrimView("/World/mount", reset_xform_properties=False)
     box_view = RigidPrimView("/World/carry_box", reset_xform_properties=False)
@@ -169,23 +215,59 @@ try:
     bases, grasps = z["drone_in_handle"][z["feasible"]], z["grasp_in_handle_each"][z["feasible"]]
     q_default = torch.tensor(z["q_default"], dtype=torch.float32)
     rng = np.random.default_rng(args.seed)
+    allowed = np.ones(len(bases), bool)  # indices below are into the full feasible set, as base_index in the episode files
+    base_ids = np.arange(len(bases))  # row of `bases` -> index in the full feasible set, kept through the filtering below
+    if args.base_yaw_max is not None:
+        allowed &= np.abs(R.from_matrix(bases[:, :3, :3]).as_euler("zyx", degrees=True)[:, 0]) <= args.base_yaw_max
+    if args.base_height is not None:
+        allowed &= (bases[:, 2, 3] >= args.base_height[0]) & (bases[:, 2, 3] <= args.base_height[1])
+    if args.base_xy_range is not None:
+        allowed &= (np.abs(bases[:, :2, 3] - z["drone_in_handle_nominal"][:2, 3]) <= args.base_xy_range).all(1)
+    if not allowed.all():
+        print(f"[collect] base range: {int(allowed.sum())} of {len(bases)} feasible base poses allowed", flush=True)
     if args.exclude_bases_from:
         seen = {int(np.load(f)["base_index"]) for f in Path(args.exclude_bases_from).rglob("ep*.npz")}
-        keep = np.array([j for j in range(len(bases)) if j not in seen])
-        print(f"[collect] {len(seen)} base poses used under {args.exclude_bases_from} left out, {len(keep)} remain", flush=True)
-        bases, grasps = bases[keep], grasps[keep]
+        print(f"[collect] {len(seen)} base poses used under {args.exclude_bases_from} left out", flush=True)
+        allowed[list(seen)] = False
+    assert allowed.any(), "no base pose left"
+    if not allowed.all():
+        keep = np.where(allowed)[0]
+        print(f"[collect] {len(keep)} base poses to draw from", flush=True)
+        bases, grasps, base_ids = bases[keep], grasps[keep], keep
     conn = None
     if args.policy:
         from multiprocessing.connection import Client
         host, port = args.policy.split(":")
         conn = Client((host, int(port)))
 
+    replay = None
+    if args.replay:
+        import pandas as pd
+        frames = pd.concat([pd.read_parquet(f) for f in sorted(Path(args.replay, "data").rglob("*.parquet"))])
+        replay = [np.stack(g["action"].values) for _, g in frames.sort_values("index").groupby("episode_index")]
+        init = np.load(args.replay_init)
+        assert len(init["base_index"]) == len(replay), "--replay-init does not belong to this dataset"
+        args.episodes = min(args.episodes, len(replay)) if "--episodes" in __import__("sys").argv else len(replay)
+
     def joints():
         return view.get_joint_positions().reshape(-1, view.num_dof)[0, all_idx]
 
+    odom0 = []  # [position, heading] of the drone when the episode's first observation was taken
+
+    def drone_state():
+        bp, bq = view.get_world_poses()
+        vel = view.get_velocities().reshape(-1, 6)[0].numpy()
+        rot = R.from_quat(np.roll(bq.reshape(4).numpy(), -1))
+        pos, yaw = bp.reshape(3).numpy().astype(float), float(rot.as_euler("zyx")[0])
+        if not odom0:
+            odom0.extend([pos, yaw])
+        d = R.from_euler("z", -odom0[1]).apply(pos - odom0[0])
+        dyaw = (yaw - odom0[1] + math.pi) % (2 * math.pi) - math.pi
+        return np.array([*d, dyaw, *rot.inv().apply(vel[:3]), rot.inv().apply(vel[3:])[2]], dtype=np.float32)
+
     def handle_pose():
         bp, bq = box_view.get_world_poses()
-        return T(bp[0].numpy(), bq[0].numpy()) @ T(HANDLE_IN_BOX)
+        return T(bp[0].numpy(), bq[0].numpy()) @ HANDLE_T
 
     def ee_pose():
         pos, quat = ee.pose()
@@ -195,7 +277,11 @@ try:
         i = int(rng.integers(len(bases)))
         box_world = T((rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05), TABLE_Z + 0.002),
                       np.roll(R.from_euler("z", rng.uniform(-20, 20), degrees=True).as_quat(), 1))
-        base = box_world @ T(HANDLE_IN_BOX) @ bases[i]
+        if replay:
+            i = int(np.where(base_ids == int(init["base_index"][ep]))[0][0])
+            x, y, yaw = init["box_xy_yaw_deg"][ep]
+            box_world = T((x, y, TABLE_Z + 0.002), np.roll(R.from_euler("z", yaw, degrees=True).as_quat(), 1))
+        base = box_world @ HANDLE_T @ bases[i]
         box_view.set_world_poses(*pq(box_world))
         box_view.set_velocities(torch.zeros(1, 6))
         mount_view.set_world_poses(*pq(base))
@@ -211,9 +297,12 @@ try:
         # Hover drift of x y z (m) and yaw (rad): two slow sinusoids each (0.1-0.6 Hz), random per episode.
         scale = np.array([1, 1, 1, math.radians(100)]) * args.jitter
         amp, freq, phase0 = rng.normal(size=(2, 4)) * scale, rng.uniform(0.1, 0.6, (2, 4)), rng.uniform(0, 2 * np.pi, (2, 4))
+        if replay:
+            amp, freq, phase0 = init["drift_amp"][ep], init["drift_freq"][ep], init["drift_phase"][ep]
         t, noise = 0.0, torch.zeros(5)
-        rec = {k: [] for k in ("q", "action", "action_executed", "phase", "base_pose", "box_pose", "ee_pose",
-                               "ee_target", *(f"image_{n}" for n in cams))}
+        odom0.clear()
+        rec = {k: [] for k in ("q", "action", "action_executed", "phase", "drone_state", "base_pose", "box_pose", "ee_pose",
+                               "ee_target", *(f"image_{n}" for n in image_names))}
 
         mount_now = [base]  # where the mount was last sent
 
@@ -237,14 +326,14 @@ try:
             sent[:5] += noise
             view.set_joint_position_targets(sent.reshape(1, 1, 6), joint_indices=all_idx)
             if (args.out or args.video) and phase >= 0 and k % RECORD_EVERY == 0:
-                for n, c in cams.items():
-                    rec[f"image_{n}"].append(c.get_rgba()[:, :, :3].copy())
+                for n, im in images().items():
+                    rec[f"image_{n}"].append(im)
                 bpos, bquat = box_view.get_world_poses()
-                for key, v in (("q", joints().numpy()), ("action", clean.numpy()), ("action_executed", sent.numpy()),
+                for key, v in (("q", joints().numpy()), ("drone_state", drone_state()), ("action", clean.numpy()), ("action_executed", sent.numpy()),
                                ("phase", phase), ("base_pose", m), ("box_pose", T(bpos[0].numpy(), bquat[0].numpy())),
                                ("ee_pose", ee_pose()), ("ee_target", target if target is not None else ee_pose())):
                     rec[key].append(np.asarray(v, dtype=np.float32 if key != "phase" else np.int64))
-            sim.step(render=bool(cams) and bool(args.out or conn or args.video) and (k + 1) % RECORD_EVERY == 0 or args.gui)
+            sim.step(render=bool(cams) and bool((args.out and not replay) or conn or args.video) and (k + 1) % RECORD_EVERY == 0 or args.gui)
 
         for k in range(50):  # settle in the default posture
             step(None, -1, k)
@@ -262,12 +351,23 @@ try:
                     if args.base_state:
                         state += base_state(m_prev, mount_now[0], DT * RECORD_EVERY).tolist()
                         m_prev = mount_now[0]
+                    if args.drone_state:
+                        state += drone_state().tolist()
                     conn.send({"state": state, "shape": (args.image_size[1], args.image_size[0]),
-                               **{n: c.get_rgba()[:, :, :3].tobytes() for n, c in cams.items()}})
+                               **{n: im.tobytes() for n, im in images().items()}})
                     a = conn.recv()
                     q_cmd, jaw_cmd = torch.tensor(a[:5], dtype=torch.float32).reshape(1, 5), float(a[5])
                 step(None, 0, k)
-        for phase, (name, seconds) in enumerate(() if conn else PHASES):
+        if replay:  # the recorded targets, one per recorded frame
+            acts = torch.tensor(replay[ep], dtype=torch.float32)
+            for k in range(len(acts) * RECORD_EVERY):
+                f, u = divmod(k, RECORD_EVERY)
+                a = acts[f]
+                if args.replay_interp and f + 1 < len(acts):
+                    a = a + (acts[f + 1] - a) * u / RECORD_EVERY
+                q_cmd, jaw_cmd = a[:5].reshape(1, 5).clone(), float(a[5])
+                step(None, 0, k)
+        for phase, (name, seconds) in enumerate(() if conn or replay else PHASES):
             n = int(seconds / DT)
             if name == "lift":
                 lift_from = ee_pose()
@@ -298,26 +398,31 @@ try:
         lifted = handle_pose()[2, 3] - h0[2, 3]
         # Held: the jaw stalled on the bar instead of closing (0 rad), the bar is between the fingers and clear
         # of the posts at +-110 mm, and the handle came up with the gripper (the base drifts ~1 cm meanwhile).
-        ok = float(joints()[5]) > 0.05 and off_axis < 0.03 and slide < 0.10 and lifted > 0.5 * LIFT
-        print(f"[collect] ep {ep:3d} base {i:3d}: {'OK  ' if ok else 'FAIL'} bar {off_axis * 1000:5.1f} mm off the gripper centre, "
+        # Grasped is what a policy is scored on; a demonstration must also have lifted the handle.
+        held = float(joints()[5]) > 0.05 and off_axis < 0.03 and slide < 0.10
+        ok = held and lifted > 0.5 * LIFT
+        print(f"[collect] ep {ep:3d} base {int(base_ids[i]):3d}: {'OK  ' if ok else 'HELD' if held else 'FAIL'} bar {off_axis * 1000:5.1f} mm off the gripper centre, "
               f"slid {slide * 1000:4.0f} mm, handle lifted {lifted * 1000:5.1f} mm, jaw at {float(joints()[5]):.2f} rad", flush=True)
-        if not ok and not conn:
+        if not ok and not conn and not replay:
             print(f"[collect]        off the target after each phase: {', '.join(left)}; joints (deg) "
                   f"{np.round(np.degrees(joints().numpy()), 0)}", flush=True)
         if args.video and cams:
             import subprocess
 
             import imageio_ffmpeg  # its bundled ffmpeg
-            frames = [np.hstack([rec[f"image_{n}"][j] for n in cams]) for j in range(len(rec["q"]))]
+            frames = [np.hstack([rec[f"image_{n}"][j] for n in image_names]) for j in range(len(rec["q"]))]
             subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                             "-s", f"{frames[0].shape[1]}x{frames[0].shape[0]}", "-r", str(round(1 / (DT * RECORD_EVERY))), "-i", "-",
-                            "-pix_fmt", "yuv420p", str(Path(args.video) / f"ep{ep:04d}_{'ok' if ok else 'fail'}.mp4")],
+                            "-pix_fmt", "yuv420p", str(Path(args.video) / f"ep{ep:04d}_{'ok' if held else 'fail'}.mp4")],
                            input=b"".join(np.ascontiguousarray(x).tobytes() for x in frames), check=True)
-        if args.out and ok:  # failed attempts are not demonstrations
+            # the episode's signals next to the video (no images), to see when a grasp was made or lost
+            np.savez_compressed(Path(args.video) / f"ep{ep:04d}_{'ok' if held else 'fail'}.npz", success=held, lifted=ok, base_index=int(base_ids[i]),
+                                fps=1.0 / (DT * RECORD_EVERY), **{k_: np.stack(v) for k_, v in rec.items() if v and not k_.startswith("image_")})
+        if args.out and ok and not replay:  # failed attempts are not demonstrations
             np.savez_compressed(Path(args.out) / f"ep{ep:04d}.npz", **{k_: np.stack(v) for k_, v in rec.items() if v},
-                                success=ok, base_index=i, phase_names=np.array([n for n, _ in PHASES]),
-                                fps=1.0 / (DT * RECORD_EVERY), joint_names=np.array([dof_names[int(j)] for j in all_idx]))
-        return ok
+                                success=ok, base_index=int(base_ids[i]), phase_names=np.array([n for n, _ in PHASES]),
+                                fps=1.0 / (DT * RECORD_EVERY), drone_state_names=np.array(DRONE_STATE_NAMES), joint_names=np.array([dof_names[int(j)] for j in all_idx]))
+        return held, ok
 
     for d in (args.out, args.video):
         if d:
@@ -330,7 +435,7 @@ try:
                 prim = stage.GetPrimAtPath(c.prim_path)
                 print(f"[collect] {n}_cam at {prim.GetPath()}: translate {tuple(round(v, 4) for v in prim.GetAttribute('xformOp:translate').Get())}, "
                       f"orient (w, x, y, z) {prim.GetAttribute('xformOp:orient').Get()}", flush=True)
-    print(f"[collect] success {sum(oks)}/{len(oks)}; jitter {args.jitter * 100:.1f} cm, action noise {args.action_noise} rad", flush=True)
+    print(f"[collect] success {sum(h for h, _ in oks)}/{len(oks)} grasped, {sum(o for _, o in oks)}/{len(oks)} grasped and lifted; jitter {args.jitter * 100:.1f} cm, action noise {args.action_noise} rad", flush=True)
     while args.gui and simulation_app.is_running():  # keep the window open after the last episode
         sim.render()
     print("BUILD done")

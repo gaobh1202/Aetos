@@ -41,7 +41,7 @@ prim nested inside another RigidBodyAPI prim ("xformstack reset ... missing
 when child of rigid body in hierarchy"), and every joint inside the nested
 child then failed to resolve at all ("CreateJoint - no bodies defined"),
 silently producing an articulation with the manipulator's joints simply
-absent -- confirmed live via `scripts/run_button_grasp.py`, which crashed
+absent -- confirmed live via `scripts/run_single_smoke.py` (then `run_button_grasp.py`), which crashed
 downstream with `arm_joint_indices` lookup failing because `joint1..joint6`
 genuinely weren't in the merged articulation's `dof_names`. This is the
 exact same nesting bug the Fin-Ray finger work (see the finger section
@@ -143,7 +143,7 @@ counts) in favor of one top-level spec key per agent (`f"agent_{i}"`).
 | `AerialHandover` | `hummingbird340_2dof_gripper`, `uaquad600_gripper` | No -- both MJCF-only |
 | `AerialAssembly` | `uaquad600_gripper`, `amov950_airbot_bottom` | No -- one MJCF-only |
 | `AerialTransport` | `amov950_airbot_bottom` x2 | **Yes** |
-| `AerialCabinetGrasp` | `fahexa750_gripper` x2, `iris650_soarm100` | No -- all MJCF-only |
+| `AerialCabinetGrasp` | `fahexa750_gripper` x2, `hummingbird340_2dof_gripper` | **Yes** -- two-door cabinet (`objects/cabinet.py`) with a button inside; `scripts/check_cabinet_grasp.py` |
 | `AerialAssemblyTriple` | `amov950_airbot_bottom` x3 | **Yes** |
 
 None of the five have a real task-object asset yet (a handover target,

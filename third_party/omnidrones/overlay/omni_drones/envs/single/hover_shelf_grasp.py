@@ -30,7 +30,7 @@ logic that drives this task at runtime.
 import sys
 from pathlib import Path
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 from .hover import Hover

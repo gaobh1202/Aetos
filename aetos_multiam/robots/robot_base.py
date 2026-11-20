@@ -13,7 +13,7 @@ import logging
 from typing import List, Optional, Sequence
 
 import torch
-from omni.isaac.core.simulation_context import SimulationContext
+from isaacsim.core.api.simulation_context import SimulationContext
 
 from aetos_multiam.utils import (
     add_articulation_root,
@@ -205,7 +205,7 @@ class AerialManipulatorBase:
             )
 
         if self.manipulator_spec is not None and self.manipulator_spec.no_collide_with_drone:
-            from omni.isaac.core.utils.stage import get_current_stage
+            from isaacsim.core.utils.stage import get_current_stage
             from pxr import UsdPhysics
 
             stage = get_current_stage()
@@ -217,7 +217,7 @@ class AerialManipulatorBase:
                     f"{drone_prim_path}/base_link")
 
         if self.manipulator_spec is not None and tuple(self.manipulator_spec.drive_gain_scale) != (1.0, 1.0):
-            from omni.isaac.core.utils.stage import get_current_stage
+            from isaacsim.core.utils.stage import get_current_stage
             from pxr import Usd, UsdPhysics
 
             ks, ds = self.manipulator_spec.drive_gain_scale
@@ -241,7 +241,7 @@ class AerialManipulatorBase:
         """Where the ArticulationRootAPI ended up -- base_link for every asset
         here once ``_pin_articulation_root_to_drone`` has run, but checked
         rather than assumed."""
-        import omni.isaac.core.utils.prims as prim_utils
+        import isaacsim.core.utils.prims as prim_utils
         from pxr import UsdPhysics
 
         candidate = f"{drone_prim_path}/base_link"
@@ -264,7 +264,7 @@ class AerialManipulatorBase:
         of drift) with the arm held perfectly still. No-op for the presets
         that already carry the API on the mount body.
         """
-        import omni.isaac.core.utils.prims as prim_utils
+        import isaacsim.core.utils.prims as prim_utils
         from pxr import UsdPhysics
 
         import omni_drones.utils.kit as kit_utils

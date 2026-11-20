@@ -32,8 +32,8 @@ args = parser.parse_args()
 
 simulation_app = init_simulation_app({"headless": args.headless})
 
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.simulation_context import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.simulation_context import SimulationContext
 from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
 from omni.kit.viewport.utility.camera_state import ViewportCameraState
 from pxr import Gf, UsdPhysics

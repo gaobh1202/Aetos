@@ -41,7 +41,7 @@ meshes at that spacing. Every piece is 50 g.
 from pathlib import Path
 from typing import Sequence, Tuple
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 from pxr import Gf, UsdGeom, UsdPhysics
 
 from aetos_multiam.utils import strip_articulation_root

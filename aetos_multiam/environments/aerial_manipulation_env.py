@@ -13,7 +13,7 @@ longer list, not a code change -- see ``cfg/task/Aerial*.yaml`` and
 import abc
 from typing import List, Optional, Sequence
 
-from omni.isaac.core.simulation_context import SimulationContext
+from isaacsim.core.api.simulation_context import SimulationContext
 
 from aetos_multiam.robots import AerialManipulatorBase, AerialManipulatorCfg, get_preset
 from aetos_multiam.scenes import Arena
@@ -55,7 +55,11 @@ class AerialManipulationEnv(AetosEnv):
         self.aerial_manipulators: List[AerialManipulatorBase] = []
         for i, am_cfg in enumerate(self.am_cfgs):
             am = AerialManipulatorBase(am_cfg, name=f"am_{i}")
-            am.spawn(translations=[self._default_spawn_translation(i)])
+            orientation = self._default_spawn_orientation(i)
+            am.spawn(
+                translations=[self._default_spawn_translation(i)],
+                orientations=None if orientation is None else [orientation],
+            )
             self.aerial_manipulators.append(am)
         self.drone = self.aerial_manipulators[0]  # convenience alias for single-agent tasks
 
@@ -68,6 +72,12 @@ class AerialManipulationEnv(AetosEnv):
     def _default_spawn_translation(self, index: int) -> Sequence[float]:
         """Spread agents out along Y by default; override for task-specific layouts."""
         return (0.0, 1.5 * index, 1.0)
+
+    def _default_spawn_orientation(self, index: int) -> Optional[Sequence[float]]:
+        """Spawn attitude as a (w, x, y, z) quaternion, or ``None`` for the
+        asset's own. Override when which way a robot faces matters -- e.g.
+        ``yaw_deg_to_quat(180)`` to start it looking down -x."""
+        return None
 
     @abc.abstractmethod
     def _load_objects(self) -> List[str]:

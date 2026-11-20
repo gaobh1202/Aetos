@@ -28,8 +28,8 @@ simulation_app = init_simulation_app({"headless": True})
 
 import numpy as np
 import torch
-import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.simulation_context import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.api.simulation_context import SimulationContext
 from pxr import UsdGeom
 
 import omni_drones.utils.kit as kit_utils

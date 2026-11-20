@@ -9,7 +9,7 @@ needed to mount a ``Button`` object against.
 
 from typing import List, Sequence
 
-from omni.isaac.core.objects import FixedCuboid
+from isaacsim.core.api.objects import FixedCuboid
 
 from .arena_base import Arena
 

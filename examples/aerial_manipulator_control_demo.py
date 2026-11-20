@@ -248,7 +248,7 @@ else:
     simulation_app = init_simulation_app({"headless": args.headless})
 
 import torch
-from omni.isaac.core.simulation_context import SimulationContext
+from isaacsim.core.api.simulation_context import SimulationContext
 from omni.kit.viewport.utility import get_active_viewport
 from omni.kit.viewport.utility.camera_state import ViewportCameraState
 from pxr import Gf

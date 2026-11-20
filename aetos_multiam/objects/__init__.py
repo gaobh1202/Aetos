@@ -8,6 +8,7 @@ from .tote_box import ToteBox
 from .hammer import Hammer
 from .carry_box import CarryBox
 from .factory_gear import FactoryGear, FactoryGearBase
+from .cabinet import Cabinet
 
 __all__ = ["AetosObject", "Button", "WhiteBucket", "Gearwheel", "ShelfButton", "PowerDrill",
-           "ToteBox", "Hammer", "CarryBox", "FactoryGear", "FactoryGearBase"]
+           "ToteBox", "Hammer", "CarryBox", "FactoryGear", "FactoryGearBase", "Cabinet"]

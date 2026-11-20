@@ -63,7 +63,7 @@ def build_finger_1_rigid(stage, root_path, mount_world_pos=(0.0, -0.0315, 0.095)
     Returns the root prim path (for ArticulationView/mounting elsewhere).
     """
     from pxr import UsdGeom, UsdPhysics, Sdf, Gf
-    import omni.isaac.core.utils.prims as prim_utils
+    import isaacsim.core.utils.prims as prim_utils
 
     ROOT = root_path
     prim_utils.create_prim(ROOT, "Xform")
@@ -174,9 +174,9 @@ if __name__ == "__main__":
     simulation_app = SimulationApp({"headless": True})
 
     import omni.usd
-    from omni.isaac.core.world import World
-    from omni.isaac.core.articulations import Articulation
-    from omni.isaac.core.prims import RigidPrim
+    from isaacsim.core.api.world import World
+    from isaacsim.core.prims import SingleArticulation as Articulation
+    from isaacsim.core.prims import SingleRigidPrim as RigidPrim
 
     world = World(stage_units_in_meters=1.0)
     stage = omni.usd.get_context().get_stage()
@@ -197,13 +197,16 @@ if __name__ == "__main__":
     rest_pos = np.degrees(art.get_joint_positions()).copy()
     print("REST (gravity-only) joint_pos(deg):", rest_pos, flush=True)
 
-    from omni.isaac.dynamic_control import _dynamic_control as dc
-    dc_iface = dc.acquire_dynamic_control_interface()
-    tip_rb = dc_iface.get_rigid_body(f"{root}/finger_1_flex_2")
+    # `omni.isaac.dynamic_control` was removed in Isaac Sim 5 -- apply the tip force
+    # through the PhysX tensor API (a rigid-body view over the one tip link) instead.
+    from isaacsim.core.prims import RigidPrim as RigidPrimView
+    tip_view = RigidPrimView(prim_paths_expr=f"{root}/finger_1_flex_2", name="finger_tip_force_view")
+    tip_view.initialize()
     tip_world_pos, _ = rp_tip.get_world_pose()
-    force = (0.0, 0.3, 0.0)
+    force = np.array([[0.0, 0.3, 0.0]], dtype=np.float32)
+    force_pos = np.asarray(tip_world_pos, dtype=np.float32).reshape(1, 3)
     for step in range(180):
-        dc_iface.apply_body_force(tip_rb, force, tuple(tip_world_pos.tolist()), True)
+        tip_view.apply_forces_and_torques_at_pos(forces=force, positions=force_pos, is_global=True)
         world.step(render=False)
     loaded_pos = np.degrees(art.get_joint_positions()).copy()
     print("LOADED (0.3N @ tip) joint_pos(deg):", loaded_pos, flush=True)

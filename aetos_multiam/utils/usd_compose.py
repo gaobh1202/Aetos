@@ -49,7 +49,7 @@ mispositioned again.
 
 import logging
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 import omni.kit.commands
 import omni.physx.scripts.utils as script_utils
 from pxr import Gf, Usd, UsdGeom, UsdPhysics

@@ -2,8 +2,15 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Hydra run logs from smoke tests, not source
+# Run outputs: Hydra logs, checkpoints, demo episodes, eval videos -- not source
 outputs/
+
+# The paper draft lives next to the code but is not part of this repository
+paper/
+
+# LeRobot datasets and their archives -- hundreds of MB of video, distributed
+# the same way as the model binaries (see docs/ASSETS.md), never through git
+datasets/
 
 # All robot model binaries (USD + every MJCF bundle's mesh geometry +
 # model demo videos) live under this one folder and are distributed via

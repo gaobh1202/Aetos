@@ -8,7 +8,7 @@ were migrated from.
 import logging
 import math
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 import omni.physx.scripts.utils as physx_script_utils
 from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
 

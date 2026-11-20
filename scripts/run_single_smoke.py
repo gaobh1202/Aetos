@@ -1,14 +1,23 @@
-"""Headless/GUI smoke test for the AerialButtonGrasp task.
+"""Headless/GUI smoke test for any single-robot task (ButtonGrasp,
+AerialButtonGrasp, AerialBucketGrasp) -- the counterpart of
+``run_collab_smoke.py``, which does the same for the multi-robot ones.
 
-Boots Isaac Sim the same way ``scripts/run_button_grasp.py`` does, then
-steps the env with random actions for a few hundred steps. The scene and
-robot are both set via hydra config -- change the scene by pointing
-``task=`` at a different cfg file, change the robot by overriding
-``aerial_manipulators.0.preset``:
+Boots Isaac Sim, builds the task named by ``task=`` and steps it with zero
+actions for a few hundred steps, reporting whether anything crashed and
+whether ``_check_success()`` ever fired. Scene and robot are both hydra
+config -- point ``task=`` at a different cfg file for another scene, override
+``aerial_manipulators.0.preset`` for another robot:
 
-    python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
-    python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp \\
-        aerial_manipulators.0.preset=amov950_airbot_dexterous_bottom headless=true
+    python scripts/run_single_smoke.py task=ButtonGrasp headless=true
+    python scripts/run_single_smoke.py task=AerialButtonGrasp headless=true
+    python scripts/run_single_smoke.py task=AerialBucketGrasp \\
+        aerial_manipulators.0.preset=amov950_airbot_bottom headless=true
+
+Without ``headless=true`` the window stays open after the fixed step count,
+stepping with zero action, until it is closed.
+
+(Replaces run_button_grasp.py, run_aerial_button_grasp.py and
+run_aerial_bucket_grasp.py, which were this same file three times over.)
 """
 
 import logging
@@ -44,7 +53,7 @@ def main(cfg):
         # env.action_spec auto-unwraps to the bare per-agent leaf spec when
         # there's exactly one agent/action key (torchrl EnvBase's own
         # action_spec property getter) -- indexing it with ["agents",
-        # "action"] again fails since it's no longer a CompositeSpec.
+        # "action"] again fails since it's no longer a Composite.
         action_shape = env.action_spec.shape
         action = torch.zeros(action_shape, device=env.device)
         tensordict.set(("agents", "action"), action)
@@ -54,7 +63,7 @@ def main(cfg):
         if step % 50 == 0:
             logging.info("step=%d success_so_far=%s", step, any_success)
 
-    logging.info("AerialButtonGrasp smoke test finished. any_success=%s", any_success)
+    logging.info("%s smoke test finished. any_success=%s", cfg.task.name, any_success)
 
     if cfg.headless:
         simulation_app.close()

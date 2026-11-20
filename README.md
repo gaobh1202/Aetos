@@ -47,6 +47,52 @@ flies the hexa the under-actuated way for comparison.
 
 ## Installation
 
+> **Branch `isaacsim6`: this code runs on Isaac Sim 6.0, not 4.1.** GPUs too new
+> for Isaac Sim 4.1 (e.g. RTX PRO 6000 Blackwell, `sm_120`) need this branch. See
+> [Isaac Sim 6 setup](#isaac-sim-6-setup-branch-isaacsim6) right below; the
+> numbered 4.1 steps after it describe the original `main` branch stack and are
+> kept for reference only.
+
+### Isaac Sim 6 setup (branch `isaacsim6`)
+
+Stack this branch was ported and run on:
+
+| | version |
+|---|---|
+| GPU / driver | RTX PRO 6000 Blackwell, 580.95.05 |
+| Isaac Sim | **6.0.1** (pip packages `isaacsim-*`, in a conda env) |
+| Python | **3.12** |
+| PyTorch | **2.11.0+cu130** (the one Isaac Sim 6 pulls in) |
+| torchrl / tensordict | **0.15.0** / 0.15.6 |
+| Isaac Lab | not needed (only OmniDrones' `Forest` / `Pinball` envs use it; they are skipped) |
+
+```bash
+# 1. an env that already has Isaac Sim 6 (pip install "isaacsim[all,extscache]==6.0.1" ...)
+#    here: a conda env named `isaacsim6`. A venv layered on top keeps that env untouched:
+~/.conda/envs/isaacsim6/bin/python -m venv --system-site-packages ~/.venvs/aetos_isaacsim6
+source ~/.venvs/aetos_isaacsim6/bin/activate
+
+# 2. python deps (none of these replace Isaac Sim's torch / numpy)
+pip install torchrl tensordict hydra-core omegaconf einops tqdm setproctitle \
+            imageio-ffmpeg av pandas plotly
+
+# 3. OmniDrones (the fork + this repo's patch, both already ported to Isaac Sim 6)
+git clone https://github.com/gaobh1202/amov_omni.git OmniDrones
+cd OmniDrones && git checkout "$(cat /path/to/Aetos/third_party/omnidrones/BASE_COMMIT)"
+bash /path/to/Aetos/third_party/omnidrones/apply.sh .
+pip install --no-deps -e .
+
+# 4. this repo, then the assets (docs/ASSETS.md)
+pip install --no-deps -e /path/to/Aetos
+```
+
+No `ISAACSIM_PATH` / `EXP_PATH` / `conda_setup` activation hooks are involved any
+more -- the pip-installed `isaacsim` package is importable as-is. What changed in
+the code relative to 4.1 is summarised in
+[`third_party/omnidrones/README.md`](third_party/omnidrones/README.md).
+
+### Isaac Sim 4.1 setup (branch `main`, reference)
+
 Linux only -- Isaac Sim does not support Windows. The stack below is what
 this benchmark is developed and tested on; the Isaac Sim / Python / torch
 rows are the ones that actually have to match, the rest is context.
@@ -141,7 +187,7 @@ conda activate aetos
 
 python examples/show_robot.py --robot all --headless    # all six robots spawn
 python debug/verify_iris650_flight.py                   # one of them actually flies
-python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
+python scripts/run_single_smoke.py task=AerialButtonGrasp headless=true
 ```
 
 Run everything through this conda env, never through Isaac Sim's own
@@ -247,20 +293,21 @@ on every preset carrying an arm is the direction that arm reaches
 (`iris650_soarm100`'s end effector sits 0.30 m ahead of `base_link` and 0.31 m
 below it).
 
-The five built scenes:
+The six built scenes:
 
 | task | robot(s) | scene |
 |---|---|---|
 | `AerialAssembly` | `iris650_soarm100` x2 | <img src="resources/scenes/AerialAssembly.png" width="300"> |
 | `AerialHandover` | `iris650_soarm100` + `uaquad600_gripper` | <img src="resources/scenes/AerialHandover.png" width="300"> |
 | `AerialTransport` | `iris650_soarm100` x2 | <img src="resources/scenes/AerialTransport.png" width="300"> |
+| `AerialCabinetGrasp` | `fahexa750_gripper` x2 + `hummingbird340_2dof_gripper` | <img src="resources/scenes/AerialCabinetGrasp.png" width="300"> |
 | `AerialButtonGrasp` | `amov950_airbot_bottom` | <img src="resources/scenes/AerialButtonGrasp.png" width="300"> |
 | `AerialBucketGrasp` | `amov950_airbot_bottom` | <img src="resources/scenes/AerialBucketGrasp.png" width="300"> |
 
-All five share `WarehouseArena` (18 x 20 x 5.4 m bay, concrete floor, two
-painted spawn zones). `--agent N` picks which robot you drive in a two-robot
-scene; the others hold the pose they spawned at. `ButtonGrasp`,
-`AerialAssemblyTriple` and `AerialCabinetGrasp` also run, on plainer scenes.
+All six share `WarehouseArena` (18 x 20 x 5.4 m bay, concrete floor, two
+painted spawn zones). `--agent N` picks which robot you drive in a multi-robot
+scene; the others hold the pose they spawned at. `ButtonGrasp` and
+`AerialAssemblyTriple` also run, on plainer scenes.
 
 Scene and robot are both config: `task=<TaskName>` picks the scene,
 `aerial_manipulators.0.preset=<name>` picks the robot, no code change.
@@ -268,8 +315,8 @@ Scene and robot are both config: `task=<TaskName>` picks the scene,
 Random-action smoke tests, for checking a scene still builds and steps:
 
 ```bash
-python scripts/run_button_grasp.py headless=true
-python scripts/run_aerial_button_grasp.py task=AerialButtonGrasp headless=true
+python scripts/run_single_smoke.py task=ButtonGrasp headless=true
+python scripts/run_single_smoke.py task=AerialButtonGrasp headless=true
 python scripts/run_collab_smoke.py task=AerialAssembly headless=true
 
 # the original standalone shelf scene, with pluggable drone/arm control

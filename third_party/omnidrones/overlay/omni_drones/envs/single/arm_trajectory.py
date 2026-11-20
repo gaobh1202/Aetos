@@ -30,7 +30,7 @@ Run (example):
 import logging
 import math
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 import torch
 
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
@@ -38,7 +38,7 @@ from omni_drones.robots.drone import MultirotorBase
 from omni_drones.utils.torch import euler_to_quaternion
 
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+from torchrl.data import Unbounded, Composite, Categorical
 
 
 class ArmTrajectory(IsaacEnv):
@@ -164,19 +164,19 @@ class ArmTrajectory(IsaacEnv):
 
     def _set_specs(self):
         # Dummy single-float observation and action so the harness is satisfied.
-        self.observation_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "observation": UnboundedContinuousTensorSpec((1, 1), device=self.device),
+        self.observation_spec = Composite({
+            "agents": Composite({
+                "observation": Unbounded((1, 1), device=self.device),
             })
         }).expand(self.num_envs).to(self.device)
-        self.action_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "action": UnboundedContinuousTensorSpec((1, 1), device=self.device),
+        self.action_spec = Composite({
+            "agents": Composite({
+                "action": Unbounded((1, 1), device=self.device),
             })
         }).expand(self.num_envs).to(self.device)
-        self.reward_spec = CompositeSpec({
-            "agents": CompositeSpec({
-                "reward": UnboundedContinuousTensorSpec((1, 1))
+        self.reward_spec = Composite({
+            "agents": Composite({
+                "reward": Unbounded((1, 1))
             })
         }).expand(self.num_envs).to(self.device)
 
@@ -187,9 +187,9 @@ class ArmTrajectory(IsaacEnv):
             reward_key=("agents", "reward"),
         )
 
-        stats_spec = CompositeSpec({
-            "return": UnboundedContinuousTensorSpec(1),
-            "episode_len": UnboundedContinuousTensorSpec(1),
+        stats_spec = Composite({
+            "return": Unbounded(1),
+            "episode_len": Unbounded(1),
         }).expand(self.num_envs).to(self.device)
         self.observation_spec["stats"] = stats_spec
         self.stats = stats_spec.zero()

@@ -99,7 +99,7 @@ args = parser.parse_args()
 simulation_app = init_simulation_app({"headless": args.headless})
 
 import torch  # noqa: E402  (after the app, as every script here does)
-from omni.isaac.core.simulation_context import SimulationContext  # noqa: E402
+from isaacsim.core.api.simulation_context import SimulationContext  # noqa: E402
 
 import omni_drones.utils.scene as scene_utils  # noqa: E402
 from aetos_multiam.controllers import make_position_controller  # noqa: E402

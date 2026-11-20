@@ -28,7 +28,7 @@ from typing import List, Sequence
 
 import torch
 from tensordict import TensorDict
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+from torchrl.data import Bounded, Composite, Unbounded
 
 from omni_drones.utils.torchrl import AgentSpec
 
@@ -103,19 +103,19 @@ class CollaborativeAerialEnv(AerialManipulationEnv):
             action_dim = drone_dim + num_arm_joints + (1 if am.gripper_spec is not None else 0)
             obs_dim = 3 + drone_state_dim + num_arm_joints + self.time_encoding_dim
 
-            agents_obs[key] = CompositeSpec({
-                "observation": UnboundedContinuousTensorSpec((1, obs_dim), device=self.device),
+            agents_obs[key] = Composite({
+                "observation": Unbounded((1, obs_dim), device=self.device),
             })
-            agents_action[key] = CompositeSpec({
-                "action": BoundedTensorSpec(-1, 1, (1, action_dim), device=self.device),
+            agents_action[key] = Composite({
+                "action": Bounded(-1, 1, (1, action_dim), device=self.device),
             })
-            agents_reward[key] = CompositeSpec({
-                "reward": UnboundedContinuousTensorSpec((1, 1), device=self.device),
+            agents_reward[key] = Composite({
+                "reward": Unbounded((1, 1), device=self.device),
             })
 
-        self.observation_spec = CompositeSpec(agents_obs).expand(self.num_envs).to(self.device)
-        self.action_spec = CompositeSpec(agents_action).expand(self.num_envs).to(self.device)
-        self.reward_spec = CompositeSpec(agents_reward).expand(self.num_envs).to(self.device)
+        self.observation_spec = Composite(agents_obs).expand(self.num_envs).to(self.device)
+        self.action_spec = Composite(agents_action).expand(self.num_envs).to(self.device)
+        self.reward_spec = Composite(agents_reward).expand(self.num_envs).to(self.device)
 
         for key in self._agent_keys:
             self.agent_spec[key] = AgentSpec(
